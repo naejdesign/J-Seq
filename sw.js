@@ -1,4 +1,4 @@
-const CACHE = 'jseq-v17';
+const CACHE = 'jseq-v18';
 const ASSETS = [
   './index.html',
   './manifest.json',
