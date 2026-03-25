@@ -252,7 +252,7 @@ body {
 </g>
 
 <!-- Labels encodeurs (illuminables) -->
-<g font-family="'DM Mono',monospace" font-size="6" text-anchor="middle">
+<g font-family="'DM Mono',monospace" font-size="12" text-anchor="middle">
   <text id="encLbl0" x="204" y="89" fill="#2a2a2a">Length</text>
   <text id="encLbl1" x="268" y="89" fill="#2a2a2a">Velocity</text>
   <text id="encLbl2" x="332" y="89" fill="#2a2a2a">Offset</text>
@@ -3782,14 +3782,11 @@ function renderTrackButtons() {
     lbl.setAttribute('x', '169');
     lbl.setAttribute('y', String(yPositions[slot] + 18));
     if (isMaster) {
-      lbl.setAttribute('fill', isActive ? '#fff' : '#888');
-      lbl.textContent = 'MST';
+      lbl.textContent = '';
     } else if (isSF2Out) {
-      lbl.setAttribute('fill', '#fff');
-      lbl.textContent = 'SF2';
+      lbl.textContent = '';
     } else if (isMidiOut) {
-      lbl.setAttribute('fill', '#fff');
-      lbl.textContent = `M${t.midiChannel}`;
+      lbl.textContent = '';
     } else {
       lbl.textContent = '';
     }
@@ -4090,7 +4087,7 @@ function renderDrumPadSelection() {
     nameEl.setAttribute('y', sy + ph/2 + 2);
     nameEl.setAttribute('text-anchor', 'middle');
     nameEl.setAttribute('font-family', "'DM Mono',monospace");
-    nameEl.setAttribute('font-size', '10');
+    nameEl.setAttribute('font-size', '20');
     nameEl.setAttribute('font-weight', isSelected ? '500' : '400');
     nameEl.setAttribute('fill', isSelected ? col : '#666');
     nameEl.setAttribute('pointer-events', 'none');
@@ -4105,7 +4102,7 @@ function renderDrumPadSelection() {
     numEl.setAttribute('x', sx + margin + 6);
     numEl.setAttribute('y', sy + margin + 12);
     numEl.setAttribute('font-family', "'DM Mono',monospace");
-    numEl.setAttribute('font-size', '7');
+    numEl.setAttribute('font-size', '14');
     numEl.setAttribute('fill', isSelected ? col + 'cc' : '#333');
     numEl.setAttribute('pointer-events', 'none');
     numEl.textContent = String(padIdx + 1);
