@@ -22,7 +22,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #0a0a0c;
+  background: #ffffff;
   font-family: 'DM Mono', monospace;
   touch-action: none;
   /* Touch/mobile fixes */
@@ -136,7 +136,7 @@ body {
 -->
 <circle id="wheel" cx="73" cy="168" r="34" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
 <circle cx="73" cy="168" r="22" fill="none" stroke="#2a2a2a" stroke-width="1"/>
-<text id="versionLbl" x="73" y="172" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" font-weight="700" fill="#ff6b00" pointer-events="none">v0.5</text>
+<text id="versionLbl" x="73" y="172" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" font-weight="700" fill="#ff6b00" pointer-events="none">v0.6</text>
 <!-- wheel dot removed (encodeur infini) -->
 
 <!-- ══ BACK + NOTE/SESSION ════════════════════════════════════════
@@ -6995,7 +6995,7 @@ for (let i = 0; i < PROJECT_SLOTS; i++) {
   if (d && d.version === 1) localStorage.removeItem(PROJECT_KEY(i));
 }
 
-const JSEQ_VERSION = 'v0.5';
+const JSEQ_VERSION = 'v0.6';
 
 // Sauvegarder la démo sur le slot 0 si pas déjà occupé, puis démarrer en mode project
 setTimeout(() => {
