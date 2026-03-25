@@ -6993,6 +6993,8 @@ for (let i = 0; i < PROJECT_SLOTS; i++) {
   if (d && d.version === 1) localStorage.removeItem(PROJECT_KEY(i));
 }
 
+const JSEQ_VERSION = 'v0.2';
+
 // Sauvegarder la démo sur le slot 0 si pas déjà occupé, puis démarrer en mode project
 setTimeout(() => {
   if (!projectLoad(0)) {
@@ -7007,7 +7009,9 @@ setTimeout(() => {
   renderTrackButtons();
   buildPiano();
   setTimeout(updatePianoOctaveIndicators, 100);
-  enterProjectMode();
+  // Afficher la version au démarrage dans l'OLED
+  oledForce('J-seq', JSEQ_VERSION, 'ready');
+  setTimeout(() => enterProjectMode(), 1500);
 }, 50);
 
 
