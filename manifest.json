@@ -3,7 +3,7 @@
   "short_name": "J-seq",
   "description": "Groovebox sequencer",
   "start_url": "./index.html",
-  "display": "standalone",
+  "display": "fullscreen",
   "background_color": "#111114",
   "theme_color": "#ff6b00",
   "orientation": "landscape",
