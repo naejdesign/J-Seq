@@ -59,8 +59,8 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(100vw, calc(100vh * 860 / 455));
-  height: min(100vh, calc(100vw * 455 / 860));
+  width: min(100vw, calc(100vh * 860 / 461));
+  height: min(100vh, calc(100vw * 461 / 860));
   max-width: 100vw;
   max-height: 100vh;
   z-index: 100;
@@ -114,7 +114,7 @@ body {
 <rect x="0" y="0" width="860" height="482" fill="#1a1a1c"/>
 <!-- texture légère -->
 <rect x="0" y="0" width="860" height="482" fill="url(#noise)" opacity="0.03"/>
-<line x1="0" y1="2" x2="860" y2="2" stroke="#888" stroke-width="1"/>
+<line x1="0" y1="3" x2="860" y2="3" stroke="#888" stroke-width="1"/>
 <line x1="0" y1="480" x2="860" y2="480" stroke="#888" stroke-width="1"/>
 
 <!-- ══ OLED ════════════════════════════════════════════════════════
@@ -555,6 +555,9 @@ var drumSoundSelectMode = false;
 var _countdownActive = false; // true pendant le décompte
 var drumSoundSelectIdx = 0;
 var drumSoundSelectOrigin = 0;
+var melodicSoundSelectMode = false;
+var melodicSoundSelectIdx = 0;
+var melodicSoundSelectOrigin = 0;
 var recHeld = new Map();
 var recBlinkTimer = null;
 var metronomeTimer = null;
@@ -1543,7 +1546,7 @@ function renderMasterPanel() {
       lbl.setAttribute('y', p.type==='toggle' ? yBase+32 : yBase+encR*2+10);
       lbl.setAttribute('text-anchor','middle');
       lbl.setAttribute('font-family',"'DM Mono',monospace");
-      lbl.setAttribute('font-size','6.5');
+      lbl.setAttribute('font-size','10');
       lbl.setAttribute('fill','#888'); lbl.setAttribute('pointer-events','none');
       lbl.textContent = p.label;
       sg.appendChild(lbl);
@@ -1554,7 +1557,7 @@ function renderMasterPanel() {
       valEl.setAttribute('y', p.type==='toggle' ? yBase+42 : yBase+encR*2+20);
       valEl.setAttribute('text-anchor','middle');
       valEl.setAttribute('font-family',"'DM Mono',monospace");
-      valEl.setAttribute('font-size','6.5');
+      valEl.setAttribute('font-size','10');
       valEl.setAttribute('fill', col); valEl.setAttribute('pointer-events','none');
       valEl.textContent = p.fmt(val);
       sg.appendChild(valEl);
@@ -1615,10 +1618,10 @@ function renderFXPageMain(ti) {
     nameEl.setAttribute('x', cx); nameEl.setAttribute('y', sy + 20);
     nameEl.setAttribute('text-anchor', 'middle');
     nameEl.setAttribute('font-family', "'DM Mono',monospace");
-    nameEl.setAttribute('font-size', '9'); nameEl.setAttribute('font-weight', '500');
+    nameEl.setAttribute('font-size', '12'); nameEl.setAttribute('font-weight', '500');
     nameEl.setAttribute('fill', active ? def.color : '#555');
     nameEl.setAttribute('pointer-events', 'none');
-    nameEl.textContent = def.name;
+    nameEl.textContent = def.name.toUpperCase();
     sg.appendChild(nameEl);
 
     const led = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
@@ -1673,7 +1676,7 @@ function renderFXPageMain(ti) {
         pname.setAttribute('x', px); pname.setAttribute('y', yBase + encR*2 + 10);
         pname.setAttribute('text-anchor', 'middle');
         pname.setAttribute('font-family', "'DM Mono',monospace");
-        pname.setAttribute('font-size', '6.5');
+        pname.setAttribute('font-size', '10');
         pname.setAttribute('fill', active ? '#888' : '#444');
         pname.setAttribute('pointer-events', 'none');
         pname.textContent = p.name;
@@ -1684,7 +1687,7 @@ function renderFXPageMain(ti) {
         pval.setAttribute('x', px); pval.setAttribute('y', yBase + encR*2 + 20);
         pval.setAttribute('text-anchor', 'middle');
         pval.setAttribute('font-family', "'DM Mono',monospace");
-        pval.setAttribute('font-size', '6.5');
+        pval.setAttribute('font-size', '10');
         pval.setAttribute('fill', active ? def.color : '#555');
         pval.setAttribute('pointer-events', 'none');
         pval.textContent = fxFormatVal(p, val);
@@ -1712,7 +1715,7 @@ function renderFXPageMain(ti) {
         const pname = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         pname.setAttribute('x', sx + 10); pname.setAttribute('y', py);
         pname.setAttribute('font-family', "'DM Mono',monospace");
-        pname.setAttribute('font-size', '7');
+        pname.setAttribute('font-size', '11');
         pname.setAttribute('fill', active ? '#888' : '#444');
         pname.setAttribute('pointer-events', 'none');
         pname.textContent = p.name;
@@ -1723,7 +1726,7 @@ function renderFXPageMain(ti) {
         pval.setAttribute('x', sx + FX_SW - 10); pval.setAttribute('y', py);
         pval.setAttribute('text-anchor', 'end');
         pval.setAttribute('font-family', "'DM Mono',monospace");
-        pval.setAttribute('font-size', '7');
+        pval.setAttribute('font-size', '11');
         pval.setAttribute('fill', active ? def.color : '#444');
         pval.setAttribute('pointer-events', 'none');
         pval.textContent = fxFormatVal(p, val);
@@ -1735,7 +1738,7 @@ function renderFXPageMain(ti) {
       hint.setAttribute('x', sx + FX_SW/2); hint.setAttribute('y', sy + FX_SH - 8);
       hint.setAttribute('text-anchor', 'middle');
       hint.setAttribute('font-family', "'DM Mono',monospace");
-      hint.setAttribute('font-size', '6');
+      hint.setAttribute('font-size', '10');
       hint.setAttribute('fill', '#333');
       hint.setAttribute('pointer-events', 'none');
       hint.textContent = 'long press = edit';
@@ -1780,7 +1783,7 @@ function renderFXPageAdvanced(ti, slotIdx) {
       arrow.setAttribute('x', sx + FX_SW/2); arrow.setAttribute('y', sy + FX_SH/2 + 8);
       arrow.setAttribute('text-anchor', 'middle');
       arrow.setAttribute('font-family', "'DM Mono',monospace");
-      arrow.setAttribute('font-size', '28'); arrow.setAttribute('fill', '#555');
+      arrow.setAttribute('font-size', '45'); arrow.setAttribute('fill', '#555');
       arrow.setAttribute('pointer-events', 'none');
       arrow.textContent = '←';
       sg.appendChild(arrow);
@@ -1838,7 +1841,7 @@ function renderFXPageAdvanced(ti, slotIdx) {
     const nameEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     nameEl.setAttribute('x', sx+pad+20); nameEl.setAttribute('y', sy+22);
     nameEl.setAttribute('font-family', "'DM Mono',monospace");
-    nameEl.setAttribute('font-size', '8'); nameEl.setAttribute('font-weight', '500');
+    nameEl.setAttribute('font-size', '13'); nameEl.setAttribute('font-weight', '500');
     nameEl.setAttribute('fill', def.color); nameEl.setAttribute('pointer-events', 'none');
     nameEl.textContent = p.name;
     sg.appendChild(nameEl);
@@ -1849,7 +1852,7 @@ function renderFXPageAdvanced(ti, slotIdx) {
     valEl.setAttribute('x', sx + FX_SW - 10); valEl.setAttribute('y', sy + FX_SH - 10);
     valEl.setAttribute('text-anchor', 'end');
     valEl.setAttribute('font-family', "'DM Mono',monospace");
-    valEl.setAttribute('font-size', '9'); valEl.setAttribute('fill', '#ccc');
+    valEl.setAttribute('font-size', '14'); valEl.setAttribute('fill', '#ccc');
     valEl.setAttribute('pointer-events', 'none');
     valEl.textContent = fxFormatVal(p, val);
     sg.appendChild(valEl);
@@ -4804,6 +4807,8 @@ svg('btnPlay').addEventListener('click', () => {
   }
 });
 svg('btnRec').addEventListener('click', () => {
+  if (projectModeActive) return;
+  if (S.tracks[S.currentTrack].mode === 'master') return;
   ensureAudio();
   toggleRec();
   status(S.recording ? '⏺ Recording' : 'Record off');
@@ -5833,6 +5838,23 @@ svg('btnBack').addEventListener('click', () => {
     S._oledLocked = false;
     renderDrumPadSelection();
     oled('DRUM', pad.synthType, `pad ${S.selectedDrumPad+1} · seq`);
+  } else if (melodicSoundSelectMode) {
+    // Annuler sélection son mélodique → revenir au son d'origine
+    const ti = S.currentTrack;
+    const ts = trackSF2[ti];
+    if (ts.presets.length && melodicSoundSelectOrigin >= 0) {
+      sf2SelectPreset(ti, melodicSoundSelectOrigin);
+    }
+    melodicSoundSelectMode = false;
+    S._oledLocked = false;
+    oled('SOUND', getSF2PresetName(ti), trackInfo());
+  } else if (typeof fxPage === 'number') {
+    // Retour depuis page FX avancée → page principale
+    fxPage = 'main';
+    renderFXPanel();
+  } else {
+    // Annuler tout verrouillage OLED résiduel
+    S._oledLocked = false;
   }
 });
 
@@ -6041,6 +6063,9 @@ function sessionDeleteClip(trackIdx, clipIdx) {
 let wheelDrag = null;
 svg('wheel').addEventListener('mousedown', e => {
   const tWheel = S.tracks[S.currentTrack];
+  // Light up wheel ring
+  svg('wheel').setAttribute('stroke', '#aaa');
+  svg('wheel').setAttribute('stroke-width', '2.5');
 
   // ── Menu routing actif : molette = naviguer dans la liste ──
   if (routingMenuMode) {
@@ -6071,8 +6096,14 @@ svg('wheel').addEventListener('mousedown', e => {
 
   // ── Track mélodique sans step tenu : clic molette → pending sélection de son ──
   if (tWheel.mode !== 'drum' && !anyStepHeld()) {
-    wheelDrag = { type: 'melodicsound_pending', y: e.clientY, moved: false,
-                  startIdx: tWheel.soundIndex };
+    if (melodicSoundSelectMode) {
+      // Déjà en mode sélection → continuer avec le curseur actuel
+      wheelDrag = { type: 'melodicsound', y: e.clientY, moved: false,
+                    startIdx: melodicSoundSelectIdx };
+    } else {
+      wheelDrag = { type: 'melodicsound_pending', y: e.clientY, moved: false,
+                    startIdx: tWheel.soundIndex };
+    }
     e.preventDefault();
     return;
   }
@@ -6127,6 +6158,7 @@ document.addEventListener('mousemove', e => {
     if (!ts.presets.length) return;
     const newIdx = Math.max(0, Math.min(ts.presets.length - 1, wheelDrag.startIdx - dy));
     wheelDrag.startIdx = newIdx;
+    melodicSoundSelectIdx = newIdx;
     const preset = sf2SelectPreset(ti, newIdx);
     oledForce('SELECT SOUND', preset.name.slice(0,14), `${newIdx+1}/${ts.presets.length}`);
     return;
@@ -6184,6 +6216,13 @@ document.addEventListener('mousemove', e => {
 });
 document.addEventListener('mouseup', () => {
   let keepOledLocked = false;
+
+  // Reset encVol ring
+  svg('encVol').setAttribute('stroke', '#3a3a3a');
+  svg('encVol').setAttribute('stroke-width', '1.5');
+  // Reset wheel ring
+  svg('wheel').setAttribute('stroke', '#3a3a3a');
+  svg('wheel').setAttribute('stroke-width', '1.5');
 
   // ── Menu routing : clic sans drag = confirmer ──
   if (wheelDrag && wheelDrag.type === 'routing') {
@@ -6253,6 +6292,9 @@ document.addEventListener('mouseup', () => {
       } else {
         const curIdx = ts.presets.findIndex(p => p.bank === ts.bank && p.program === ts.program);
         const idx = curIdx >= 0 ? curIdx : 0;
+        melodicSoundSelectMode = true;
+        melodicSoundSelectIdx = idx;
+        melodicSoundSelectOrigin = idx;
         wheelDrag = { type: 'melodicsound', y: wheelDrag.y, moved: false, startIdx: idx };
         oledForce('SELECT SOUND', ts.presets[idx].name.slice(0,14),
                   `${idx+1}/${ts.presets.length}`);
@@ -6268,6 +6310,7 @@ document.addEventListener('mouseup', () => {
       const ti = S.currentTrack;
       const ts = trackSF2[ti];
       const preset = sf2SelectPreset(ti, wheelDrag.startIdx);
+      melodicSoundSelectMode = false;
       S._oledLocked = false;
       if (preset) oled('SOUND', preset.name.slice(0,14), trackInfo());
     } else {
@@ -6322,44 +6365,47 @@ function setMasterVolume(v) {
 let volDrag = null;
 svg('encVol').addEventListener('mousedown', e => {
   S._oledLocked = true;
+  // Light up encVol ring
+  svg('encVol').setAttribute('stroke', '#aaa');
+  svg('encVol').setAttribute('stroke-width', '2.5');
   if (anyStepHeld()) {
-    // Step(s) tenu(s) → vélocité
     const firstIdx = heldStepList()[0];
     const bar = currentStepBar();
     const st = bar[firstIdx];
-    volDrag = { type: 'vel', y: e.clientY, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
+    volDrag = { type: 'vel', y: e.clientY, x: e.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
     heldSteps.get(firstIdx).didAction = true;
   } else if (S._heldTrack >= 0) {
-    // Bouton track maintenu → volume de cette track
-    volDrag = { type: 'track', y: e.clientY, ti: S._heldTrack, startVol: S.tracks[S._heldTrack].volume, moved: false };
+    volDrag = { type: 'track', y: e.clientY, x: e.clientX, ti: S._heldTrack, startVol: S.tracks[S._heldTrack].volume, moved: false };
   } else {
-    // Seul → volume master global
-    volDrag = { type: 'master', y: e.clientY, startVol: S.masterVolume, moved: false };
+    volDrag = { type: 'master', y: e.clientY, x: e.clientX, startVol: S.masterVolume, moved: false };
   }
   e.preventDefault();
 });
 document.addEventListener('mousemove', e => {
   if (!volDrag) return;
+  const dy = volDrag.y - e.clientY;
+  const dx = e.clientX - (volDrag.x || e.clientX);
+  const delta = dy + dx;
   if (volDrag.type === 'master') {
     volDrag.moved = true;
-    setMasterVolume(volDrag.startVol + (volDrag.y - e.clientY) / 150);
+    setMasterVolume(volDrag.startVol + delta / 150);
     oledForce('VOL MASTER', `${Math.round(S.masterVolume * 100)}%`, S.playing ? '▶' : '■');
   } else if (volDrag.type === 'track') {
-    const newVol = Math.max(0, Math.min(1, volDrag.startVol + (volDrag.y - e.clientY) / 150));
+    const newVol = Math.max(0, Math.min(1, volDrag.startVol + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
     oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
   } else if (volDrag.type === 'vel') {
     // Loop mode : velocity relative sur toute la bar
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      const delta = (volDrag.y - e.clientY) / 200;
-      if (Math.abs(delta) > 0.002) {
+      const vdelta = (volDrag.y - e.clientY) / 200;
+      if (Math.abs(vdelta) > 0.002) {
         volDrag.y = e.clientY; volDrag.moved = true;
-        loopBarVelocityDelta(delta * 127);
+        loopBarVelocityDelta(vdelta * 127);
       }
       return;
     }
-    const delta = (volDrag.y - e.clientY) / 80;
-    const newVel = Math.max(0, Math.min(1, volDrag.startVel + delta));
+    const velDelta = delta / 80;
+    const newVel = Math.max(0, Math.min(1, volDrag.startVel + velDelta));
     const bar = currentStepBar();
     const st = bar[volDrag.stepIdx];
     st.vel = newVel;
@@ -6839,14 +6885,14 @@ function renderProjectMode() {
         lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         lbl.setAttribute('id', `prjlbl_${r}_${c}`);
         lbl.setAttribute('font-family', "'DM Mono',monospace");
-        lbl.setAttribute('font-size', projName ? '6' : '8');
+        lbl.setAttribute('font-size', projName ? '10' : '13');
         lbl.setAttribute('text-anchor', 'middle');
         lbl.setAttribute('pointer-events', 'none');
         document.getElementById('moveSVG').appendChild(lbl);
       }
       lbl.setAttribute('x', PAD_X[c] + 29);
       lbl.setAttribute('y', PAD_Y[r] + (projName ? 24 : 28));
-      lbl.setAttribute('font-size', projName ? '6' : '8');
+      lbl.setAttribute('font-size', projName ? '10' : '13');
       lbl.setAttribute('fill', data ? (isCurrent ? '#fff' : (data._meta?.color || '#ff6b00')) : '#333');
       lbl.textContent = projName ? projName.slice(0, 10) : String(slotInPage);
 
@@ -6856,7 +6902,7 @@ function renderProjectMode() {
         bpmlbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         bpmlbl.setAttribute('id', `prjbpm_${r}_${c}`);
         bpmlbl.setAttribute('font-family', "'DM Mono',monospace");
-        bpmlbl.setAttribute('font-size', '5');
+        bpmlbl.setAttribute('font-size', '8');
         bpmlbl.setAttribute('text-anchor', 'middle');
         bpmlbl.setAttribute('pointer-events', 'none');
         document.getElementById('moveSVG').appendChild(bpmlbl);
@@ -7212,12 +7258,21 @@ function updateEncArcs() {
     return;
   }
 
-  // ── Mode mélodique, aucun step tenu : encodeurs inactifs ───────
-  const labels = ['Length', 'Velocity', 'Offset', 'Probability'];
+  // ── Mode master : masquer tous les labels encodeurs ──────────
+  if (t.mode === 'master') {
+    for (let i = 0; i < 6; i++) {
+      hideArc('encArc' + i);
+      setEncRing(i, false, col);
+      setLabel(i, '', '#2a2a2a');
+    }
+    return;
+  }
+
+  // ── Mode mélodique (SF2), aucun step tenu : encodeurs inactifs, pas de labels ───────
   for (let i = 0; i < 4; i++) {
     hideArc('encArc' + i);
     setEncRing(i, false, col);
-    setLabel(i, labels[i], '#2a2a2a');
+    setLabel(i, '', '#2a2a2a');
   }
 }
 
@@ -7255,7 +7310,7 @@ ENC_DEFS.forEach((def, i) => {
     // Priorité 1 : step tenu → Length/Vel/Offset/Prob
     const res = getHeldSt();
     if (res && res.st.on) {
-      encDrags[i] = { y: e.clientY, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
+      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       S._oledLocked = true;
       e.preventDefault();
@@ -7269,7 +7324,7 @@ ENC_DEFS.forEach((def, i) => {
       const dr = DRUM_ENC_RANGES[i];
       if (!dr) return;
       const key = DRUM_ENC_KEYS[i];
-      encDrags[i] = { y: e.clientY, startVal: pad[key] ?? 0, drumMode: true, key, dr };
+      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: pad[key] ?? 0, drumMode: true, key, dr };
       S._oledLocked = true;
       e.preventDefault();
       return;
@@ -7377,27 +7432,29 @@ document.addEventListener('mousemove', e => {
   ENC_DEFS.forEach((def, i) => {
     if (!encDrags[i]) return;
     const dy = encDrags[i].y - e.clientY;
+    const dx = e.clientX - (encDrags[i].x || e.clientX);
+    const delta = dy + dx; // up+right = increase, down+left = decrease
 
     // Mode drum
     if (encDrags[i].drumMode) {
-      if (Math.abs(dy) < 2) return;
+      if (Math.abs(delta) < 2) return;
       const t = S.tracks[S.currentTrack];
       if (!t.drumPads) return;
       const pad = t.drumPads[S.selectedDrumPad];
       const { key, dr } = encDrags[i];
       const range = dr.max - dr.min;
-      const newVal = Math.max(dr.min, Math.min(dr.max, encDrags[i].startVal + dy / 120 * range));
+      const newVal = Math.max(dr.min, Math.min(dr.max, encDrags[i].startVal + delta / 120 * range));
       pad[key] = newVal;
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
       updateEncArcs();
       return;
     }
 
-    if (Math.abs(dy) < 2) return;
+    if (Math.abs(delta) < 2) return;
     encDrags[i].moved = true;
     const eMax = getEncMax(def);
     const range = eMax - def.min;
-    const newVal = Math.max(def.min, Math.min(eMax, encDrags[i].startVal + dy / 80 * range));
+    const newVal = Math.max(def.min, Math.min(eMax, encDrags[i].startVal + delta / 80 * range));
     const res = getHeldSt();
     if (!res) return;
     def.set(res.st, newVal);
@@ -8901,8 +8958,8 @@ function loopDeleteBar(barIdx) {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(100vw, calc(100vh * 860 / 455));
-  height: min(100vh, calc(100vw * 455 / 860));
+  width: min(100vw, calc(100vh * 860 / 461));
+  height: min(100vh, calc(100vw * 461 / 860));
   max-width: 100vw; max-height: 100vh;
   z-index: 100;
   border-radius: 14px;
@@ -9772,7 +9829,7 @@ if ('serviceWorker' in navigator) {
   for (let i = 0; i < 6; i++) {
     const el = document.getElementById('enc' + i);
     if (!el) continue;
-    el.addEventListener('mousedown', function(e) {
+    function handleDoubleTap(e) {
       const now = Date.now();
       const id = 'enc' + i;
       if (_tap[id] && now - _tap[id] < 350) {
@@ -9792,12 +9849,16 @@ if ('serviceWorker' in navigator) {
           const key = DRUM_ENC_KEYS[i];
           const defs = DRUM_SYNTH_DEFAULTS[pad.synthType] || DRUM_SYNTH_DEFAULTS['Kick'];
           if (key in defs) { pad[key] = defs[key]; updateEncArcs(); oledForce('RESET', key.toUpperCase(), String(defs[key])); }
+        } else if (t.mode === 'master') {
+          // Mode master — pas d'encodeurs actifs, ignorer
         }
         e.preventDefault();
       } else {
         _tap[id] = now;
       }
-    }, true);
+    }
+    el.addEventListener('mousedown', handleDoubleTap, true);
+    el.addEventListener('touchstart', function(e) { e.preventDefault(); handleDoubleTap(e); }, true);
   }
 
   // Sends enc4/enc5
@@ -9806,7 +9867,7 @@ if ('serviceWorker' in navigator) {
   for (let si = 0; si < 2; si++) {
     const el = document.getElementById('enc' + (si + 4));
     if (!el) continue;
-    el.addEventListener('mousedown', function(e) {
+    function handleSendDoubleTap(e) {
       const now = Date.now();
       const id = 'send' + si;
       if (_tap[id] && now - _tap[id] < 350) {
@@ -9831,7 +9892,9 @@ if ('serviceWorker' in navigator) {
       } else {
         _tap[id] = now;
       }
-    }, true);
+    }
+    el.addEventListener('mousedown', handleSendDoubleTap, true);
+    el.addEventListener('touchstart', function(e) { e.preventDefault(); handleSendDoubleTap(e); }, true);
   }
 })();
 </script>
