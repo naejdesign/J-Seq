@@ -62,19 +62,20 @@ body {
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(100vw, calc(100vh * 860 / 464));
+  width: min(100vw, calc(100vh * 860 / 444));
   height: min(100vh, calc(100vw * 484 / 860));
   max-width: 100vw;
   max-height: 100vh;
   z-index: 100;
-  border-radius: 14px;
+  border-radius: 0;
   background: #1a1a1c;
-  border: 1.5px solid #333;
+  border: none;
   font-family: 'DM Mono', monospace;
   color: #eee;
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 0 40px rgba(0,0,0,0.8);
+  border-radius: 0;
 }
 #sf2Browser.open { display: flex; }
 
@@ -96,7 +97,7 @@ body {
 <body>
 
 <div id="device">
-<svg id="moveSVG" viewBox="0 20 860 464" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+<svg id="moveSVG" viewBox="0 40 860 444" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
 <defs>
   <filter id="glow-white">
     <feGaussianBlur stdDeviation="2" result="blur"/>
@@ -114,9 +115,9 @@ body {
 </defs>
 
 <!-- ══ CORPS ══════════════════════════════════════════════════════ -->
-<rect x="0" y="0" width="860" height="484" rx="14" fill="#1a1a1c" stroke="#333" stroke-width="1.5"/>
+<rect x="0" y="0" width="860" height="484" fill="#1a1a1c"/>
 <!-- texture légère -->
-<rect x="0" y="0" width="860" height="484" rx="14" fill="url(#noise)" opacity="0.03"/>
+<rect x="0" y="0" width="860" height="484" fill="url(#noise)" opacity="0.03"/>
 
 <!-- ══ OLED ════════════════════════════════════════════════════════
   10mm/15mm → @2.745px/mm : x=27, y=41   72×35px → ~26×13mm
@@ -135,7 +136,7 @@ body {
 -->
 <circle id="wheel" cx="73" cy="168" r="34" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
 <circle cx="73" cy="168" r="22" fill="none" stroke="#2a2a2a" stroke-width="1"/>
-<text id="versionLbl" x="73" y="172" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" font-weight="700" fill="#ff6b00" pointer-events="none">v0.3</text>
+<text id="versionLbl" x="73" y="172" text-anchor="middle" font-family="'DM Mono',monospace" font-size="9" font-weight="700" fill="#ff6b00" pointer-events="none">v0.4</text>
 <!-- wheel dot removed (encodeur infini) -->
 
 <!-- ══ BACK + NOTE/SESSION ════════════════════════════════════════
@@ -6994,7 +6995,7 @@ for (let i = 0; i < PROJECT_SLOTS; i++) {
   if (d && d.version === 1) localStorage.removeItem(PROJECT_KEY(i));
 }
 
-const JSEQ_VERSION = 'v0.3';
+const JSEQ_VERSION = 'v0.4';
 
 // Sauvegarder la démo sur le slot 0 si pas déjà occupé, puis démarrer en mode project
 setTimeout(() => {
@@ -8892,13 +8893,13 @@ function loopDeleteBar(barIdx) {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(100vw, calc(100vh * 860 / 464));
-  height: min(100vh, calc(100vw * 484 / 860));
+  width: min(100vw, calc(100vh * 860 / 444));
+  height: min(100vh, calc(100vw * 444 / 860));
   max-width: 100vw; max-height: 100vh;
   z-index: 100;
-  border-radius: 14px;
+  border-radius: 0;
   background: #1a1a1c;
-  border: 1.5px solid #333;
+  border: none;
   font-family: 'DM Mono', monospace;
   color: #eee;
   flex-direction: column;
