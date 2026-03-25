@@ -16,7 +16,7 @@
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
 html, body {
   width: 100%;
@@ -7421,6 +7421,8 @@ function buildPiano() {
       r.setAttribute('cursor', 'pointer');
       r.addEventListener('mousedown', () => pianoKeyPress(midi));
       r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
+      r.addEventListener('touchstart', (e) => { e.preventDefault(); pianoKeyPress(midi); });
+      r.addEventListener('touchend',   (e) => { e.preventDefault(); pianoKeyRelease(midi); });
       g.appendChild(r);
       wx++;
     });
@@ -7437,6 +7439,8 @@ function buildPiano() {
     r.setAttribute('stroke-width', '0.5'); r.setAttribute('cursor', 'pointer');
     r.addEventListener('mousedown', () => pianoKeyPress(midi));
     r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
+    r.addEventListener('touchstart', (e) => { e.preventDefault(); pianoKeyPress(midi); });
+    r.addEventListener('touchend',   (e) => { e.preventDefault(); pianoKeyRelease(midi); });
     g.appendChild(r);
   }
   // Noires
@@ -7454,6 +7458,8 @@ function buildPiano() {
       r.setAttribute('stroke-width', '0.5'); r.setAttribute('cursor', 'pointer');
       r.addEventListener('mousedown', () => pianoKeyPress(midi));
       r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
+      r.addEventListener('touchstart', (e) => { e.preventDefault(); pianoKeyPress(midi); });
+      r.addEventListener('touchend',   (e) => { e.preventDefault(); pianoKeyRelease(midi); });
       g.appendChild(r);
     });
     wx += 7;
