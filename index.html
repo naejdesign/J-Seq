@@ -106,7 +106,7 @@ body {
   </filter>
   <!-- Clip pour l'écran OLED -->
   <clipPath id="oledClip">
-    <rect x="31" y="43" width="113" height="48" rx="2"/>
+    <rect x="31" y="33" width="113" height="48" rx="2"/>
   </clipPath>
 </defs>
 
@@ -114,18 +114,20 @@ body {
 <rect x="0" y="0" width="860" height="482" fill="#1a1a1c"/>
 <!-- texture légère -->
 <rect x="0" y="0" width="860" height="482" fill="url(#noise)" opacity="0.03"/>
+<line x1="0" y1="2" x2="860" y2="2" stroke="#888" stroke-width="1"/>
+<line x1="0" y1="480" x2="860" y2="480" stroke="#888" stroke-width="1"/>
 
 <!-- ══ OLED ════════════════════════════════════════════════════════
   10mm/15mm → @2.745px/mm : x=27, y=41   72×35px → ~26×13mm
 -->
-<rect id="oled" x="27" y="40" width="121" height="54" rx="3" fill="#000" stroke="#3a3a3a" stroke-width="1"/>
+<rect id="oled" x="27" y="30" width="121" height="54" rx="3" fill="#000" stroke="#3a3a3a" stroke-width="1"/>
 <g clip-path="url(#oledClip)">
-  <text id="oTop"  x="32" y="53"  font-family="'DM Mono',monospace" font-size="8"  fill="#555" style="pointer-events:none">NOTE MODE</text>
-  <text id="oMain" x="32" y="67"  font-family="'DM Mono',monospace" font-size="11" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
-  <text id="oSub"  x="32" y="78"  font-family="'DM Mono',monospace" font-size="7"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
+  <text id="oTop"  x="32" y="43"  font-family="'DM Mono',monospace" font-size="8"  fill="#555" style="pointer-events:none">NOTE MODE</text>
+  <text id="oMain" x="32" y="57"  font-family="'DM Mono',monospace" font-size="11" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
+  <text id="oSub"  x="32" y="68"  font-family="'DM Mono',monospace" font-size="7"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
 </g>
 <!-- Zone de clic OLED — par dessus tout, capte les clics sur toute la surface -->
-<rect id="oledClickZone" x="27" y="40" width="121" height="54" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
+<rect id="oledClickZone" x="27" y="30" width="121" height="54" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
 
 <!-- ══ MOLETTE ═══════════════════════════════════════════════════
   Centre x=73, centre y=168  rayon=34
@@ -243,55 +245,55 @@ body {
   On recalcule: pad cols x: 190,254,318,382,446,510,574,638 → centres: 219,283,347,411,475,539,603,667
 -->
 <g id="encoders">
-  <circle id="enc0" cx="204" cy="62" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc1" cx="268" cy="62" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc2" cx="332" cy="62" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc3" cx="396" cy="62" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc4" cx="460" cy="62" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc5" cx="524" cy="62" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc0" cx="204" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc1" cx="268" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc2" cx="332" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc3" cx="396" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc4" cx="460" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc5" cx="524" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
 </g>
 
 <!-- Labels encodeurs (illuminables) -->
 <g font-family="'DM Mono',monospace" font-size="12" text-anchor="middle">
-  <text id="encLbl0" x="204" y="89" fill="#2a2a2a">Length</text>
-  <text id="encLbl1" x="268" y="89" fill="#2a2a2a">Velocity</text>
-  <text id="encLbl2" x="332" y="89" fill="#2a2a2a">Offset</text>
-  <text id="encLbl3" x="396" y="89" fill="#2a2a2a">Probability</text>
-  <text id="encLbl4" x="460" y="89" fill="#2a2a2a">Delay</text>
-  <text id="encLbl5" x="524" y="89" fill="#2a2a2a">Reverb</text>
+  <text id="encLbl0" x="204" y="79" fill="#2a2a2a">Length</text>
+  <text id="encLbl1" x="268" y="79" fill="#2a2a2a">Velocity</text>
+  <text id="encLbl2" x="332" y="79" fill="#2a2a2a">Offset</text>
+  <text id="encLbl3" x="396" y="79" fill="#2a2a2a">Probability</text>
+  <text id="encLbl4" x="460" y="79" fill="#2a2a2a">Delay</text>
+  <text id="encLbl5" x="524" y="79" fill="#2a2a2a">Reverb</text>
 </g>
 <!-- Arcs encodeurs actifs (technique stroke-dasharray, r=11, rot=-225°) -->
 <!-- r=11 → circ=69.12, arc_total=69.12*0.75=51.84 -->
 <g id="encArcs">
-  <circle id="encArc0" cx="204" cy="62" r="11" fill="none" stroke="none" stroke-width="2.5"
+  <circle id="encArc0" cx="204" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
     stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 204 62)" pointer-events="none"/>
-  <circle id="encArc1" cx="268" cy="62" r="11" fill="none" stroke="none" stroke-width="2.5"
+    transform="rotate(-225 204 52)" pointer-events="none"/>
+  <circle id="encArc1" cx="268" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
     stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 268 62)" pointer-events="none"/>
+    transform="rotate(-225 268 52)" pointer-events="none"/>
   <!-- enc2 : converti en circle comme les autres — l'arc bipolaire Offset est calculé dynamiquement via stroke-dashoffset en JS -->
-  <circle id="encArc2" cx="332" cy="62" r="11" fill="none" stroke="none" stroke-width="2.5"
+  <circle id="encArc2" cx="332" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
     stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 332 62)" pointer-events="none"/>
-  <circle id="encArc3" cx="396" cy="62" r="11" fill="none" stroke="none" stroke-width="2.5"
+    transform="rotate(-225 332 52)" pointer-events="none"/>
+  <circle id="encArc3" cx="396" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
     stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 396 62)" pointer-events="none"/>
-  <circle id="encArc4" cx="460" cy="62" r="11" fill="none" stroke="none" stroke-width="2.5"
+    transform="rotate(-225 396 52)" pointer-events="none"/>
+  <circle id="encArc4" cx="460" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
     stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 460 62)" pointer-events="none"/>
-  <circle id="encArc5" cx="524" cy="62" r="11" fill="none" stroke="none" stroke-width="2.5"
+    transform="rotate(-225 460 52)" pointer-events="none"/>
+  <circle id="encArc5" cx="524" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
     stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 524 62)" pointer-events="none"/>
+    transform="rotate(-225 524 52)" pointer-events="none"/>
 </g>
 
 <!-- ══ ENCODEUR VOLUME (haut droite) ═════════════════════════════
   10mm bord droit = 860-27=833, 15mm haut → y bord=25, centre=25+21=46, r=21
 -->
-<circle id="encVol" cx="793" cy="62" r="21" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
-<circle cx="793" cy="62" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+<circle id="encVol" cx="793" cy="52" r="21" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
+<circle cx="793" cy="52" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
 <!-- Indicateur MIDI connecté (entre enc7 et encVol) -->
-<circle id="midiDot" cx="730" cy="62" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
-<text id="midiLbl" x="730" y="75" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
+<circle id="midiDot" cx="730" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
+<text id="midiLbl" x="730" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
 
 <!-- ══ 8 BOUTONS FONCTION DROITS ══════════════════════════════════
   Zone droite: x cols 770 et 810, rows y=128,178,228,278 (centrés rangées pads)
@@ -384,20 +386,20 @@ body {
   Gauche/Droite écart=33, Haut/Bas écart=17
 -->
 <g id="btnLeft" cursor="pointer">
-  <circle cx="602" cy="62" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
-  <path d="M606 57 L601 62 L606 67" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="602" cy="52" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
+  <path d="M606 47 L601 52 L606 57" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnRight" cursor="pointer">
-  <circle cx="668" cy="62" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
-  <path d="M664 57 L669 62 L664 67" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="668" cy="52" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
+  <path d="M664 47 L669 52 L664 57" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnPlus" cursor="pointer">
-  <circle cx="635" cy="45" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
-  <path d="M630 48 L635 42 L640 48" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="635" cy="35" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
+  <path d="M630 38 L635 32 L640 38" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnMinus" cursor="pointer">
-  <circle cx="635" cy="79" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
-  <path d="M630 76 L635 82 L640 76" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="635" cy="69" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
+  <path d="M630 66 L635 72 L640 66" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 
 <!-- ══ BPM display sur OLED (overlay dynamique) ══════════════════ -->
@@ -420,42 +422,42 @@ body {
 
 <!-- ══ 16 STEPS ══ -->
   <g id="stepsGroup">
-    <rect id="step0" x="11" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <circle cx="32" cy="314" r="2.5" fill="#111" pointer-events="none"/>
-    <rect id="step1" x="64" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step2" x="117" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step3" x="170" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step4" x="223" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <circle cx="244" cy="314" r="2.5" fill="#111" pointer-events="none"/>
-    <rect id="step5" x="276" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step6" x="329" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step7" x="382" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step8" x="435" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <circle cx="456" cy="314" r="2.5" fill="#111" pointer-events="none"/>
-    <rect id="step9" x="488" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step10" x="541" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step11" x="594" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step12" x="647" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <circle cx="668" cy="314" r="2.5" fill="#111" pointer-events="none"/>
-    <rect id="step13" x="700" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step14" x="753" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
-    <rect id="step15" x="806" y="304" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step0" x="11" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <circle cx="32" cy="321" r="2.5" fill="#111" pointer-events="none"/>
+    <rect id="step1" x="64" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step2" x="117" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step3" x="170" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step4" x="223" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <circle cx="244" cy="321" r="2.5" fill="#111" pointer-events="none"/>
+    <rect id="step5" x="276" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step6" x="329" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step7" x="382" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step8" x="435" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <circle cx="456" cy="321" r="2.5" fill="#111" pointer-events="none"/>
+    <rect id="step9" x="488" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step10" x="541" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step11" x="594" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step12" x="647" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <circle cx="668" cy="321" r="2.5" fill="#111" pointer-events="none"/>
+    <rect id="step13" x="700" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step14" x="753" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
+    <rect id="step15" x="806" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
   </g>
 
 <!-- ══ ZONE CLAVIER ══ translate(14, 344) pour déplacer tout -->
-  <g id="keyboardZone" transform="translate(10, 354)">
+  <g id="keyboardZone" transform="translate(10, 374)">
 
     <!-- Sélecteur octave -->
     <g id="octaveSelector" transform="translate(0, 0)">
       <g id="btnOctUp" cursor="pointer">
-        <rect id="svgOctUpRect" x="0" y="0" width="52" height="26" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
-        <path d="M26 5 L14 16 L38 16 Z" fill="#888"/>
+        <rect id="svgOctUpRect" x="0" y="0" width="52" height="34" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
+        <path d="M26 8 L14 22 L38 22 Z" fill="#888"/>
       </g>
-      <rect x="0" y="29" width="52" height="30" rx="3" fill="#111" stroke="#2a2a2a" stroke-width="0.8"/>
-      <text id="octaveDisplay" x="26" y="49" text-anchor="middle" font-family="'DM Mono',monospace" font-size="11" font-weight="600" fill="#fff">0</text>
+      <rect x="0" y="37" width="52" height="23" rx="3" fill="#111" stroke="#2a2a2a" stroke-width="0.8"/>
+      <text id="octaveDisplay" x="26" y="53" text-anchor="middle" font-family="'DM Mono',monospace" font-size="11" font-weight="600" fill="#fff">0</text>
       <g id="btnOctDown" cursor="pointer">
-        <rect id="svgOctDownRect" x="0" y="62" width="52" height="30" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
-        <path d="M26 86 L14 76 L38 76 Z" fill="#888"/>
+        <rect id="svgOctDownRect" x="0" y="63" width="52" height="34" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
+        <path d="M26 89 L14 75 L38 75 Z" fill="#888"/>
       </g>
     </g>
 
@@ -5365,11 +5367,12 @@ for (let i = 0; i < 16; i++) {
 
 // ── Touch → Mouse polyfill global (Android/tactile) ──────────────
 // Convertit touchstart/touchend/touchmove en mousedown/mouseup/mousemove
-// pour que TOUS les listeners mousedown/mouseup fonctionnent au toucher.
+// pour que TOUS les listeners mousedown/mouseup/click fonctionnent au toucher.
 // Les éléments avec leurs propres touchstart (piano keys) font preventDefault
 // donc ce polyfill ne les affecte pas en doublon.
 (function() {
   const svgEl = document.getElementById('moveSVG');
+  const touchTargets = {};  // identifier → { target, startX, startY }
   function makeMouse(type, touch) {
     return new MouseEvent(type, {
       bubbles: true, cancelable: true,
@@ -5380,21 +5383,40 @@ for (let i = 0; i < 16; i++) {
   }
   svgEl.addEventListener('touchstart', function(e) {
     if (e.defaultPrevented) return;
-    for (const t of e.changedTouches) t.target.dispatchEvent(makeMouse('mousedown', t));
+    for (const t of e.changedTouches) {
+      touchTargets[t.identifier] = { target: t.target, startX: t.clientX, startY: t.clientY };
+      t.target.dispatchEvent(makeMouse('mousedown', t));
+    }
     e.preventDefault();
   }, { passive: false });
   svgEl.addEventListener('touchend', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
-      t.target.dispatchEvent(makeMouse('mouseup', t));
+      const info = touchTargets[t.identifier];
+      const origTarget = info ? info.target : t.target;
+      origTarget.dispatchEvent(makeMouse('mouseup', t));
       document.dispatchEvent(makeMouse('mouseup', t));
+      // Dispatch click si le doigt n'a pas trop bougé (< 15px)
+      if (info) {
+        const dx = t.clientX - info.startX, dy = t.clientY - info.startY;
+        if (dx * dx + dy * dy < 225) {
+          origTarget.dispatchEvent(new MouseEvent('click', {
+            bubbles: true, cancelable: true,
+            clientX: t.clientX, clientY: t.clientY,
+            button: 0
+          }));
+        }
+        delete touchTargets[t.identifier];
+      }
     }
     e.preventDefault();
   }, { passive: false });
   svgEl.addEventListener('touchmove', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
-      t.target.dispatchEvent(makeMouse('mousemove', t));
+      const info = touchTargets[t.identifier];
+      const origTarget = info ? info.target : t.target;
+      origTarget.dispatchEvent(makeMouse('mousemove', t));
       document.dispatchEvent(makeMouse('mousemove', t));
     }
     e.preventDefault();
@@ -7417,11 +7439,11 @@ S.pianoOpen = true;
 var PIANO_BASE_OCT = 1; // niveau 0 = C1-C5 ✓, range -2 à +3 couvre C-1 à C8
 
 var PX0 = 62, PY0 = 0;    // origine touches (relatif au groupe keyboardZone)
-var PW_TOTAL = 830 - PX0;  // 768px disponibles
+var PW_TOTAL = 836 - PX0;  // 774px disponibles
 var PIANO_OCTAVES = 3;
 var WHITE_TOTAL = PIANO_OCTAVES * 7 + 1; // 22 blanches
 var PK_WW = PW_TOTAL / WHITE_TOTAL;       // largeur d'une blanche
-var PK_WH = 92;                           // hauteur blanche
+var PK_WH = 97;                           // hauteur blanche
 var PK_BW = PK_WW * 0.62;                // largeur noire
 var PK_BH = PK_WH * 0.62;                // hauteur noire
 
@@ -7506,7 +7528,7 @@ function buildPiano() {
     const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     t.setAttribute('x', x.toFixed(1));
     t.setAttribute('y', PY0 + PK_WH - 4);
-    t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '7');
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '14');
     t.setAttribute('font-family', "'DM Mono',monospace"); t.setAttribute('fill', '#999');
     t.setAttribute('pointer-events', 'none');
     t.textContent = 'C' + (baseOct + oct);
