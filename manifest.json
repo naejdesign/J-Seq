@@ -1,8 +1,10 @@
 {
+  "id": "j-seq",
   "name": "J-seq",
   "short_name": "J-seq",
   "description": "Groovebox sequencer",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "fullscreen",
   "background_color": "#111114",
   "theme_color": "#ff6b00",
