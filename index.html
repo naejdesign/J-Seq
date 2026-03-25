@@ -451,11 +451,11 @@ body {
         <rect id="svgOctUpRect" x="0" y="0" width="52" height="26" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
         <path d="M26 5 L14 16 L38 16 Z" fill="#888"/>
       </g>
-      <rect x="0" y="29" width="52" height="26" rx="3" fill="#111" stroke="#2a2a2a" stroke-width="0.8"/>
-      <text id="octaveDisplay" x="26" y="47" text-anchor="middle" font-family="'DM Mono',monospace" font-size="11" font-weight="600" fill="#fff">0</text>
+      <rect x="0" y="29" width="52" height="30" rx="3" fill="#111" stroke="#2a2a2a" stroke-width="0.8"/>
+      <text id="octaveDisplay" x="26" y="49" text-anchor="middle" font-family="'DM Mono',monospace" font-size="11" font-weight="600" fill="#fff">0</text>
       <g id="btnOctDown" cursor="pointer">
-        <rect id="svgOctDownRect" x="0" y="58" width="52" height="24" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
-        <path d="M26 76 L14 66 L38 66 Z" fill="#888"/>
+        <rect id="svgOctDownRect" x="0" y="62" width="52" height="30" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
+        <path d="M26 86 L14 76 L38 76 Z" fill="#888"/>
       </g>
     </g>
 
@@ -7385,7 +7385,7 @@ var PW_TOTAL = 830 - PX0;  // 768px disponibles
 var PIANO_OCTAVES = 3;
 var WHITE_TOTAL = PIANO_OCTAVES * 7 + 1; // 22 blanches
 var PK_WW = PW_TOTAL / WHITE_TOTAL;       // largeur d'une blanche
-var PK_WH = 82;                           // hauteur blanche
+var PK_WH = 92;                           // hauteur blanche
 var PK_BW = PK_WW * 0.62;                // largeur noire
 var PK_BH = PK_WH * 0.62;                // hauteur noire
 
@@ -7463,9 +7463,9 @@ function buildPiano() {
     const x = PX0 + oct * 7 * PK_WW + PK_WW / 2;
     const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     t.setAttribute('x', x.toFixed(1));
-    t.setAttribute('y', PY0 + PK_WH + 9);
+    t.setAttribute('y', PY0 + PK_WH - 4);
     t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', '7');
-    t.setAttribute('font-family', "'DM Mono',monospace"); t.setAttribute('fill', '#555');
+    t.setAttribute('font-family', "'DM Mono',monospace"); t.setAttribute('fill', '#999');
     t.setAttribute('pointer-events', 'none');
     t.textContent = 'C' + (baseOct + oct);
     g.appendChild(t);
