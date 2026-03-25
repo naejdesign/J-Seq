@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>J-seq</title>
   <meta name="application-name" content="J-seq"/>
   <meta name="mobile-web-app-capable" content="yes"/>
@@ -25,6 +25,9 @@ html, body {
   background: #0a0a0c;
   font-family: 'DM Mono', monospace;
   touch-action: none;
+  /* Touch/mobile fixes */
+  * { -webkit-tap-highlight-color: transparent; }
+  svg, svg * { touch-action: none; }
 }
 
 body {
@@ -5555,6 +5558,13 @@ for (let r = 0; r < 4; r++) {
         // Seul le mode drum utilise encore les pads via data-drumpad dans enginePanel
         if (S.tracks[S.currentTrack].mode === 'drum') playPad(row, col);
       });
+
+      // Touch : même comportement que mousedown, sans délai
+      padEl(row, col).addEventListener('touchstart', e => {
+        e.preventDefault(); // empêche le mousedown émulé
+        padEl(row, col).dispatchEvent(new MouseEvent('mousedown', {bubbles: true, cancelable: true}));
+      }, {passive: false});
+
     })(r, c);
   }
 }
@@ -7453,6 +7463,8 @@ function buildPiano() {
       r.setAttribute('cursor', 'pointer');
       r.addEventListener('mousedown', () => pianoKeyPress(midi));
       r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
+      r.addEventListener('touchstart', e => { e.preventDefault(); pianoKeyPress(midi); }, {passive:false});
+      r.addEventListener('touchend',   e => { e.preventDefault(); pianoKeyRelease(midi); }, {passive:false});
       g.appendChild(r);
       wx++;
     });
@@ -7469,6 +7481,8 @@ function buildPiano() {
     r.setAttribute('stroke-width', '0.5'); r.setAttribute('cursor', 'pointer');
     r.addEventListener('mousedown', () => pianoKeyPress(midi));
     r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
+    r.addEventListener('touchstart', e => { e.preventDefault(); pianoKeyPress(midi); }, {passive:false});
+    r.addEventListener('touchend',   e => { e.preventDefault(); pianoKeyRelease(midi); }, {passive:false});
     g.appendChild(r);
   }
   // Noires
@@ -7486,6 +7500,8 @@ function buildPiano() {
       r.setAttribute('stroke-width', '0.5'); r.setAttribute('cursor', 'pointer');
       r.addEventListener('mousedown', () => pianoKeyPress(midi));
       r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
+      r.addEventListener('touchstart', e => { e.preventDefault(); pianoKeyPress(midi); }, {passive:false});
+      r.addEventListener('touchend',   e => { e.preventDefault(); pianoKeyRelease(midi); }, {passive:false});
       g.appendChild(r);
     });
     wx += 7;
