@@ -11,7 +11,7 @@
   <meta name="apple-mobile-web-app-title" content="J-seq"/>
   <meta name="theme-color" content="#111114"/>
   <link rel="apple-touch-icon" href="./icon-192.png"/>
-  <link rel="manifest" href="./manifest.json"/>
+  <script>if(location.protocol!=='file:'){const l=document.createElement('link');l.rel='manifest';l.href='./manifest.json';document.head.appendChild(l);}</script>
 <link rel="icon" href="data:,">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap');
@@ -4092,7 +4092,7 @@ function renderDrumPadSelection() {
     nameEl.setAttribute('y', sy + ph/2 + 2);
     nameEl.setAttribute('text-anchor', 'middle');
     nameEl.setAttribute('font-family', "'DM Mono',monospace");
-    nameEl.setAttribute('font-size', '20');
+    nameEl.setAttribute('font-size', '17');
     nameEl.setAttribute('font-weight', isSelected ? '500' : '400');
     nameEl.setAttribute('fill', isSelected ? col : '#666');
     nameEl.setAttribute('pointer-events', 'none');
@@ -5417,7 +5417,6 @@ for (let i = 0; i < 16; i++) {
     e.preventDefault();
   }, { passive: false });
   svgEl.addEventListener('touchmove', function(e) {
-    if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
@@ -9814,7 +9813,7 @@ function sf2HideLoading() {
 <script>
 
 // ── Service Worker inline (PWA offline) ──────────────────────
-if ('serviceWorker' in navigator) {
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
   navigator.serviceWorker.register('./sw.js')
     .then(r => console.log('[J-seq] SW registered'))
     .catch(e => console.warn('[J-seq] SW failed:', e));
@@ -9858,7 +9857,22 @@ if ('serviceWorker' in navigator) {
       }
     }
     el.addEventListener('mousedown', handleDoubleTap, true);
-    el.addEventListener('touchstart', function(e) { e.preventDefault(); handleDoubleTap(e); }, true);
+    el.addEventListener('touchstart', function(e) {
+      handleDoubleTap(e);
+      // Si c'était un double-tap (preventDefault a été appelé), ne pas initier de drag
+      if (e.defaultPrevented) { e.stopPropagation(); return; }
+      // Sinon, dispatcher un mousedown synthétique pour initier le drag encodeur
+      const touch = e.touches[0] || e.changedTouches[0];
+      if (touch) {
+        el.dispatchEvent(new MouseEvent('mousedown', {
+          bubbles: true, cancelable: true,
+          clientX: touch.clientX, clientY: touch.clientY,
+          button: 0, buttons: 1
+        }));
+      }
+      e.preventDefault();
+      e.stopPropagation(); // empêcher le polyfill SVG de créer un 2e mousedown
+    }, true);
   }
 
   // Sends enc4/enc5
@@ -9894,7 +9908,20 @@ if ('serviceWorker' in navigator) {
       }
     }
     el.addEventListener('mousedown', handleSendDoubleTap, true);
-    el.addEventListener('touchstart', function(e) { e.preventDefault(); handleSendDoubleTap(e); }, true);
+    el.addEventListener('touchstart', function(e) {
+      handleSendDoubleTap(e);
+      if (e.defaultPrevented) { e.stopPropagation(); return; }
+      const touch = e.touches[0] || e.changedTouches[0];
+      if (touch) {
+        el.dispatchEvent(new MouseEvent('mousedown', {
+          bubbles: true, cancelable: true,
+          clientX: touch.clientX, clientY: touch.clientY,
+          button: 0, buttons: 1
+        }));
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
   }
 })();
 </script>
