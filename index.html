@@ -4249,7 +4249,7 @@ function halvePattern() {
 // ── Sauvegarde de l'original (appelé avant tout stretch/compress) ──
 function snapshotOriginal(t) {
   if (activeClip().originalBars !== null) return; // déjà sauvegardé
-  activeClip().originalBars = t.bars.map(bar => bar.map(st => ({...st})));
+  activeClip().originalBars = activeClip().bars.map(bar => bar.map(st => ({...st})));
   activeClip().originalDrumBars = activeClip().drumBars.map(padSeq => padSeq.map(bar => bar.map(st => ({...st}))));
   activeClip().originalNumBars = activeClip().numBars;
 }
@@ -4335,7 +4335,7 @@ function applyCompressFromOriginal(t) {
 
 // ── Restore l'original ──
 function restoreOriginal(t) {
-  t.bars = activeClip().originalBars.map(bar => bar.map(st => ({...st})));
+  activeClip().bars = activeClip().originalBars.map(bar => bar.map(st => ({...st})));
   activeClip().drumBars = activeClip().originalDrumBars.map(padSeq => padSeq.map(bar => bar.map(st => ({...st}))));
   activeClip().numBars = activeClip().originalNumBars;
   activeClip().loopEnd = activeClip().originalNumBars - 1;
@@ -10141,9 +10141,10 @@ function gamepadBDown() {
   _gamepadBHeldIdx = stepCursorPos;
   showStepCursor();
   
-  // Mode Loop → pressLoopStep immédiatement (sélection region)
+  // Mode Loop → mémoriser la bar de départ pour la sélection de région
   if (S.mode === 'loop') {
     _gamepadBLong = true; // considéré comme maintenu pour le D-pad
+    // Appeler pressLoopStep pour initialiser _loopBarHeld
     pressLoopStep(stepCursorPos);
     return;
   }
@@ -10222,7 +10223,7 @@ function pollGamepad() {
       _gpLoopPressTime = Date.now();
       _gpLoopLongFired = false;
       setLoopHeld(true); // activer immédiatement pour les combos
-      oledForce('LOOP', 'B pressed', `loopHeld=${S._loopHeld}`);
+      // loop button pressed
     }
     if (!bPressed && bWas) {
       const held = Date.now() - _gpLoopPressTime;
@@ -10234,22 +10235,7 @@ function pollGamepad() {
     }
     _gpPrevButtons[gp.index + '_1'] = bPressed;
 
-    // DEBUG: afficher les boutons pressés (temporaire)
-    if (!window._gpDebugTimer) {
-      window._gpDebugTimer = setInterval(() => {
-        const gps = navigator.getGamepads();
-        for (const g of gps) {
-          if (!g) continue;
-          const pressed = [];
-          g.buttons.forEach((b, i) => { if (b.pressed) pressed.push(i); });
-          const ax = g.axes.map(a => a.toFixed(1)).join(',');
-          if (pressed.length > 0) {
-            oledForce('GAMEPAD DBG', `btn: ${pressed.join(',')}`, `ax: ${ax}`);
-          }
-          break;
-        }
-      }, 200);
-    }
+    // (debug gamepad removed)
 
     // Bouton Start = index 9 → Play
     const startPressed = btns[9]?.pressed || false;
@@ -10306,28 +10292,33 @@ function pollGamepad() {
       // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
       if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
 
-      // Mode loop + A maintenu → étendre la sélection de loop region
-      if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong) {
-        if (name === 'left' || name === 'right') {
-          const delta = name === 'left' ? -1 : 1;
-          const newPos = ((stepCursorPos + delta) % 16 + 16) % 16;
-          if (newPos < 8) {
-            stepCursorPos = newPos;
-            updateStepCursor();
-            pressLoopStep(stepCursorPos);
-            oledForce('LOOP SEL', `cursor=${stepCursorPos}`, `held=${S._loopBarHeld} bar2=${S._loopBar2}`);
-          }
-        }
-        return;
-      }
-
-      // Priorité 1 : Loop held → combos pattern
+      // Priorité 1 : Loop held (bouton B tenu) → combos pattern (toujours, quel que soit le mode)
       if (S._loopHeld) {
-        oledForce('COMBO', name, `loopHeld=${S._loopHeld}`);
         if (name === 'up')    duplicatePattern();
         if (name === 'down')  halvePattern();
         if (name === 'left')  compressPattern();
         if (name === 'right') stretchPattern();
+        return;
+      }
+
+      // Priorité 2 : Loop mode + A maintenu → sélection de région par glissement
+      if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong) {
+        if (name === 'left' || name === 'right') {
+          const delta = name === 'left' ? -1 : 1;
+          const newPos = Math.max(0, Math.min(7, stepCursorPos + delta));
+          if (newPos !== stepCursorPos) {
+            stepCursorPos = newPos;
+            updateStepCursor();
+            // Prévisualiser la région sans confirmer
+            S._loopBar2 = stepCursorPos;
+            renderLoopMode();
+            const lo = Math.min(S._loopBarHeld, stepCursorPos);
+            const hi = Math.max(S._loopBarHeld, stepCursorPos);
+            oled('RÉGION', `Bar ${lo+1} → Bar ${hi+1}`, `${hi-lo+1} bars · relâche A`);
+          }
+        }
+        if (name === 'up')   loopBarTranspose(1);
+        if (name === 'down') loopBarTranspose(-1);
         return;
       }
       // Priorité 2 : Step maintenu → transpose/nudge
