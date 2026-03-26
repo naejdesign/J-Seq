@@ -5268,19 +5268,44 @@ function transposeHeldSteps(octaveDelta) {
 
 // Décale les steps tenus d'une position (nudge)
 function nudgeHeldSteps(delta) {
-  saveUndo();
   const bar = currentStepBar();
   const indices = heldStepList().sort((a, b) => delta > 0 ? b - a : a - b);
+  
+  // Vérifier que toutes les destinations sont valides
   for (const idx of indices) {
     const newIdx = idx + delta;
     if (newIdx < 0 || newIdx > 15) return; // sortie de bornes → annuler
   }
-  const srcSet = new Set(indices);
-  const copies = indices.map(idx => ({ from: idx, to: idx + delta, data: Object.assign({}, bar[idx]) }));
-  for (const { from, to } of copies) {
-    if (!srcSet.has(to)) bar[from] = { on: false, note: 60, vel: 0.8 };
+  
+  // Vérifier que les destinations ne sont pas occupées par des steps non-déplacés
+  const movingSet = new Set(indices);
+  for (const idx of indices) {
+    const newIdx = idx + delta;
+    if (!movingSet.has(newIdx) && bar[newIdx] && bar[newIdx].on) {
+      // Destination occupée par un step qu'on ne déplace pas → refuser
+      oled('NUDGE', 'Step occupé !', `Step ${newIdx+1} bloqué`);
+      return;
+    }
   }
+  
+  saveUndo();
+  
+  // Sauvegarder les données des steps déplacés
+  const copies = indices.map(idx => ({ from: idx, to: idx + delta, data: Object.assign({}, bar[idx]) }));
+  // Copier aussi extraNotes (deep copy)
+  copies.forEach(c => { if (c.data.extraNotes) c.data.extraNotes = [...c.data.extraNotes]; });
+  
+  // Vider uniquement les positions source qui ne sont PAS des destinations
+  const destSet = new Set(copies.map(c => c.to));
+  for (const { from } of copies) {
+    if (!destSet.has(from)) {
+      bar[from] = { on: false, note: 60, vel: 0.8 };
+    }
+  }
+  // Placer les données aux destinations
   for (const { to, data } of copies) bar[to] = data;
+  
+  // Mettre à jour heldSteps
   const newHeld = new Map();
   for (const [idx, obj] of heldSteps) {
     obj.didAction = true;
@@ -5288,11 +5313,13 @@ function nudgeHeldSteps(delta) {
   }
   heldSteps.clear();
   for (const [k, v] of newHeld) heldSteps.set(k, v);
+  
   // Curseur suit le nudge
   stepCursorPos = ((stepCursorPos + delta) % 16 + 16) % 16;
   updateStepCursor();
   renderSteps();
   illuminateHeldStepNotes();
+  
   // Compteur cumulé de déplacement
   if (!nudgeHeldSteps._cumul) nudgeHeldSteps._cumul = 0;
   nudgeHeldSteps._cumul += delta;
@@ -10042,26 +10069,40 @@ function moveStepCursor(delta) {
 }
 
 // Gamepad button B : appui court = toggle step, appui long = hold step
+var _gamepadBHeldIdx = -1; // index du step pressé via gamepad
+
 function gamepadBDown() {
   if (_gamepadBHeld) return;
   if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') return;
   if (projectModeActive) return;
   _gamepadBHeld = true;
   _gamepadBLong = false;
+  _gamepadBHeldIdx = stepCursorPos;
   showStepCursor();
   _gamepadBTimer = setTimeout(() => {
     // Appui long → maintenir le step (comme un doigt sur l'écran)
     _gamepadBLong = true;
-    pressStep(stepCursorPos);
+    pressStep(_gamepadBHeldIdx);
   }, 300);
+}
+
+// Force le hold immédiatement si D-pad pressé pendant le timer
+function gamepadForceHold() {
+  if (_gamepadBHeld && !_gamepadBLong && _gamepadBTimer) {
+    clearTimeout(_gamepadBTimer);
+    _gamepadBTimer = null;
+    _gamepadBLong = true;
+    pressStep(_gamepadBHeldIdx);
+  }
 }
 
 function gamepadBUp() {
   if (!_gamepadBHeld) return;
   _gamepadBHeld = false;
   clearTimeout(_gamepadBTimer);
+  _gamepadBTimer = null;
   if (_gamepadBLong) {
-    // Relâcher le step maintenu
+    // Relâcher le step maintenu — utiliser la position actuelle du curseur (qui a pu bouger avec nudge)
     releaseStep(stepCursorPos);
     _gamepadBLong = false;
   } else {
@@ -10071,6 +10112,7 @@ function gamepadBUp() {
     renderSteps();
     updateStepCursor();
   }
+  _gamepadBHeldIdx = -1;
 }
 
 // ── Gamepad polling loop ─────────────────────────────────────
@@ -10134,15 +10176,22 @@ function pollGamepad() {
     _gpPrevButtons[gp.index + '_8'] = selectPressed;
 
     // L1=4 (Copy), R1=5 (Shift), L2=6 (Delete), R2=7 (Mute)
+    function _gpRestoreOled() {
+      S._oledLocked = false;
+      const t = S.tracks[S.currentTrack];
+      if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
+      else if (t.mode === 'master') oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
+      else oled('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
+    }
     const shoulders = [
       { idx: 4, down: () => { S._copyHeld = true; S._copySource = null; setCopyLit(true); oled('COPY', 'Copy...', ''); },
-               up:   () => { S._copyHeld = false; S._copySource = null; setCopyLit(false); } },
+               up:   () => { S._copyHeld = false; S._copySource = null; setCopyLit(false); _gpRestoreOled(); } },
       { idx: 5, down: () => { setShiftOn(true); },
                up:   () => { setShiftOn(false); } },
       { idx: 6, down: () => { S._deleteHeld = true; setDeleteLit(true); oled('DELETE', 'Delete...', ''); },
-               up:   () => { S._deleteHeld = false; setDeleteLit(false); } },
+               up:   () => { S._deleteHeld = false; setDeleteLit(false); _gpRestoreOled(); } },
       { idx: 7, down: () => { S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', 'Mute...', ''); },
-               up:   () => { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); } },
+               up:   () => { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); _gpRestoreOled(); } },
     ];
     shoulders.forEach(s => {
       const pressed = btns[s.idx]?.pressed || false;
@@ -10163,6 +10212,9 @@ function pollGamepad() {
       const pressed = btns[d.idx]?.pressed || false;
       const was = _gpPrevButtons[gp.index + '_' + d.idx] || false;
       if (pressed && !was) {
+        // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
+        if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
+
         // Priorité 1 : Loop maintenu → combos pattern
         if (S._loopHeld) {
           if (d.name === 'up')    duplicatePattern();
