@@ -411,12 +411,12 @@ body {
 <!-- ══ PLAY + REC ══ -->
   <g id="playRecGroup">
     <g id="btnPlay" cursor="pointer">
-      <rect x="38" y="243" width="43" height="38" rx="6" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
-      <path id="playIcon" d="M49 251 L49 273 L67 262 Z" fill="#4dff88"/>
+      <rect x="38" y="243" width="43" height="38" rx="6" fill="#252528" stroke="#444" stroke-width="1"/>
+      <path id="playIcon" d="M49 251 L49 273 L67 262 Z" fill="#888"/>
     </g>
     <g id="btnRec" cursor="pointer">
       <circle cx="112" cy="262" r="18" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
-      <circle id="recDot" cx="112" cy="262" r="9" fill="#cc2222"/>
+      <circle id="recDot" cx="112" cy="262" r="9" fill="#882222"/>
     </g>
   </g>
 
@@ -5382,6 +5382,7 @@ for (let i = 0; i < 16; i++) {
 (function() {
   const svgEl = document.getElementById('moveSVG');
   const touchTargets = {};  // identifier → { target, startX, startY }
+  window._touchTargets = touchTargets; // exposé pour les handlers custom (encodeurs)
   function makeMouse(type, touch) {
     return new MouseEvent(type, {
       bubbles: true, cancelable: true,
@@ -6355,17 +6356,18 @@ document.addEventListener('mouseup', () => {
   S._stepsLocked = false;
   if (!keepOledLocked) {
     S._oledLocked = false;
-    // Refresh OLED to default display after drag release
-    if (typeof trackInfo === 'function') {
+    // Refresh OLED to default display after drag release (delayed to ensure all handlers done)
+    setTimeout(() => {
+      if (S._oledLocked) return; // something else took over
       const t = S.tracks[S.currentTrack];
       if (t.mode === 'drum') {
-        oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
+        oledForce('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
       } else if (t.mode === 'master') {
-        oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
+        oledForce('MASTER', 'Master Track', `BPM ${S.bpm}`);
       } else {
-        oled('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
+        oledForce('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
       }
-    }
+    }, 100);
   }
 });
 // Info clic géré dans le mouseup
@@ -9878,11 +9880,13 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     el.addEventListener('mousedown', handleDoubleTap, true);
     el.addEventListener('touchstart', function(e) {
       handleDoubleTap(e);
-      // Si c'était un double-tap (preventDefault a été appelé), ne pas initier de drag
       if (e.defaultPrevented) { e.stopPropagation(); return; }
-      // Sinon, dispatcher un mousedown synthétique pour initier le drag encodeur
-      const touch = e.touches[0] || e.changedTouches[0];
+      const touch = e.changedTouches[0];
       if (touch) {
+        // Enregistrer dans touchTargets pour que touchmove/touchend fonctionnent
+        if (window._touchTargets) {
+          window._touchTargets[touch.identifier] = { target: el, startX: touch.clientX, startY: touch.clientY };
+        }
         el.dispatchEvent(new MouseEvent('mousedown', {
           bubbles: true, cancelable: true,
           clientX: touch.clientX, clientY: touch.clientY,
@@ -9890,7 +9894,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
         }));
       }
       e.preventDefault();
-      e.stopPropagation(); // empêcher le polyfill SVG de créer un 2e mousedown
+      e.stopPropagation();
     }, true);
   }
 
@@ -9930,8 +9934,11 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     el.addEventListener('touchstart', function(e) {
       handleSendDoubleTap(e);
       if (e.defaultPrevented) { e.stopPropagation(); return; }
-      const touch = e.touches[0] || e.changedTouches[0];
+      const touch = e.changedTouches[0];
       if (touch) {
+        if (window._touchTargets) {
+          window._touchTargets[touch.identifier] = { target: el, startX: touch.clientX, startY: touch.clientY };
+        }
         el.dispatchEvent(new MouseEvent('mousedown', {
           bubbles: true, cancelable: true,
           clientX: touch.clientX, clientY: touch.clientY,
