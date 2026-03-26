@@ -5293,10 +5293,13 @@ function nudgeHeldSteps(delta) {
   updateStepCursor();
   renderSteps();
   illuminateHeldStepNotes();
-  const newIndices = [...newHeld.keys()].sort((a,b) => a-b);
-  const count = newIndices.length;
-  const stepStr = count === 1 ? `Step ${newIndices[0]+1}` : `Steps ${newIndices[0]+1}-${newIndices[newIndices.length-1]+1}`;
-  oled('NUDGE', (delta > 0 ? '→' : '←') + ' ' + stepStr, `Bar ${S.currentBar+1}`);
+  // Compteur cumulé de déplacement
+  if (!nudgeHeldSteps._cumul) nudgeHeldSteps._cumul = 0;
+  nudgeHeldSteps._cumul += delta;
+  const c = nudgeHeldSteps._cumul;
+  const sign = c > 0 ? '+' : '';
+  const arrow = delta > 0 ? '→' : '←';
+  oled('NUDGE', `${arrow} ${sign}${c} step${Math.abs(c)>1?'s':''}`, `Bar ${S.currentBar+1}`);
 }
 
 // Press/release unifiés
@@ -5332,6 +5335,7 @@ function releaseStep(idx) {
     renderSteps();
     undoStack.lastSaveTime = null;
     transposeHeldSteps._cumul = 0; // reset compteur transpose
+    nudgeHeldSteps._cumul = 0;     // reset compteur nudge
   } else {
     illuminateHeldStepNotes();
   }
@@ -10041,6 +10045,7 @@ function moveStepCursor(delta) {
 function gamepadBDown() {
   if (_gamepadBHeld) return;
   if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') return;
+  if (projectModeActive) return;
   _gamepadBHeld = true;
   _gamepadBLong = false;
   showStepCursor();
@@ -10071,6 +10076,9 @@ function gamepadBUp() {
 // ── Gamepad polling loop ─────────────────────────────────────
 let _gpPrevButtons = {};
 let _gpPrevAxes = [0, 0, 0, 0];
+let _gpLoopTimer = null;
+let _gpLoopLongFired = false;
+let _gpLoopPressTime = 0;
 
 function pollGamepad() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -10087,6 +10095,28 @@ function pollGamepad() {
     if (aPressed && !aWas) gamepadBDown();
     if (!aPressed && aWas) gamepadBUp();
     _gpPrevButtons[gp.index + '_0'] = aPressed;
+
+    // Bouton B = index 1 → Loop (court=toggle, long=hold pour combos)
+    const bPressed = btns[1]?.pressed || false;
+    const bWas = _gpPrevButtons[gp.index + '_1'] || false;
+    if (bPressed && !bWas) {
+      _gpLoopPressTime = Date.now();
+      _gpLoopLongFired = false;
+      _gpLoopTimer = setTimeout(() => {
+        _gpLoopLongFired = true;
+        setLoopHeld(true);
+      }, 300);
+    }
+    if (!bPressed && bWas) {
+      if (_gpLoopTimer) { clearTimeout(_gpLoopTimer); _gpLoopTimer = null; }
+      if (!_gpLoopLongFired) {
+        toggleLoopMode();
+      } else {
+        setLoopHeld(false);
+      }
+      _gpLoopLongFired = false;
+    }
+    _gpPrevButtons[gp.index + '_1'] = bPressed;
 
     // Bouton Start = index 9 → Play
     const startPressed = btns[9]?.pressed || false;
@@ -10144,8 +10174,8 @@ function pollGamepad() {
         else if (anyStepHeld()) {
           if (d.name === 'up')    transposeHeldSteps(1);
           if (d.name === 'down')  transposeHeldSteps(-1);
-          if (d.name === 'left')  { nudgeHeldSteps(-1); stepCursorPos = ((stepCursorPos - 1) % 16 + 16) % 16; updateStepCursor(); }
-          if (d.name === 'right') { nudgeHeldSteps(1);  stepCursorPos = ((stepCursorPos + 1) % 16 + 16) % 16; updateStepCursor(); }
+          if (d.name === 'left')  nudgeHeldSteps(-1);
+          if (d.name === 'right') nudgeHeldSteps(1);
         }
         // Priorité 3 : Shift maintenu → add/remove bar
         else if (S.shiftHeld) {
@@ -10175,8 +10205,8 @@ function pollGamepad() {
         if (axH === -1 && prevH !== -1) compressPattern();
         if (axH ===  1 && prevH !==  1) stretchPattern();
       } else if (anyStepHeld()) {
-        if (axH === -1 && prevH !== -1) { nudgeHeldSteps(-1); stepCursorPos = ((stepCursorPos - 1) % 16 + 16) % 16; updateStepCursor(); }
-        if (axH ===  1 && prevH !==  1) { nudgeHeldSteps(1);  stepCursorPos = ((stepCursorPos + 1) % 16 + 16) % 16; updateStepCursor(); }
+        if (axH === -1 && prevH !== -1) nudgeHeldSteps(-1);
+        if (axH ===  1 && prevH !==  1) nudgeHeldSteps(1);
         if (axV === -1 && prevV !== -1) transposeHeldSteps(1);
         if (axV ===  1 && prevV !==  1) transposeHeldSteps(-1);
       } else if (S.shiftHeld) {
