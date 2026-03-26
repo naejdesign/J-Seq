@@ -10288,7 +10288,46 @@ function pollGamepad() {
       { idx: 15, name: 'right' }
     ];
 
-    function dpadAction(name) {
+    
+// ── Déplacer une bar par insertion (gamepad A+dpad en loop mode) ──
+// La bar "saisie" se déplace dans le sens du dpad, les autres se décalent.
+// Sens détermine l'insertion : vient de gauche → insère après, vient de droite → insère avant.
+function moveBarInsert(fromIdx, direction) {
+  // direction = +1 (droite) ou -1 (gauche)
+  const clip = activeClipObj();
+  const maxBar = clip.numBars - 1;
+  const toIdx = fromIdx + direction;
+  if (toIdx < 0 || toIdx > maxBar) return fromIdx; // bord atteint
+
+  saveUndo();
+
+  // Extraire la bar source (mélo + drums)
+  const srcBars = clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
+  const srcDrum = clip.drumBars.map(padSeq => padSeq[fromIdx].map(st => ({...st})));
+
+  // Décaler les bars entre from et to
+  if (direction > 0) {
+    // Déplacement vers la droite → décaler [from+1..to] vers la gauche d'une position
+    for (let i = fromIdx; i < toIdx; i++) {
+      clip.bars[i] = clip.bars[i+1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
+      clip.drumBars.forEach((padSeq, pi) => { padSeq[i] = padSeq[i+1].map(st => ({...st})); });
+    }
+  } else {
+    // Déplacement vers la gauche → décaler [to..from-1] vers la droite d'une position
+    for (let i = fromIdx; i > toIdx; i--) {
+      clip.bars[i] = clip.bars[i-1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
+      clip.drumBars.forEach((padSeq, pi) => { padSeq[i] = padSeq[i-1].map(st => ({...st})); });
+    }
+  }
+
+  // Placer la bar source à la nouvelle position
+  clip.bars[toIdx] = srcBars;
+  clip.drumBars.forEach((padSeq, pi) => { padSeq[toIdx] = srcDrum[pi]; });
+
+  return toIdx; // nouvelle position de la bar déplacée
+}
+
+function dpadAction(name) {
       // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
       if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
 
@@ -10301,20 +10340,18 @@ function pollGamepad() {
         return;
       }
 
-      // Priorité 2 : Loop mode + A maintenu → sélection de région par glissement
+      // Priorité 2 : Loop mode + A maintenu → déplacer la bar par insertion
       if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong) {
         if (name === 'left' || name === 'right') {
-          const delta = name === 'left' ? -1 : 1;
-          const newPos = Math.max(0, Math.min(7, stepCursorPos + delta));
-          if (newPos !== stepCursorPos) {
+          const direction = name === 'right' ? 1 : -1;
+          const newPos = moveBarInsert(S._loopBarHeld, direction);
+          if (newPos !== S._loopBarHeld) {
+            S._loopBarHeld = newPos;
             stepCursorPos = newPos;
             updateStepCursor();
-            // Prévisualiser la région sans confirmer
-            S._loopBar2 = stepCursorPos;
             renderLoopMode();
-            const lo = Math.min(S._loopBarHeld, stepCursorPos);
-            const hi = Math.max(S._loopBarHeld, stepCursorPos);
-            oled('RÉGION', `Bar ${lo+1} → Bar ${hi+1}`, `${hi-lo+1} bars · relâche A`);
+            illuminateLoopBarNotes(newPos);
+            oled('DÉPLACER', `Bar → pos ${newPos+1}`, 'relâche A pour valider');
           }
         }
         if (name === 'up')   loopBarTranspose(1);
