@@ -10214,6 +10214,12 @@ function pollGamepad() {
       if (pressed && !was) {
         // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
         if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
+        // Si bouton B (loop) maintenu mais timer pas encore expiré → forcer le loop hold
+        if (_gpLoopTimer && !_gpLoopLongFired) {
+          clearTimeout(_gpLoopTimer); _gpLoopTimer = null;
+          _gpLoopLongFired = true;
+          setLoopHeld(true);
+        }
 
         // Priorité 1 : Loop maintenu → combos pattern
         if (S._loopHeld) {
@@ -10251,6 +10257,13 @@ function pollGamepad() {
     const prevH = Math.round(_gpPrevAxes[0] || 0);
     const prevV = Math.round(_gpPrevAxes[1] || 0);
     if (axH !== prevH || axV !== prevV) {
+      // Forcer les holds si timers en cours
+      if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
+      if (_gpLoopTimer && !_gpLoopLongFired) {
+        clearTimeout(_gpLoopTimer); _gpLoopTimer = null;
+        _gpLoopLongFired = true;
+        setLoopHeld(true);
+      }
       if (S._loopHeld) {
         if (axV === -1 && prevV !== -1) duplicatePattern();
         if (axV ===  1 && prevV !==  1) halvePattern();
