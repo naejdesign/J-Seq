@@ -5271,28 +5271,27 @@ function nudgeHeldSteps(delta) {
   const bar = currentStepBar();
   const indices = heldStepList().sort((a, b) => delta > 0 ? b - a : a - b);
   
-  // Vérifier que toutes les destinations sont valides
+  // Vérifier que toutes les destinations sont dans les bornes
   for (const idx of indices) {
     const newIdx = idx + delta;
-    if (newIdx < 0 || newIdx > 15) return; // sortie de bornes → annuler
+    if (newIdx < 0 || newIdx > 15) return;
   }
   
-  // Vérifier que les destinations ne sont pas occupées par des steps non-déplacés
+  // Vérifier si la destination est occupée par un step non-déplacé
   const movingSet = new Set(indices);
-  for (const idx of indices) {
+  const destOccupied = indices.some(idx => {
     const newIdx = idx + delta;
-    if (!movingSet.has(newIdx) && bar[newIdx] && bar[newIdx].on) {
-      // Destination occupée par un step qu'on ne déplace pas → refuser
-      oled('NUDGE', 'Step occupé !', `Step ${newIdx+1} bloqué`);
-      return;
-    }
-  }
+    return !movingSet.has(newIdx) && bar[newIdx] && bar[newIdx].on;
+  });
   
   saveUndo();
   
-  // Sauvegarder les données des steps déplacés
-  const copies = indices.map(idx => ({ from: idx, to: idx + delta, data: Object.assign({}, bar[idx]) }));
-  // Copier aussi extraNotes (deep copy)
+  // Sauvegarder les données des steps déplacés (deep copy)
+  const copies = indices.map(idx => ({
+    from: idx,
+    to: idx + delta,
+    data: Object.assign({}, bar[idx]),
+  }));
   copies.forEach(c => { if (c.data.extraNotes) c.data.extraNotes = [...c.data.extraNotes]; });
   
   // Vider uniquement les positions source qui ne sont PAS des destinations
@@ -5302,6 +5301,23 @@ function nudgeHeldSteps(delta) {
       bar[from] = { on: false, note: 60, vel: 0.8 };
     }
   }
+  
+  if (destOccupied) {
+    // Destination occupée → ne pas écrire les données, remettre les sources
+    // (on annule le déplacement mais on garde le mouvement du curseur pour "traverser")
+    for (const { from, data } of copies) {
+      bar[from] = data; // remettre en place
+    }
+    // Le curseur avance quand même (on "survole" le step occupé)
+    stepCursorPos = ((stepCursorPos + delta) % 16 + 16) % 16;
+    updateStepCursor();
+    // Mais les heldSteps ne bougent PAS (le step reste à sa place)
+    renderSteps();
+    illuminateHeldStepNotes();
+    oled('NUDGE', 'Step occupé', `survol → Step ${stepCursorPos+1}`);
+    return;
+  }
+  
   // Placer les données aux destinations
   for (const { to, data } of copies) bar[to] = data;
   
@@ -10073,8 +10089,14 @@ var _gamepadBHeldIdx = -1; // index du step pressé via gamepad
 
 function gamepadBDown() {
   if (_gamepadBHeld) return;
+  // Mode Project → naviguer les pages avec le curseur
+  if (projectModeActive) {
+    projectPage = stepCursorPos;
+    renderProjectMode();
+    oledForce('PROJECTS', `Page ${projectPage+1}/16`, 'clic=preview · 2x=charger');
+    return;
+  }
   if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') return;
-  if (projectModeActive) return;
   _gamepadBHeld = true;
   _gamepadBLong = false;
   _gamepadBHeldIdx = stepCursorPos;
@@ -10138,23 +10160,20 @@ function pollGamepad() {
     if (!aPressed && aWas) gamepadBUp();
     _gpPrevButtons[gp.index + '_0'] = aPressed;
 
-    // Bouton B = index 1 → Loop (court=toggle, long=hold pour combos)
+    // Bouton B = index 1 → Loop (maintenu = hold pour combos, court = toggle)
     const bPressed = btns[1]?.pressed || false;
     const bWas = _gpPrevButtons[gp.index + '_1'] || false;
     if (bPressed && !bWas) {
       _gpLoopPressTime = Date.now();
       _gpLoopLongFired = false;
-      _gpLoopTimer = setTimeout(() => {
-        _gpLoopLongFired = true;
-        setLoopHeld(true);
-      }, 300);
+      setLoopHeld(true); // activer immédiatement pour les combos
     }
     if (!bPressed && bWas) {
-      if (_gpLoopTimer) { clearTimeout(_gpLoopTimer); _gpLoopTimer = null; }
-      if (!_gpLoopLongFired) {
+      setLoopHeld(false);
+      const held = Date.now() - _gpLoopPressTime;
+      if (held < 300) {
+        // Appui court → toggle loop mode
         toggleLoopMode();
-      } else {
-        setLoopHeld(false);
       }
       _gpLoopLongFired = false;
     }
@@ -10214,12 +10233,6 @@ function pollGamepad() {
       if (pressed && !was) {
         // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
         if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
-        // Si bouton B (loop) maintenu mais timer pas encore expiré → forcer le loop hold
-        if (_gpLoopTimer && !_gpLoopLongFired) {
-          clearTimeout(_gpLoopTimer); _gpLoopTimer = null;
-          _gpLoopLongFired = true;
-          setLoopHeld(true);
-        }
 
         // Priorité 1 : Loop maintenu → combos pattern
         if (S._loopHeld) {
@@ -10257,13 +10270,8 @@ function pollGamepad() {
     const prevH = Math.round(_gpPrevAxes[0] || 0);
     const prevV = Math.round(_gpPrevAxes[1] || 0);
     if (axH !== prevH || axV !== prevV) {
-      // Forcer les holds si timers en cours
+      // Forcer le step hold si timer en cours
       if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
-      if (_gpLoopTimer && !_gpLoopLongFired) {
-        clearTimeout(_gpLoopTimer); _gpLoopTimer = null;
-        _gpLoopLongFired = true;
-        setLoopHeld(true);
-      }
       if (S._loopHeld) {
         if (axV === -1 && prevV !== -1) duplicatePattern();
         if (axV ===  1 && prevV !==  1) halvePattern();
