@@ -10378,6 +10378,8 @@ function dpadAction(name) {
       if (S.shiftHeld) {
         if (name === 'left')  removeBar();
         if (name === 'right') addBar();
+        if (name === 'up')    addBar();
+        if (name === 'down')  removeBar();
         return;
       }
       // Priorité 4 : Normal → curseur/navigation
@@ -10394,10 +10396,12 @@ function dpadAction(name) {
       if (pressed && !was) {
         // Première pression
         dpadAction(d.name);
-        // Démarrer l'auto-repeat
-        window._gpDpadRepeat[rKey] = { timer: setTimeout(() => {
-          window._gpDpadRepeat[rKey].interval = setInterval(() => dpadAction(d.name), 100);
-        }, 300) };
+        // Auto-repeat — désactivé en loop mode + A tenu (1 mouvement par press)
+        if (!(S.mode === 'loop' && _gamepadBHeld)) {
+          window._gpDpadRepeat[rKey] = { timer: setTimeout(() => {
+            window._gpDpadRepeat[rKey].interval = setInterval(() => dpadAction(d.name), 100);
+          }, 300) };
+        }
       }
       if (!pressed && was) {
         // Relâchement → stopper auto-repeat
