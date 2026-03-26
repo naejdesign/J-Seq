@@ -5267,61 +5267,59 @@ function transposeHeldSteps(octaveDelta) {
 }
 
 // Décale les steps tenus d'une position (nudge)
+// État du step "flottant" en cours de nudge
+var _nudgeFloating = null; // { data, lastValidPos, originalPos }
+
 function nudgeHeldSteps(delta) {
   const bar = currentStepBar();
   const indices = heldStepList().sort((a, b) => delta > 0 ? b - a : a - b);
   
-  // Vérifier que toutes les destinations sont dans les bornes
+  // Vérifier bornes
   for (const idx of indices) {
     const newIdx = idx + delta;
     if (newIdx < 0 || newIdx > 15) return;
   }
   
-  // Vérifier si la destination est occupée par un step non-déplacé
-  const movingSet = new Set(indices);
-  const destOccupied = indices.some(idx => {
-    const newIdx = idx + delta;
-    return !movingSet.has(newIdx) && bar[newIdx] && bar[newIdx].on;
-  });
-  
-  saveUndo();
-  
-  // Sauvegarder les données des steps déplacés (deep copy)
-  const copies = indices.map(idx => ({
-    from: idx,
-    to: idx + delta,
-    data: Object.assign({}, bar[idx]),
-  }));
-  copies.forEach(c => { if (c.data.extraNotes) c.data.extraNotes = [...c.data.extraNotes]; });
-  
-  // Vider uniquement les positions source qui ne sont PAS des destinations
-  const destSet = new Set(copies.map(c => c.to));
-  for (const { from } of copies) {
-    if (!destSet.has(from)) {
-      bar[from] = { on: false, note: 60, vel: 0.8 };
-    }
+  // Premier nudge → soulever le step (sauvegarder + vider l'origine)
+  if (!_nudgeFloating) {
+    if (indices.length !== 1) return; // pour l'instant, un seul step à la fois
+    const idx = indices[0];
+    const data = Object.assign({}, bar[idx]);
+    if (data.extraNotes) data.extraNotes = [...data.extraNotes];
+    _nudgeFloating = { data, lastValidPos: idx, originalPos: idx };
+    // Vider la position d'origine
+    bar[idx] = { on: false, note: 60, vel: 0.8 };
+    saveUndo();
   }
+  
+  const newPos = indices[0] + delta;
+  const movingSet = new Set(indices);
+  
+  // Vérifier si la destination est occupée par un step non-déplacé
+  const destOccupied = bar[newPos] && bar[newPos].on && !movingSet.has(newPos);
   
   if (destOccupied) {
-    // Destination occupée → ne pas écrire les données, remettre les sources
-    // (on annule le déplacement mais on garde le mouvement du curseur pour "traverser")
-    for (const { from, data } of copies) {
-      bar[from] = data; // remettre en place
+    // Step occupé → survoler : le curseur et heldSteps avancent mais on ne pose pas
+    // D'abord retirer le step de sa position actuelle (si il était posé)
+    const curPos = indices[0];
+    if (bar[curPos] && bar[curPos].on && curPos === _nudgeFloating.lastValidPos) {
+      // Il était posé ici → le retirer
+      bar[curPos] = { on: false, note: 60, vel: 0.8 };
     }
-    // Le curseur avance quand même (on "survole" le step occupé)
-    stepCursorPos = ((stepCursorPos + delta) % 16 + 16) % 16;
-    updateStepCursor();
-    // Mais les heldSteps ne bougent PAS (le step reste à sa place)
-    renderSteps();
-    illuminateHeldStepNotes();
-    oled('NUDGE', 'Step occupé', `survol → Step ${stepCursorPos+1}`);
-    return;
+  } else {
+    // Destination libre → poser le step ici
+    // D'abord retirer de l'ancienne position
+    const curPos = indices[0];
+    if (curPos === _nudgeFloating.lastValidPos && bar[curPos] && bar[curPos].on) {
+      bar[curPos] = { on: false, note: 60, vel: 0.8 };
+    }
+    // Poser à la nouvelle position
+    bar[newPos] = Object.assign({}, _nudgeFloating.data);
+    if (_nudgeFloating.data.extraNotes) bar[newPos].extraNotes = [..._nudgeFloating.data.extraNotes];
+    _nudgeFloating.lastValidPos = newPos;
   }
   
-  // Placer les données aux destinations
-  for (const { to, data } of copies) bar[to] = data;
-  
-  // Mettre à jour heldSteps
+  // Mettre à jour heldSteps avec la nouvelle position
   const newHeld = new Map();
   for (const [idx, obj] of heldSteps) {
     obj.didAction = true;
@@ -5330,19 +5328,51 @@ function nudgeHeldSteps(delta) {
   heldSteps.clear();
   for (const [k, v] of newHeld) heldSteps.set(k, v);
   
-  // Curseur suit le nudge
+  // Curseur suit toujours
   stepCursorPos = ((stepCursorPos + delta) % 16 + 16) % 16;
   updateStepCursor();
   renderSteps();
-  illuminateHeldStepNotes();
   
-  // Compteur cumulé de déplacement
+  // Compteur cumulé
   if (!nudgeHeldSteps._cumul) nudgeHeldSteps._cumul = 0;
   nudgeHeldSteps._cumul += delta;
   const c = nudgeHeldSteps._cumul;
   const sign = c > 0 ? '+' : '';
   const arrow = delta > 0 ? '→' : '←';
-  oled('NUDGE', `${arrow} ${sign}${c} step${Math.abs(c)>1?'s':''}`, `Bar ${S.currentBar+1}`);
+  if (destOccupied) {
+    oled('NUDGE', `${arrow} survol`, `Step ${newPos+1} occupé`);
+  } else {
+    oled('NUDGE', `${arrow} ${sign}${c} step${Math.abs(c)>1?'s':''}`, `Bar ${S.currentBar+1}`);
+  }
+}
+
+// Appelé quand le step est relâché — finaliser le nudge
+function finalizeNudge() {
+  if (!_nudgeFloating) return;
+  const bar = currentStepBar();
+  const pos = heldStepList()[0];
+  
+  if (pos !== undefined) {
+    if (bar[pos] && bar[pos].on) {
+      // Position occupée au release → revenir à la dernière position valide
+      const lastValid = _nudgeFloating.lastValidPos;
+      if (!bar[lastValid] || !bar[lastValid].on) {
+        bar[lastValid] = Object.assign({}, _nudgeFloating.data);
+        if (_nudgeFloating.data.extraNotes) bar[lastValid].extraNotes = [..._nudgeFloating.data.extraNotes];
+      }
+      // Mettre le curseur sur la dernière position valide
+      stepCursorPos = lastValid;
+      updateStepCursor();
+    } else if (!bar[pos] || !bar[pos].on) {
+      // Position vide au release → poser ici (normalement déjà fait)
+      bar[pos] = Object.assign({}, _nudgeFloating.data);
+      if (_nudgeFloating.data.extraNotes) bar[pos].extraNotes = [..._nudgeFloating.data.extraNotes];
+      _nudgeFloating.lastValidPos = pos;
+    }
+  }
+  
+  _nudgeFloating = null;
+  renderSteps();
 }
 
 // Press/release unifiés
@@ -5365,6 +5395,9 @@ function pressStep(idx) {
 }
 
 function releaseStep(idx) {
+  // Finaliser le nudge flottant si en cours
+  if (_nudgeFloating) finalizeNudge();
+  
   const obj = heldSteps.get(idx);
   if (!obj) return;
   clearTimeout(obj.timer);
@@ -5377,8 +5410,9 @@ function releaseStep(idx) {
     if (S.pianoOpen) illuminatePianoNotes();
     renderSteps();
     undoStack.lastSaveTime = null;
-    transposeHeldSteps._cumul = 0; // reset compteur transpose
-    nudgeHeldSteps._cumul = 0;     // reset compteur nudge
+    transposeHeldSteps._cumul = 0;
+    nudgeHeldSteps._cumul = 0;
+    _nudgeFloating = null;
   } else {
     illuminateHeldStepNotes();
   }
