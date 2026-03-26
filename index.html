@@ -1902,7 +1902,7 @@ function fxHandleDown(e) {
       }
       _fxDrag = {
         isMaster: true, fxId, pi, pDef,
-        startY: e.clientY,
+        startY: e.clientY, startX: e.clientX,
         // En mode free pour syncDiv, startVal = delay.time (secondes), pas l'index
         startVal: (fxId === 'delay' && pDef.key === 'syncDiv' && !masterFX.delay.sync)
           ? masterFX.delay.time
@@ -1982,7 +1982,7 @@ function fxHandleDown(e) {
         e.stopPropagation(); e.preventDefault();
         return true;
       }
-      _fxDrag = { slotIdx, paramIdx, p, ti: S.currentTrack, startY: e.clientY, startVal: slot.params[p.key] ?? p.def };
+      _fxDrag = { slotIdx, paramIdx, p, ti: S.currentTrack, startY: e.clientY, startX: e.clientX, startVal: slot.params[p.key] ?? p.def };
       e.stopPropagation(); e.preventDefault();
       return true;
     }
@@ -2051,12 +2051,14 @@ function fxHandleMove(e) {
   if (_fxDrag.isMaster) {
     const { fxId, pi, pDef } = _fxDrag;
     const dy = _fxDrag.startY - e.clientY;
+    const dx = e.clientX - (_fxDrag.startX || e.clientX);
+    const delta = dy + dx;
     const range = pDef.max - pDef.min;
     let newVal;
     if (pDef.step && fxId === 'delay' && pDef.key === 'syncDiv' && !masterFX.delay.sync) {
       // Mode free : syncDiv contrôle le temps en ms (10ms → 2000ms) de façon continue
       const freeRange = 1.99; // secondes
-      newVal = Math.max(0.01, Math.min(2.0, _fxDrag.startVal + dy / 150 * freeRange));
+      newVal = Math.max(0.01, Math.min(2.0, _fxDrag.startVal + delta / 150 * freeRange));
       masterFX.delay.time = newVal;
       if (_masterNodes) _masterNodes.delayNode.delayTime.value = newVal;
       const valEl2 = document.getElementById(`mfx_val_delay_0`);
@@ -2073,12 +2075,12 @@ function fxHandleMove(e) {
     }
     if (pDef.step) {
       // Param discret : 20px par step
-      newVal = Math.round(_fxDrag.startVal + dy / 20);
+      newVal = Math.round(_fxDrag.startVal + delta / 20);
     } else if (pDef.log) {
       const logRange = Math.log(pDef.max / pDef.min);
-      newVal = _fxDrag.startVal * Math.exp(dy / 100 * logRange);
+      newVal = _fxDrag.startVal * Math.exp(delta / 100 * logRange);
     } else {
-      newVal = _fxDrag.startVal + (dy / 150) * range;
+      newVal = _fxDrag.startVal + (delta / 150) * range;
     }
     newVal = Math.max(pDef.min, Math.min(pDef.max, newVal));
     if (pDef.step) newVal = Math.round(newVal);
@@ -2125,14 +2127,16 @@ function fxHandleMove(e) {
 
   const { slotIdx, paramIdx, p, ti } = _fxDrag;
   const dy = _fxDrag.startY - e.clientY;
+  const dx = e.clientX - (_fxDrag.startX || e.clientX);
+  const delta = dy + dx;
   const range = p.max - p.min;
   let newVal;
   if (p.log) {
     const logRange = Math.log(p.max / p.min);
-    newVal = _fxDrag.startVal * Math.exp(dy / 100 * logRange);
+    newVal = _fxDrag.startVal * Math.exp(delta / 100 * logRange);
   } else {
     const sensitivity = 150;
-    newVal = _fxDrag.startVal + (dy / sensitivity) * range;
+    newVal = _fxDrag.startVal + (delta / sensitivity) * range;
   }
   newVal = Math.max(p.min, Math.min(p.max, newVal));
   if (Number.isInteger(p.def) && Number.isInteger(p.min) && Number.isInteger(p.max) && (p.max - p.min) > 1) {
@@ -6349,7 +6353,20 @@ document.addEventListener('mouseup', () => {
   wheelDrag = null;
   volDrag = null;
   S._stepsLocked = false;
-  if (!keepOledLocked) S._oledLocked = false;
+  if (!keepOledLocked) {
+    S._oledLocked = false;
+    // Refresh OLED to default display after drag release
+    if (typeof trackInfo === 'function') {
+      const t = S.tracks[S.currentTrack];
+      if (t.mode === 'drum') {
+        oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
+      } else if (t.mode === 'master') {
+        oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
+      } else {
+        oled('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
+      }
+    }
+  }
 });
 // Info clic géré dans le mouseup
 // Volume master global (0-1)
@@ -7357,7 +7374,7 @@ SEND_ENCS.forEach((def, si) => {
     } else {
       startVal = t[def.key] ?? 0;
     }
-    encSendDrags[si] = { y: e.clientY, startVal };
+    encSendDrags[si] = { y: e.clientY, x: e.clientX, startVal };
     S._oledLocked = true;
     e.preventDefault();
   });
@@ -7368,9 +7385,11 @@ document.addEventListener('mousemove', e => {
     const drag = encSendDrags[si];
     if (!drag) return;
     const dy = drag.y - e.clientY;
-    if (Math.abs(dy) < 2) return;
+    const dx = e.clientX - (drag.x || e.clientX);
+    const delta = dy + dx;
+    if (Math.abs(delta) < 2) return;
     const t = S.tracks[S.currentTrack];
-    const newVal = Math.max(0, Math.min(1, drag.startVal + dy / 150));
+    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 150));
     if (t.mode === 'drum') {
       if (!t.drumPads) return;
       t.drumPads[S.selectedDrumPad][def.key] = newVal;
