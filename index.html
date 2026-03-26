@@ -3423,6 +3423,26 @@ function stopPlay() {
 
 function togglePlay() {
   if (S.playing) { stopPlay(); return; }
+  // Si décompte en cours → tout annuler (lecture + record)
+  if (_countdownActive) {
+    if (countdownTimer) { clearTimeout(countdownTimer); countdownTimer = null; }
+    _countdownActive = false;
+    // Désarmer le record proprement
+    S.recording = false;
+    metronomeStop();
+    clearInterval(recBlinkTimer); recBlinkTimer = null;
+    const dot = svg('recDot');
+    const circle = dot?.parentElement?.querySelector('circle');
+    dot?.setAttribute('fill', '#882222');
+    circle?.setAttribute('stroke', '#3a3a3a');
+    recHeld.clear();
+    // Reset play visuel
+    svg('playIcon').setAttribute('fill', '#888');
+    svg('btnPlay').querySelector('rect').setAttribute('stroke', '#444');
+    S._oledLocked = false;
+    oled('STOP', 'Annulé', trackInfo());
+    return;
+  }
   // Si Record actif → décompte 1 mesure avant de lancer
   if (S.recording) {
     startCountdown(() => startPlay());
