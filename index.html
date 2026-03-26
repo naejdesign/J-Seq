@@ -10308,37 +10308,47 @@ function pollGamepad() {
 
       // Mode loop + A maintenu → étendre la sélection de loop region
       if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong) {
-        if (name === 'left')  { stepCursorPos = ((stepCursorPos - 1) % 16 + 16) % 16; updateStepCursor(); pressLoopStep(stepCursorPos); }
-        if (name === 'right') { stepCursorPos = ((stepCursorPos + 1) % 16 + 16) % 16; updateStepCursor(); pressLoopStep(stepCursorPos); }
+        if (name === 'left' || name === 'right') {
+          const delta = name === 'left' ? -1 : 1;
+          const newPos = ((stepCursorPos + delta) % 16 + 16) % 16;
+          if (newPos < 8) {
+            stepCursorPos = newPos;
+            updateStepCursor();
+            pressLoopStep(stepCursorPos);
+            oledForce('LOOP SEL', `cursor=${stepCursorPos}`, `held=${S._loopBarHeld} bar2=${S._loopBar2}`);
+          }
+        }
         return;
       }
 
-      // Priorité 1 : Loop maintenu → combos pattern
+      // Priorité 1 : Loop held → combos pattern
       if (S._loopHeld) {
-          if (name === 'up')    duplicatePattern();
-          if (name === 'down')  halvePattern();
-          if (name === 'left')  compressPattern();
-          if (name === 'right') stretchPattern();
-        }
-        // Priorité 2 : Step maintenu → transpose/nudge
-        else if (anyStepHeld()) {
-          if (name === 'up')    transposeHeldSteps(1);
-          if (name === 'down')  transposeHeldSteps(-1);
-          if (name === 'left')  nudgeHeldSteps(-1);
-          if (name === 'right') nudgeHeldSteps(1);
-        }
-        // Priorité 3 : Shift maintenu → add/remove bar
-        else if (S.shiftHeld) {
-          if (name === 'left')  removeBar();
-          if (name === 'right') addBar();
-        }
-        // Priorité 4 : Normal → curseur/navigation
-        else {
-          if (name === 'left')  moveStepCursor(-1);
-          if (name === 'right') moveStepCursor(1);
-          if (name === 'up')    navBar(1);
-          if (name === 'down')  navBar(-1);
-        }
+        oledForce('COMBO', name, `loopHeld=${S._loopHeld}`);
+        if (name === 'up')    duplicatePattern();
+        if (name === 'down')  halvePattern();
+        if (name === 'left')  compressPattern();
+        if (name === 'right') stretchPattern();
+        return;
+      }
+      // Priorité 2 : Step maintenu → transpose/nudge
+      if (anyStepHeld()) {
+        if (name === 'up')    transposeHeldSteps(1);
+        if (name === 'down')  transposeHeldSteps(-1);
+        if (name === 'left')  nudgeHeldSteps(-1);
+        if (name === 'right') nudgeHeldSteps(1);
+        return;
+      }
+      // Priorité 3 : Shift maintenu → add/remove bar
+      if (S.shiftHeld) {
+        if (name === 'left')  removeBar();
+        if (name === 'right') addBar();
+        return;
+      }
+      // Priorité 4 : Normal → curseur/navigation
+      if (name === 'left')  moveStepCursor(-1);
+      if (name === 'right') moveStepCursor(1);
+      if (name === 'up')    navBar(1);
+      if (name === 'down')  navBar(-1);
     }
 
     dirs.forEach(d => {
