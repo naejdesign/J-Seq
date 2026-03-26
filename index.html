@@ -5834,8 +5834,13 @@ svg('btnSets').addEventListener('click', () => {
 // ── Bouton LOOP : hold détecté au niveau document ──
 function setLoopHeld(on) {
   S._loopHeld = on;
-  setBtnLit('btnLoop', on, '#3ddc84');
-  if (on) oled('LOOP TENU', '+/-=dup/halve', '</>=stretch/compress');
+  if (on) {
+    setBtnLit('btnLoop', true, '#3ddc84');
+    oled('LOOP TENU', '+/-=dup/halve', '</>=stretch/compress');
+  } else {
+    // Garder le bouton allumé si on est en mode loop
+    if (S.mode !== 'loop') setBtnLit('btnLoop', false, '#3ddc84');
+  }
 }
 
 let loopPressTimer = null;
@@ -10101,8 +10106,15 @@ function gamepadBDown() {
   _gamepadBLong = false;
   _gamepadBHeldIdx = stepCursorPos;
   showStepCursor();
+  
+  // Mode Loop → pressLoopStep immédiatement (sélection region)
+  if (S.mode === 'loop') {
+    _gamepadBLong = true; // considéré comme maintenu pour le D-pad
+    pressLoopStep(stepCursorPos);
+    return;
+  }
+  
   _gamepadBTimer = setTimeout(() => {
-    // Appui long → maintenir le step (comme un doigt sur l'écran)
     _gamepadBLong = true;
     pressStep(_gamepadBHeldIdx);
   }, 300);
@@ -10114,7 +10126,11 @@ function gamepadForceHold() {
     clearTimeout(_gamepadBTimer);
     _gamepadBTimer = null;
     _gamepadBLong = true;
-    pressStep(_gamepadBHeldIdx);
+    if (S.mode === 'loop') {
+      pressLoopStep(_gamepadBHeldIdx);
+    } else {
+      pressStep(_gamepadBHeldIdx);
+    }
   }
 }
 
@@ -10124,15 +10140,20 @@ function gamepadBUp() {
   clearTimeout(_gamepadBTimer);
   _gamepadBTimer = null;
   if (_gamepadBLong) {
-    // Relâcher le step maintenu — utiliser la position actuelle du curseur (qui a pu bouger avec nudge)
-    releaseStep(stepCursorPos);
+    if (S.mode === 'loop') {
+      releaseLoopStep(stepCursorPos);
+    } else {
+      releaseStep(stepCursorPos);
+    }
     _gamepadBLong = false;
   } else {
-    // Appui court → toggle step on/off
-    ensureAudio();
-    toggleStep(stepCursorPos);
-    renderSteps();
-    updateStepCursor();
+    // Appui court → toggle step on/off (note mode seulement)
+    if (S.mode !== 'loop') {
+      ensureAudio();
+      toggleStep(stepCursorPos);
+      renderSteps();
+      updateStepCursor();
+    }
   }
   _gamepadBHeldIdx = -1;
 }
@@ -10167,17 +10188,34 @@ function pollGamepad() {
       _gpLoopPressTime = Date.now();
       _gpLoopLongFired = false;
       setLoopHeld(true); // activer immédiatement pour les combos
+      oledForce('LOOP', 'B pressed', `loopHeld=${S._loopHeld}`);
     }
     if (!bPressed && bWas) {
-      setLoopHeld(false);
       const held = Date.now() - _gpLoopPressTime;
       if (held < 300) {
-        // Appui court → toggle loop mode
         toggleLoopMode();
       }
+      setLoopHeld(false);
       _gpLoopLongFired = false;
     }
     _gpPrevButtons[gp.index + '_1'] = bPressed;
+
+    // DEBUG: afficher les boutons pressés (temporaire)
+    if (!window._gpDebugTimer) {
+      window._gpDebugTimer = setInterval(() => {
+        const gps = navigator.getGamepads();
+        for (const g of gps) {
+          if (!g) continue;
+          const pressed = [];
+          g.buttons.forEach((b, i) => { if (b.pressed) pressed.push(i); });
+          const ax = g.axes.map(a => a.toFixed(1)).join(',');
+          if (pressed.length > 0) {
+            oledForce('GAMEPAD DBG', `btn: ${pressed.join(',')}`, `ax: ${ax}`);
+          }
+          break;
+        }
+      }, 200);
+    }
 
     // Bouton Start = index 9 → Play
     const startPressed = btns[9]?.pressed || false;
@@ -10221,44 +10259,73 @@ function pollGamepad() {
     });
 
     // D-pad buttons (standard: 12=up, 13=down, 14=left, 15=right)
+    // Auto-repeat : maintenir = répéter après 300ms, puis tous les 100ms
+    if (!window._gpDpadRepeat) window._gpDpadRepeat = {};
     const dirs = [
       { idx: 12, name: 'up' },
       { idx: 13, name: 'down' },
       { idx: 14, name: 'left' },
       { idx: 15, name: 'right' }
     ];
-    dirs.forEach(d => {
-      const pressed = btns[d.idx]?.pressed || false;
-      const was = _gpPrevButtons[gp.index + '_' + d.idx] || false;
-      if (pressed && !was) {
-        // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
-        if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
 
-        // Priorité 1 : Loop maintenu → combos pattern
-        if (S._loopHeld) {
-          if (d.name === 'up')    duplicatePattern();
-          if (d.name === 'down')  halvePattern();
-          if (d.name === 'left')  compressPattern();
-          if (d.name === 'right') stretchPattern();
+    function dpadAction(name) {
+      // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
+      if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
+
+      // Mode loop + A maintenu → étendre la sélection de loop region
+      if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong) {
+        if (name === 'left')  { stepCursorPos = ((stepCursorPos - 1) % 16 + 16) % 16; updateStepCursor(); pressLoopStep(stepCursorPos); }
+        if (name === 'right') { stepCursorPos = ((stepCursorPos + 1) % 16 + 16) % 16; updateStepCursor(); pressLoopStep(stepCursorPos); }
+        return;
+      }
+
+      // Priorité 1 : Loop maintenu → combos pattern
+      if (S._loopHeld) {
+          if (name === 'up')    duplicatePattern();
+          if (name === 'down')  halvePattern();
+          if (name === 'left')  compressPattern();
+          if (name === 'right') stretchPattern();
         }
         // Priorité 2 : Step maintenu → transpose/nudge
         else if (anyStepHeld()) {
-          if (d.name === 'up')    transposeHeldSteps(1);
-          if (d.name === 'down')  transposeHeldSteps(-1);
-          if (d.name === 'left')  nudgeHeldSteps(-1);
-          if (d.name === 'right') nudgeHeldSteps(1);
+          if (name === 'up')    transposeHeldSteps(1);
+          if (name === 'down')  transposeHeldSteps(-1);
+          if (name === 'left')  nudgeHeldSteps(-1);
+          if (name === 'right') nudgeHeldSteps(1);
         }
         // Priorité 3 : Shift maintenu → add/remove bar
         else if (S.shiftHeld) {
-          if (d.name === 'left')  removeBar();
-          if (d.name === 'right') addBar();
+          if (name === 'left')  removeBar();
+          if (name === 'right') addBar();
         }
         // Priorité 4 : Normal → curseur/navigation
         else {
-          if (d.name === 'left')  moveStepCursor(-1);
-          if (d.name === 'right') moveStepCursor(1);
-          if (d.name === 'up')    navBar(1);
-          if (d.name === 'down')  navBar(-1);
+          if (name === 'left')  moveStepCursor(-1);
+          if (name === 'right') moveStepCursor(1);
+          if (name === 'up')    navBar(1);
+          if (name === 'down')  navBar(-1);
+        }
+    }
+
+    dirs.forEach(d => {
+      const pressed = btns[d.idx]?.pressed || false;
+      const was = _gpPrevButtons[gp.index + '_' + d.idx] || false;
+      const rKey = 'dpad_' + d.name;
+      if (pressed && !was) {
+        // Première pression
+        dpadAction(d.name);
+        // Démarrer l'auto-repeat
+        window._gpDpadRepeat[rKey] = { timer: setTimeout(() => {
+          window._gpDpadRepeat[rKey].interval = setInterval(() => dpadAction(d.name), 100);
+        }, 300) };
+      }
+      if (!pressed && was) {
+        // Relâchement → stopper auto-repeat
+        const r = window._gpDpadRepeat[rKey];
+        if (r) {
+          clearTimeout(r.timer);
+          clearInterval(r.interval);
+          delete window._gpDpadRepeat[rKey];
         }
       }
       _gpPrevButtons[gp.index + '_' + d.idx] = pressed;
