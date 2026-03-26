@@ -5288,10 +5288,15 @@ function nudgeHeldSteps(delta) {
   }
   heldSteps.clear();
   for (const [k, v] of newHeld) heldSteps.set(k, v);
+  // Curseur suit le nudge
+  stepCursorPos = ((stepCursorPos + delta) % 16 + 16) % 16;
+  updateStepCursor();
   renderSteps();
   illuminateHeldStepNotes();
-  const count = heldSteps.size;
-  oled('NUDGE', (delta > 0 ? '→' : '←') + ' 1 step', count + ' step' + (count > 1 ? 's' : ''));
+  const newIndices = [...newHeld.keys()].sort((a,b) => a-b);
+  const count = newIndices.length;
+  const stepStr = count === 1 ? `Step ${newIndices[0]+1}` : `Steps ${newIndices[0]+1}-${newIndices[newIndices.length-1]+1}`;
+  oled('NUDGE', (delta > 0 ? '→' : '←') + ' ' + stepStr, `Bar ${S.currentBar+1}`);
 }
 
 // Press/release unifiés
@@ -10076,12 +10081,27 @@ function pollGamepad() {
     const axes = gp.axes;
     const btns = gp.buttons;
 
-    // Bouton B = index 1 (standard mapping)
-    const bPressed = btns[1]?.pressed || false;
-    const bWas = _gpPrevButtons[gp.index + '_1'] || false;
-    if (bPressed && !bWas) gamepadBDown();
-    if (!bPressed && bWas) gamepadBUp();
-    _gpPrevButtons[gp.index + '_1'] = bPressed;
+    // Bouton A = index 0 (step cursor action)
+    const aPressed = btns[0]?.pressed || false;
+    const aWas = _gpPrevButtons[gp.index + '_0'] || false;
+    if (aPressed && !aWas) gamepadBDown();
+    if (!aPressed && aWas) gamepadBUp();
+    _gpPrevButtons[gp.index + '_0'] = aPressed;
+
+    // Bouton Start = index 9 → Play
+    const startPressed = btns[9]?.pressed || false;
+    const startWas = _gpPrevButtons[gp.index + '_9'] || false;
+    if (startPressed && !startWas) { ensureAudio(); togglePlay(); }
+    _gpPrevButtons[gp.index + '_9'] = startPressed;
+
+    // Bouton Select = index 8 → Project mode
+    const selectPressed = btns[8]?.pressed || false;
+    const selectWas = _gpPrevButtons[gp.index + '_8'] || false;
+    if (selectPressed && !selectWas) {
+      if (projectModeActive) { exitProjectMode(); setBtnLit('btnSets', false, '#aaa'); }
+      else { enterProjectMode(); setBtnLit('btnSets', true, '#aaa'); }
+    }
+    _gpPrevButtons[gp.index + '_8'] = selectPressed;
 
     // L1=4 (Copy), R1=5 (Shift), L2=6 (Delete), R2=7 (Mute)
     const shoulders = [
@@ -10113,14 +10133,27 @@ function pollGamepad() {
       const pressed = btns[d.idx]?.pressed || false;
       const was = _gpPrevButtons[gp.index + '_' + d.idx] || false;
       if (pressed && !was) {
-        if (anyStepHeld()) {
-          // Step maintenu → transpose/nudge (comportement existant)
+        // Priorité 1 : Loop maintenu → combos pattern
+        if (S._loopHeld) {
+          if (d.name === 'up')    duplicatePattern();
+          if (d.name === 'down')  halvePattern();
+          if (d.name === 'left')  compressPattern();
+          if (d.name === 'right') stretchPattern();
+        }
+        // Priorité 2 : Step maintenu → transpose/nudge
+        else if (anyStepHeld()) {
           if (d.name === 'up')    transposeHeldSteps(1);
           if (d.name === 'down')  transposeHeldSteps(-1);
-          if (d.name === 'left')  nudgeHeldSteps(-1);
-          if (d.name === 'right') nudgeHeldSteps(1);
-        } else {
-          // Pas de step maintenu → curseur/navigation
+          if (d.name === 'left')  { nudgeHeldSteps(-1); stepCursorPos = ((stepCursorPos - 1) % 16 + 16) % 16; updateStepCursor(); }
+          if (d.name === 'right') { nudgeHeldSteps(1);  stepCursorPos = ((stepCursorPos + 1) % 16 + 16) % 16; updateStepCursor(); }
+        }
+        // Priorité 3 : Shift maintenu → add/remove bar
+        else if (S.shiftHeld) {
+          if (d.name === 'left')  removeBar();
+          if (d.name === 'right') addBar();
+        }
+        // Priorité 4 : Normal → curseur/navigation
+        else {
           if (d.name === 'left')  moveStepCursor(-1);
           if (d.name === 'right') moveStepCursor(1);
           if (d.name === 'up')    navBar(1);
@@ -10136,16 +10169,24 @@ function pollGamepad() {
     const prevH = Math.round(_gpPrevAxes[0] || 0);
     const prevV = Math.round(_gpPrevAxes[1] || 0);
     if (axH !== prevH || axV !== prevV) {
-      if (!anyStepHeld()) {
-        if (axH === -1 && prevH !== -1) moveStepCursor(-1);
-        if (axH ===  1 && prevH !==  1) moveStepCursor(1);
-        if (axV === -1 && prevV !== -1) navBar(1);   // stick up = bar suivante
-        if (axV ===  1 && prevV !==  1) navBar(-1);  // stick down = bar précédente
-      } else {
-        if (axH === -1 && prevH !== -1) nudgeHeldSteps(-1);
-        if (axH ===  1 && prevH !==  1) nudgeHeldSteps(1);
+      if (S._loopHeld) {
+        if (axV === -1 && prevV !== -1) duplicatePattern();
+        if (axV ===  1 && prevV !==  1) halvePattern();
+        if (axH === -1 && prevH !== -1) compressPattern();
+        if (axH ===  1 && prevH !==  1) stretchPattern();
+      } else if (anyStepHeld()) {
+        if (axH === -1 && prevH !== -1) { nudgeHeldSteps(-1); stepCursorPos = ((stepCursorPos - 1) % 16 + 16) % 16; updateStepCursor(); }
+        if (axH ===  1 && prevH !==  1) { nudgeHeldSteps(1);  stepCursorPos = ((stepCursorPos + 1) % 16 + 16) % 16; updateStepCursor(); }
         if (axV === -1 && prevV !== -1) transposeHeldSteps(1);
         if (axV ===  1 && prevV !==  1) transposeHeldSteps(-1);
+      } else if (S.shiftHeld) {
+        if (axH === -1 && prevH !== -1) removeBar();
+        if (axH ===  1 && prevH !==  1) addBar();
+      } else {
+        if (axH === -1 && prevH !== -1) moveStepCursor(-1);
+        if (axH ===  1 && prevH !==  1) moveStepCursor(1);
+        if (axV === -1 && prevV !== -1) navBar(1);
+        if (axV ===  1 && prevV !==  1) navBar(-1);
       }
     }
     _gpPrevAxes = [axes[0] || 0, axes[1] || 0];
