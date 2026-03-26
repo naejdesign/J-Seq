@@ -10141,11 +10141,14 @@ function gamepadBDown() {
   _gamepadBHeldIdx = stepCursorPos;
   showStepCursor();
   
-  // Mode Loop → mémoriser la bar de départ pour la sélection de région
+  // Mode Loop → mémoriser la bar de départ pour le déplacement
   if (S.mode === 'loop') {
-    _gamepadBLong = true; // considéré comme maintenu pour le D-pad
-    // Appeler pressLoopStep pour initialiser _loopBarHeld
-    pressLoopStep(stepCursorPos);
+    _gamepadBLong = true;
+    S._loopBarHeld = stepCursorPos; // bar saisie
+    saveUndo(); // un seul undo pour toute l'opération de déplacement
+    renderLoopMode();
+    const barNotes = countBarNotes(stepCursorPos);
+    oled('SAISIE', `Bar ${stepCursorPos+1}`, `${barNotes} note${barNotes!==1?'s':''} · dpad=déplacer`);
     return;
   }
   
@@ -10162,7 +10165,9 @@ function gamepadForceHold() {
     _gamepadBTimer = null;
     _gamepadBLong = true;
     if (S.mode === 'loop') {
-      pressLoopStep(_gamepadBHeldIdx);
+      S._loopBarHeld = _gamepadBHeldIdx;
+      saveUndo();
+      renderLoopMode();
     } else {
       pressStep(_gamepadBHeldIdx);
     }
@@ -10176,7 +10181,12 @@ function gamepadBUp() {
   _gamepadBTimer = null;
   if (_gamepadBLong) {
     if (S.mode === 'loop') {
-      releaseLoopStep(stepCursorPos);
+      // Fin du déplacement - confirmer la position finale
+      S._loopBarHeld = -1;
+      S._loopBar2 = -1;
+      renderLoopMode();
+      const clip = activeClipObj();
+      oled('LOOP MODE', trackInfo(), `${clip.numBars} bar${clip.numBars>1?'s':''}`);
     } else {
       releaseStep(stepCursorPos);
     }
@@ -10298,8 +10308,6 @@ function moveBarInsert(fromIdx, direction) {
   const maxBar = clip.numBars - 1;
   const toIdx = fromIdx + direction;
   if (toIdx < 0 || toIdx > maxBar) return fromIdx; // bord atteint
-
-  saveUndo();
 
   // Extraire la bar source (mélo + drums)
   const srcBars = clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
