@@ -300,8 +300,8 @@ body {
   rangée pads: 107+22=129, 155+22=177, 203+22=225, 251+22=273
 -->
 
-<!-- R0 col0 — CAPTURE -->
-<g id="btnCapture" cursor="pointer">
+<!-- R0 col0 — CURSOR MODE -->
+<g id="btnCursorMode" cursor="pointer">
   <circle cx="770" cy="129" r="16" fill="#222" stroke="#333" stroke-width="1"/>
   <g stroke="#777" stroke-width="1.8" stroke-linecap="round" fill="none">
     <line x1="762" y1="121" x2="765" y2="121"/><line x1="775" y1="121" x2="778" y2="121"/>
@@ -311,31 +311,29 @@ body {
   </g>
 </g>
 
-<!-- R0 col1 — SETS -->
+<!-- R0 col1 — SETS/PROJECTS -->
 <g id="btnSets" cursor="pointer">
   <circle cx="815" cy="129" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <!-- Icône "new file" : page cornée coin supérieur droit -->
   <g fill="none" stroke="#777" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
     <path d="M808 121 L808 137 L822 137 L822 125 L818 121 Z"/>
     <path d="M818 121 L818 125 L822 125"/>
   </g>
 </g>
 
-<!-- R1 col0 — LOOP -->
-<g id="btnLoop" cursor="pointer">
+<!-- R1 col0 — UNDO -->
+<g id="btnUndo" cursor="pointer">
   <circle cx="770" cy="177" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g transform="translate(770,177) scale(0.0477) translate(-272,-272)">
-    <path fill="#777" d="M545.487,269.909v7.995c0,65.811-53.546,119.338-119.344,119.338H331.24c0,0,22.023-14.931,17.235-46.589h77.668c40.122,0,72.761-32.633,72.761-72.755v-7.995c0-40.125-32.645-72.761-72.761-72.761h-106.85l0,0h-28.176l16.443,41.632c0.579,1.469,0.106,3.142-1.152,4.091c-1.266,0.957-3.003,0.951-4.256-0.018l-86.123-66.198c-0.872-0.665-1.374-1.696-1.374-2.784c0-1.09,0.502-2.125,1.374-2.79l86.123-66.204c0.632-0.496,1.389-0.733,2.146-0.733c0.745,0,1.489,0.231,2.116,0.707c1.259,0.952,1.731,2.627,1.146,4.093l-16.432,41.636h28.17v-0.006h106.844C491.941,150.562,545.487,204.104,545.487,269.909z M243.34,302.628c-1.253-0.964-2.991-0.97-4.256-0.012c-1.259,0.951-1.731,2.63-1.149,4.09l16.438,41.63h-28.174l0,0H119.344c-40.122,0-72.758-32.646-72.758-72.762v-7.997c0-40.117,32.642-72.759,72.758-72.759h77.667c-4.788-31.649,17.233-46.586,17.233-46.586h-94.9C53.543,148.233,0,201.767,0,267.578v7.997c0,65.811,53.543,119.345,119.344,119.345h106.843v-0.007h28.173l-16.438,41.63c-0.582,1.472-0.109,3.15,1.149,4.096c0.63,0.479,1.375,0.71,2.119,0.71c0.75,0,1.513-0.236,2.143-0.733l86.12-66.2c0.875-0.668,1.377-1.696,1.377-2.79c0-1.1-0.502-2.122-1.377-2.79L243.34,302.628z"/>
+  <g transform="translate(770,177) scale(1.083) translate(-12,-12)">
+    <path d="M7 13L3 9M3 9L7 5M3 9H16C18.7614 9 21 11.2386 21 14C21 16.7614 18.7614 19 16 19H11"
+      stroke="#777" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
 </g>
 
-<!-- R1 col1 — MUTE -->
-<g id="btnMute" cursor="pointer">
+<!-- R1 col1 — LOOP -->
+<g id="btnLoop" cursor="pointer">
   <circle cx="815" cy="177" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g stroke="#777" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="809" y="172" width="6" height="10" rx="1"/>
-    <path d="M 815 173.5 L 821 169 L 821 185 L 815 180.5"/>
-    <line x1="808" y1="170" x2="824" y2="184" stroke-width="1.6"/>
+  <g transform="translate(815,177) scale(0.0477) translate(-272,-272)">
+    <path fill="#777" d="M545.487,269.909v7.995c0,65.811-53.546,119.338-119.344,119.338H331.24c0,0,22.023-14.931,17.235-46.589h77.668c40.122,0,72.761-32.633,72.761-72.755v-7.995c0-40.125-32.645-72.761-72.761-72.761h-106.85l0,0h-28.176l16.443,41.632c0.579,1.469,0.106,3.142-1.152,4.091c-1.266,0.957-3.003,0.951-4.256-0.018l-86.123-66.198c-0.872-0.665-1.374-1.696-1.374-2.784c0-1.09,0.502-2.125,1.374-2.79l86.123-66.204c0.632-0.496,1.389-0.733,2.146-0.733c0.745,0,1.489,0.231,2.116,0.707c1.259,0.952,1.731,2.627,1.146,4.093l-16.432,41.636h28.17v-0.006h106.844C491.941,150.562,545.487,204.104,545.487,269.909z M243.34,302.628c-1.253-0.964-2.991-0.97-4.256-0.012c-1.259,0.951-1.731,2.63-1.149,4.09l16.438,41.63h-28.174l0,0H119.344c-40.122,0-72.758-32.646-72.758-72.762v-7.997c0-40.117,32.642-72.759,72.758-72.759h77.667c-4.788-31.649,17.233-46.586,17.233-46.586h-94.9C53.543,148.233,0,201.767,0,267.578v7.997c0,65.811,53.543,119.345,119.344,119.345h106.843v-0.007h28.173l-16.438,41.63c-0.582,1.472-0.109,3.15,1.149,4.096c0.63,0.479,1.375,0.71,2.119,0.71c0.75,0,1.513-0.236,2.143-0.733l86.12-66.2c0.875-0.668,1.377-1.696,1.377-2.79c0-1.1-0.502-2.122-1.377-2.79L243.34,302.628z"/>
   </g>
 </g>
 
@@ -346,22 +344,23 @@ body {
   <line x1="778" y1="217" x2="762" y2="233" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
 </g>
 
-<!-- R2 col1 — COPY -->
-<g id="btnCopy" cursor="pointer">
+<!-- R2 col1 — MUTE -->
+<g id="btnMute" cursor="pointer">
   <circle cx="815" cy="225" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g stroke="#777" stroke-width="1.4" fill="none" stroke-linecap="round">
-    <rect x="806" y="220" width="11" height="11" rx="1.5"/>
-    <line x1="812" y1="216" x2="821" y2="216"/>
-    <line x1="821" y1="216" x2="821" y2="227"/>
+  <g stroke="#777" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <rect x="809" y="220" width="6" height="10" rx="1"/>
+    <path d="M 815 221.5 L 821 217 L 821 233 L 815 228.5"/>
+    <line x1="808" y1="218" x2="824" y2="232" stroke-width="1.6"/>
   </g>
 </g>
 
-<!-- R3 col0 — UNDO -->
-<g id="btnUndo" cursor="pointer">
+<!-- R3 col0 — COPY -->
+<g id="btnCopy" cursor="pointer">
   <circle cx="770" cy="273" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g transform="translate(770,273) scale(1.083) translate(-12,-12)">
-    <path d="M7 13L3 9M3 9L7 5M3 9H16C18.7614 9 21 11.2386 21 14C21 16.7614 18.7614 19 16 19H11"
-      stroke="#777" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <g stroke="#777" stroke-width="1.4" fill="none" stroke-linecap="round">
+    <rect x="761" y="268" width="11" height="11" rx="1.5"/>
+    <line x1="767" y1="264" x2="776" y2="264"/>
+    <line x1="776" y1="264" x2="776" y2="275"/>
   </g>
 </g>
 
@@ -444,7 +443,11 @@ body {
     <rect id="step15" x="806" y="311" width="43" height="40" rx="6" fill="#888" stroke="#aaa" stroke-width="0.8" cursor="pointer"/>
   </g>
 
-<!-- ══ ZONE CLAVIER ══ translate(14, 344) pour déplacer tout -->
+<!-- ══ CURSEUR STEP (gamepad) ══ -->
+  <rect id="stepCursor" x="11" y="311" width="43" height="40" rx="6"
+    fill="none" stroke="#fff" stroke-width="2" pointer-events="none" opacity="0">
+    <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.2s" repeatCount="indefinite"/>
+  </rect>
   <g id="keyboardZone" transform="translate(10, 374)">
 
     <!-- Sélecteur octave -->
@@ -1378,9 +1381,9 @@ function renderFXPanel() {
   const t = S.tracks[ti];
   const isDrum   = t.mode === 'drum';
   const isMaster = t.mode === 'master';
-  const showFX   = (S.mode === 'note') && !isDrum && !isMaster && !projectModeActive;
-  const showDrum = (S.mode === 'note') && isDrum && !projectModeActive;
-  const showMaster = (S.mode === 'note') && isMaster && !projectModeActive;
+  const showFX   = (S.mode === 'note' || S.mode === 'loop') && !isDrum && !isMaster && !projectModeActive;
+  const showDrum = (S.mode === 'note' || S.mode === 'loop') && isDrum && !projectModeActive;
+  const showMaster = (S.mode === 'note' || S.mode === 'loop') && isMaster && !projectModeActive;
   const showPanel  = showFX || showDrum || showMaster;
 
   // Reset fxPage si invalide pour cette track
@@ -3970,10 +3973,17 @@ function selectTrack(ti) {
 
   // Sur la piste Master : vider le séquenceur (pas de steps)
   if (isMaster) {
+    hideStepCursor();
+    // Désactiver loop mode si actif
+    if (S.mode === 'loop') {
+      S.mode = 'note';
+      S._loopBarHeld = -1; S._loopBar2 = -1;
+      setBtnLit('btnLoop', false, '#3ddc84');
+    }
     resetAllSteps();
   }
 
-  if (S.mode === 'session' && !S._mHeld && !heldKeys.has('Numpad9')) {
+  if (S.mode === 'session' && !S._mHeld && !heldKeys.has('Numpad6')) {
     S.currentBar = 0;
     if (isMaster) {
       // Master depuis session → sortir du mode session pour afficher le panel FX
@@ -3992,11 +4002,15 @@ function selectTrack(ti) {
     }
     oled(`TRACK ${ti+1}`, getSound(ti).name, isMaster ? 'MASTER BUS' : t.mode.toUpperCase());
   }
-  if (S.mode === 'session') renderTrackButtons();
+  if (S.mode === 'session') {
+    renderTrackButtons();
+    renderSessionMode(); // re-render session grid with new track highlighted
+  }
   if (S.pianoOpen && !isMaster) { illuminatePianoNotes(); }
   updateEncArcs();
   updateSendArcs();
   renderFXPanel();
+  renderTrackButtons(); // toujours re-render en dernier pour garantir l'état correct
 }
 
 function toggleStep(i) {
@@ -4502,9 +4516,9 @@ const STEP_CODES = ['KeyZ','KeyX','KeyC','KeyV','KeyB','KeyN','KeyA','KeyS','Key
 function setNumpadLit(code, on) {
   // Allume/éteint visuellement le bouton SVG correspondant
   const map = {
-    'Numpad8':'btnLoop','Numpad9':'btnMute',
-    'Numpad5':'btnDelete','Numpad6':'btnCopy',
-    'Numpad2':'btnUndo','Numpad3':'btnShift'
+    'Numpad8':'btnUndo','Numpad9':'btnLoop',
+    'Numpad5':'btnDelete','Numpad6':'btnMute',
+    'Numpad2':'btnCopy','Numpad3':'btnShift'
   };
   const id = map[code];
   if (!id) return;
@@ -4521,15 +4535,11 @@ function setNumpadLit(code, on) {
 
 function setShiftOn(on) {
   S.shiftHeld = on;
-  const c = svg('btnShift').querySelector('circle');
-  c.setAttribute('fill', on ? '#2a2210' : '#222');
-  c.setAttribute('stroke', on ? '#f0a020' : '#333');
-  // Feedback OLED momentané sur activation shift
+  setBtnLit('btnShift', on, '#f0a020');
   if (on) {
-    oledForce('⇧ SHIFT', 'actif', '↑↓=transpose · ←→=bars');
+    oled('SHIFT', 'Shift...', '');
   } else {
     S._oledLocked = false;
-    // Rétablir l'affichage contextuel
     if (S.mode === 'loop') {
       const clip = activeClipObj();
       const lo = clip.loopStart ?? 0;
@@ -4555,32 +4565,42 @@ document.addEventListener('keydown', e => {
   }
 
   // Pavé numérique — momentané (keydown = press, keyup = release)
-  // Numpad8 = Loop : court = toggle loop mode, long = hold pour combos
+  // Numpad8 = Undo (position R1 col0)
   if (e.code === 'Numpad8') {
     heldKeys.add('Numpad8'); setNumpadLit('Numpad8', true);
-    // Timer identique à la logique du bouton SVG
-    S._numpad8PressTime = Date.now();
-    S._numpad8LongFired = false;
-    S._numpad8Timer = setTimeout(() => {
-      S._numpad8LongFired = true;
-      setLoopHeld(true); // appui long → mode combo
+    return;
+  }
+  // Numpad9 = Loop (position R1 col1) : court = toggle loop mode, long = hold pour combos
+  if (e.code === 'Numpad9') {
+    heldKeys.add('Numpad9'); setNumpadLit('Numpad9', true);
+    S._numpad9PressTime = Date.now();
+    S._numpad9LongFired = false;
+    S._numpad9Timer = setTimeout(() => {
+      S._numpad9LongFired = true;
+      setLoopHeld(true);
     }, LOOP_LONG_MS);
     return;
   }
-  if (e.code === 'Numpad9') { heldKeys.add('Numpad9'); setNumpadLit('Numpad9', true); return; }
+  // Numpad5 = Delete (position R2 col0)
   if (e.code === 'Numpad5') {
     heldKeys.add('Numpad5'); setNumpadLit('Numpad5', true);
     S._deleteHeld = true; setDeleteLit(true);
     oled('DELETE', 'Delete...', '');
     return;
   }
+  // Numpad6 = Mute (position R2 col1)
   if (e.code === 'Numpad6') {
     heldKeys.add('Numpad6'); setNumpadLit('Numpad6', true);
+    return;
+  }
+  // Numpad2 = Copy (position R3 col0)
+  if (e.code === 'Numpad2') {
+    heldKeys.add('Numpad2'); setNumpadLit('Numpad2', true);
     S._copyHeld = true; S._copySource = null; setCopyLit(true);
     oled('COPY', 'Copy...', '');
     return;
   }
-  if (e.code === 'Numpad2') { heldKeys.add('Numpad2'); setNumpadLit('Numpad2', true); return; }
+  // Numpad3 = Shift (position R3 col1)
   if (e.code === 'Numpad3') {
     heldKeys.add('Numpad3');
     setNumpadLit('Numpad3', true);
@@ -4588,10 +4608,9 @@ document.addEventListener('keydown', e => {
     return;
   }
 
-  // NumpadEqual (=) → bouton Capture — flash visuel, aucune action pour l'instant
+  // NumpadEqual (=) → bouton CursorMode — toggle cursor
   if (e.code === 'NumpadEqual') {
-    setBtnLit('btnCapture', true);
-    setTimeout(() => setBtnLit('btnCapture', false), 150);
+    svg('btnCursorMode').dispatchEvent(new Event('click'));
     return;
   }
 
@@ -4658,6 +4677,7 @@ document.addEventListener('keydown', e => {
     if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(12);
     else if (S._loopHeld)                         duplicatePattern();
     else if (anyStepHeld())                       transposeHeldSteps(1);
+    else                                          navBar(1);
     return;
   }
   if (key === 'arrowdown') {
@@ -4667,6 +4687,7 @@ document.addEventListener('keydown', e => {
     if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(-12);
     else if (S._loopHeld)                         halvePattern();
     else if (anyStepHeld())                       transposeHeldSteps(-1);
+    else                                          navBar(-1);
     return;
   }
   if (key === 'arrowleft')  {
@@ -4675,7 +4696,7 @@ document.addEventListener('keydown', e => {
     if (S._loopHeld)         compressPattern();
     else if (anyStepHeld())  nudgeHeldSteps(-1);
     else if (S.shiftHeld)    removeBar();
-    else                     navBar(-1);
+    else                     moveStepCursor(-1);
     return;
   }
   if (key === 'arrowright') {
@@ -4684,7 +4705,7 @@ document.addEventListener('keydown', e => {
     if (S._loopHeld)         stretchPattern();
     else if (anyStepHeld())  nudgeHeldSteps(1);
     else if (S.shiftHeld)    addBar();
-    else                     navBar(1);
+    else                     moveStepCursor(1);
     return;
   }
   // + / - : loop = dup/halve, seul = BPM (transposition via Shift+↑/↓)
@@ -4731,6 +4752,11 @@ document.addEventListener('keydown', e => {
     heldKeys.add('Tab');
     modePressTime = Date.now();
     setModeButtonLit(true);
+    if (S.mode === 'loop') {
+      S.mode = 'note';
+      S._loopBarHeld = -1; S._loopBar2 = -1;
+      setBtnLit('btnLoop', false, '#3ddc84');
+    }
     const otherMode = S.mode === 'note' ? 'session' : 'note';
     enterMode(otherMode);
     return;
@@ -4769,39 +4795,44 @@ document.addEventListener('keyup', e => {
   }
 
   // Relâchement pavé numérique — déclenche l'action au keyup (momentané)
+  // Numpad8 = Undo
   if (e.code === 'Numpad8') {
     heldKeys.delete('Numpad8'); setNumpadLit('Numpad8', false);
-    if (S._numpad8Timer) { clearTimeout(S._numpad8Timer); S._numpad8Timer = null; }
-    if (!S._numpad8LongFired) {
-      toggleLoopMode(); // appui court → bascule loop mode
-    } else {
-      setLoopHeld(false); // relâche le combo hold
-    }
-    S._numpad8LongFired = false;
+    if (S.shiftHeld) doRedo(); else doUndo();
     return;
   }
+  // Numpad9 = Loop : court = toggle, long = combo hold
   if (e.code === 'Numpad9') {
     heldKeys.delete('Numpad9'); setNumpadLit('Numpad9', false);
-    // Mute déclenché par combo avec track button — pas d'action solo ici
+    if (S._numpad9Timer) { clearTimeout(S._numpad9Timer); S._numpad9Timer = null; }
+    if (!S._numpad9LongFired) {
+      toggleLoopMode();
+    } else {
+      setLoopHeld(false);
+    }
+    S._numpad9LongFired = false;
     return;
   }
+  // Numpad5 = Delete
   if (e.code === 'Numpad5') {
     heldKeys.delete('Numpad5'); setNumpadLit('Numpad5', false);
     S._deleteHeld = false; setDeleteLit(false);
     return;
   }
+  // Numpad6 = Mute — pas d'action solo, combo avec track button
   if (e.code === 'Numpad6') {
     heldKeys.delete('Numpad6'); setNumpadLit('Numpad6', false);
+    return;
+  }
+  // Numpad2 = Copy
+  if (e.code === 'Numpad2') {
+    heldKeys.delete('Numpad2'); setNumpadLit('Numpad2', false);
     S._copyHeld = false; S._copySource = null; setCopyLit(false);
     return;
   }
-  if (e.code === 'Numpad2') {
-    heldKeys.delete('Numpad2'); setNumpadLit('Numpad2', false);
-    if (S.shiftHeld) doRedo(); else doUndo(); return;
-  }
+  // Numpad3 = Shift
   if (e.code === 'Numpad3') {
     heldKeys.delete('Numpad3'); setNumpadLit('Numpad3', false);
-    // Relâche shift seulement si Shift physique pas tenu
     if (!e.shiftKey) setShiftOn(false);
     return;
   }
@@ -5045,7 +5076,7 @@ function handleTrackButtonClick(slot) {
     openRoutingMenu(ti);
     return;
   }
-  if (heldKeys.has('Numpad9') || S._mHeld) {
+  if (heldKeys.has('Numpad6') || S._mHeld) {
     if (S.shiftHeld) soloTrack(ti);
     else muteTrack(ti);
     return;
@@ -5616,13 +5647,14 @@ for (let r = 0; r < 4; r++) {
 
 // Function buttons
 svg('btnMute').addEventListener('mousedown', () => {
+  if (projectModeActive) return;
   S._mHeld = true;
-  setBtnLit('btnMute', true);
+  setBtnLit('btnMute', true, '#ff6b00');
   oled('MUTE', 'Mute...', '');
 });
 svg('btnMute').addEventListener('mouseup', () => {
   S._mHeld = false;
-  setBtnLit('btnMute', false);
+  setBtnLit('btnMute', false, '#ff6b00');
 });
 // Delete : maintenu = active _deleteHeld pour supprimer clips en session
 // Plus de clear bar au simple clic (trop dangereux)
@@ -5630,18 +5662,49 @@ svg('btnMute').addEventListener('mouseup', () => {
 function setBtnLit(id, on, color) {
   const g = svg(id);
   if (!g) return;
-  const circle = g.querySelector('circle');
-  if (!circle) return;
   const col = color || '#aaa';
-  circle.setAttribute('fill',         on ? '#1a1a22' : '#222');
-  circle.setAttribute('stroke',       on ? col       : '#333');
-  circle.setAttribute('stroke-width', '1');
+  const offCol = '#777';
+  // Main circle (first circle child)
+  const mainCircle = g.querySelector('circle');
+  if (mainCircle) {
+    mainCircle.setAttribute('fill',         on ? '#1a1a22' : '#222');
+    mainCircle.setAttribute('stroke',       on ? col       : '#333');
+    mainCircle.setAttribute('stroke-width', '1');
+  }
+  // Nested <g> groups with stroke (icon containers) — set group stroke
+  g.querySelectorAll('g').forEach(sub => {
+    if (sub.getAttribute('stroke')) {
+      sub.setAttribute('stroke', on ? col : offCol);
+    }
+  });
+  // All lines
+  g.querySelectorAll('line').forEach(l => l.setAttribute('stroke', on ? col : offCol));
+  // All paths
+  g.querySelectorAll('path').forEach(p => {
+    if (p.getAttribute('fill') && p.getAttribute('fill') !== 'none') {
+      p.setAttribute('fill', on ? col : offCol);
+    }
+    if (p.getAttribute('stroke') && p.getAttribute('stroke') !== 'none') {
+      p.setAttribute('stroke', on ? col : offCol);
+    }
+  });
+  // Rects inside (not the main circle) — for icons like copy/mute
+  g.querySelectorAll('rect').forEach(r => {
+    if (r.getAttribute('stroke') && r.getAttribute('stroke') !== 'none') {
+      r.setAttribute('stroke', on ? col : offCol);
+    }
+  });
+  // Small circles inside (like shift dots)
+  const allCircles = g.querySelectorAll('circle');
+  allCircles.forEach((c, i) => {
+    if (i === 0) return; // skip main circle
+    if (c.getAttribute('fill') && c.getAttribute('fill') !== 'none') {
+      c.setAttribute('fill', on ? col : offCol);
+    }
+  });
 }
 
 function setDeleteLit(on) {
-  svg('btnDelete').querySelectorAll('line').forEach(l =>
-    l.setAttribute('stroke', on ? '#ff4444' : '#777')
-  );
   setBtnLit('btnDelete', on, '#ff4444');
 }
 
@@ -5649,7 +5712,7 @@ S._deleteHeld = false;
 S._copyHeld = false;
 S._copySource = null;
 
-function setCopyLit(on) { setBtnLit('btnCopy', on); }
+function setCopyLit(on) { setBtnLit('btnCopy', on, '#4af'); }
 
 // DELETE : maintenir = actif, relâcher n'importe où = désactiver
 svg('btnDelete').addEventListener('mousedown', () => {
@@ -5667,30 +5730,53 @@ svg('btnCopy').addEventListener('mousedown', () => {
 });
 
 document.addEventListener('mouseup', (e) => {
-  // Ne relâcher que si le mouseup vient du bouton lui-même ou d'ailleurs que les pads
-  // On vérifie si le target est ou contient le bouton
-  const onDeleteBtn = svg('btnDelete').contains(e.target);
-  const onCopyBtn   = svg('btnCopy').contains(e.target);
-  if (S._deleteHeld && onDeleteBtn) { S._deleteHeld = false; setDeleteLit(false); }
-  if (S._copyHeld   && onCopyBtn)   { S._copyHeld = false; S._copySource = null; setCopyLit(false); }
+  // Relâcher delete/copy/mute/shift n'importe où (pas seulement sur le bouton)
+  if (S._deleteHeld) { S._deleteHeld = false; setDeleteLit(false); }
+  if (S._copyHeld)   { S._copyHeld = false; S._copySource = null; setCopyLit(false); }
+  if (S._mHeld)      { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); }
+  if (S.shiftHeld && !heldKeys.has('Numpad3'))  { setShiftOn(false); }
 });
 
-svg('btnUndo').addEventListener('mousedown', () => setBtnLit('btnUndo', true));
-svg('btnUndo').addEventListener('mouseup',   () => { setBtnLit('btnUndo', false); if (S.shiftHeld) doRedo(); else doUndo(); });
-svg('btnUndo').addEventListener('mouseleave',() => setBtnLit('btnUndo', false));
+svg('btnUndo').addEventListener('mousedown', () => setBtnLit('btnUndo', true, '#aaa'));
+svg('btnUndo').addEventListener('mouseup',   () => { setBtnLit('btnUndo', false, '#aaa'); if (S.shiftHeld) doRedo(); else doUndo(); });
+svg('btnUndo').addEventListener('mouseleave',() => setBtnLit('btnUndo', false, '#aaa'));
 
-// Capture — placeholder, flash visuel seulement
-svg('btnCapture').addEventListener('click', () => {
-  setBtnLit('btnCapture', true);
-  setTimeout(() => setBtnLit('btnCapture', false), 150);
+// CursorMode — toggle step cursor on/off
+var cursorEnabled = true;
+
+function setCursorModeVisual() {
+  const col = cursorEnabled ? '#aaa' : '#333';
+  const g = svg('btnCursorMode');
+  if (!g) return;
+  const circle = g.querySelector('circle');
+  if (circle) {
+    circle.setAttribute('stroke', cursorEnabled ? '#aaa' : '#333');
+    circle.setAttribute('fill', cursorEnabled ? '#1a1a22' : '#222');
+  }
+  const lines = g.querySelectorAll('line');
+  lines.forEach(l => l.setAttribute('stroke', cursorEnabled ? '#aaa' : '#777'));
+}
+
+svg('btnCursorMode').addEventListener('click', () => {
+  cursorEnabled = !cursorEnabled;
+  setCursorModeVisual();
+  if (!cursorEnabled) hideStepCursor();
+  oledForce('CURSOR', cursorEnabled ? 'ON' : 'OFF', cursorEnabled ? 'D-pad = steps' : 'D-pad = bars');
+  setTimeout(() => { S._oledLocked = false; }, 1000);
 });
+
+// Initialiser le visuel du bouton cursor mode au démarrage
+setTimeout(setCursorModeVisual, 100);
 
 // Sets — toggle project mode
 svg('btnSets').addEventListener('click', () => {
-  setBtnLit('btnSets', true);
-  setTimeout(() => setBtnLit('btnSets', false), 150);
-  if (projectModeActive) exitProjectMode();
-  else enterProjectMode();
+  if (projectModeActive) {
+    exitProjectMode();
+    setBtnLit('btnSets', false, '#aaa');
+  } else {
+    enterProjectMode();
+    setBtnLit('btnSets', true, '#aaa');
+  }
 });
 // Bouton Loop : maintenu + autre bouton = combo
 // ── Bouton LOOP : hold détecté au niveau document ──
@@ -5704,6 +5790,9 @@ let loopPressTimer = null;
 const LOOP_LONG_MS = 300;
 
 svg('btnLoop').addEventListener('mousedown', e => {
+  if (projectModeActive) return;
+  if (S.tracks[S.currentTrack].mode === 'master') return;
+  if (S.mode === 'session') return;
   e.preventDefault();
   loopPressTimer = setTimeout(() => {
     loopPressTimer = null;
@@ -5744,6 +5833,7 @@ svg('btnPlus').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(12);
   else if (anyStepHeld()) transposeHeldSteps(1);
+  else                    navBar(1);
 });
 
 svg('btnMinus').addEventListener('mousedown', e => {
@@ -5757,6 +5847,7 @@ svg('btnMinus').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(-12);
   else if (anyStepHeld()) transposeHeldSteps(-1);
+  else                    navBar(-1);
 });
 
 svg('btnLeft').addEventListener('mousedown', e => {
@@ -5770,7 +5861,7 @@ svg('btnLeft').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (anyStepHeld())     nudgeHeldSteps(-1);
   else if (S.shiftHeld)  removeBar();
-  else                   navBar(-1);
+  else                   moveStepCursor(-1);
 });
 
 svg('btnRight').addEventListener('mousedown', e => {
@@ -5784,7 +5875,7 @@ svg('btnRight').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (anyStepHeld())     nudgeHeldSteps(1);
   else if (S.shiftHeld)  addBar();
-  else                   navBar(1);
+  else                   moveStepCursor(1);
 });
 svg('btnShift').addEventListener('mousedown', () => {
   setShiftOn(true);
@@ -5816,6 +5907,12 @@ function enterMode(m) {
   if (projectModeActive) return;
   S.mode = m;
   if (m === 'session') {
+    // Désactiver loop mode si actif
+    if (S._loopBarHeld >= 0 || S._loopBar2 >= 0) {
+      S._loopBarHeld = -1; S._loopBar2 = -1;
+    }
+    setBtnLit('btnLoop', false, '#3ddc84');
+    hideStepCursor();
     resetDirButtons();
     renderSessionMode();
     updateEncArcs();
@@ -5885,6 +5982,12 @@ svg('btnBack').addEventListener('click', () => {
 svg('btnMode').addEventListener('mousedown', () => {
   modePressTime = Date.now();
   setModeButtonLit(true);
+  // Désactiver loop si actif avant de basculer
+  if (S.mode === 'loop') {
+    S.mode = 'note';
+    S._loopBarHeld = -1; S._loopBar2 = -1;
+    setBtnLit('btnLoop', false, '#3ddc84');
+  }
   // Basculer provisoirement dans l'autre mode
   const otherMode = S.mode === 'note' ? 'session' : 'note';
   enterMode(otherMode);
@@ -6831,6 +6934,12 @@ const PROJECT_DBLCLICK_MS = 400;
 
 function enterProjectMode() {
   if (S.playing) stopPlay();
+  // Désactiver loop mode si actif
+  if (S.mode === 'loop') {
+    S.mode = 'note';
+    S._loopBarHeld = -1; S._loopBar2 = -1;
+    setBtnLit('btnLoop', false, '#3ddc84');
+  }
   projectModeActive = true;
   projectSelected = null;
   _projectLastClick = { slot: -1, time: 0 };
@@ -6850,12 +6959,17 @@ function exitProjectMode() {
   projectModeActive = false;
   projectSelected = null;
   S._oledLocked = false;
+  setBtnLit('btnSets', false, '#aaa');
   _projectDimControls(false);
   clearAllDynamicLabels();
   resetAllPads();
   resetAllSteps();
   renderTrackButtons();
-  renderPads();
+  if (S.mode === 'loop') {
+    renderLoopMode();
+  } else {
+    renderPads();
+  }
   renderSteps();
   renderFXPanel();
   updateEncArcs();
@@ -8111,6 +8225,11 @@ function midiCC(cc, value) {
   if (cc === 117) {
     // Mode/burger — flash lumineux + toggle session/note
     setModeButtonLit(true);
+    if (S.mode === 'loop') {
+      S.mode = 'note';
+      S._loopBarHeld = -1; S._loopBar2 = -1;
+      setBtnLit('btnLoop', false, '#3ddc84');
+    }
     const otherMode = S.mode === 'note' ? 'session' : 'note';
     enterMode(otherMode);
     setTimeout(() => setModeButtonLit(false), 150);
@@ -8615,6 +8734,9 @@ function toggleRec() {
 // ═══════════════════════════════════════════════════════════════
 
 function toggleLoopMode() {
+  if (projectModeActive) return;
+  if (S.tracks[S.currentTrack].mode === 'master') return;
+  if (S.mode === 'session') return;
   if (S.mode === 'loop') {
     S.mode = 'note';
     S._loopBarHeld = -1; S._loopBar2 = -1;
@@ -9859,6 +9981,188 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
     .then(r => console.log('[J-seq] SW registered'))
     .catch(e => console.warn('[J-seq] SW failed:', e));
 }
+
+// ── Step Cursor (gamepad navigation) ─────────────────────────
+// Curseur visible sur les 16 steps, déplacé par croix directionnelle
+var stepCursorPos = 0;
+var stepCursorVisible = false;
+var _gamepadBHeld = false;
+var _gamepadBTimer = null;
+var _gamepadBLong = false;
+const STEP_X_POSITIONS = [11,64,117,170,223,276,329,382,435,488,541,594,647,700,753,806];
+
+function updateStepCursor() {
+  const cur = document.getElementById('stepCursor');
+  if (!cur) return;
+  cur.setAttribute('x', STEP_X_POSITIONS[stepCursorPos]);
+  if (stepCursorVisible) {
+    // Show the cursor animation
+    cur.setAttribute('opacity', '0.8');
+    cur.innerHTML = '<animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.2s" repeatCount="indefinite"/>';
+  } else {
+    cur.setAttribute('opacity', '0');
+    cur.innerHTML = '';
+  }
+}
+
+function showStepCursor() {
+  stepCursorVisible = true;
+  updateStepCursor();
+}
+
+function hideStepCursor() {
+  stepCursorVisible = false;
+  updateStepCursor();
+}
+
+function moveStepCursor(delta) {
+  // Désactivé sur master, session, ou si cursorMode off → fallback navBar
+  if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') {
+    navBar(delta);
+    return;
+  }
+  stepCursorPos = ((stepCursorPos + delta) % 16 + 16) % 16; // cycle 0-15
+  showStepCursor();
+  // Feedback OLED bref
+  const bar = currentStepBar();
+  const st = bar[stepCursorPos];
+  const t = S.tracks[S.currentTrack];
+  let info = st.on ? 'ON' : '—';
+  if (st.on && t.mode !== 'drum') info = noteName(st.note);
+  oled(`STEP ${stepCursorPos + 1}`, info, `Bar ${S.currentBar + 1}`);
+}
+
+// Gamepad button B : appui court = toggle step, appui long = hold step
+function gamepadBDown() {
+  if (_gamepadBHeld) return;
+  if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') return;
+  _gamepadBHeld = true;
+  _gamepadBLong = false;
+  showStepCursor();
+  _gamepadBTimer = setTimeout(() => {
+    // Appui long → maintenir le step (comme un doigt sur l'écran)
+    _gamepadBLong = true;
+    pressStep(stepCursorPos);
+  }, 300);
+}
+
+function gamepadBUp() {
+  if (!_gamepadBHeld) return;
+  _gamepadBHeld = false;
+  clearTimeout(_gamepadBTimer);
+  if (_gamepadBLong) {
+    // Relâcher le step maintenu
+    releaseStep(stepCursorPos);
+    _gamepadBLong = false;
+  } else {
+    // Appui court → toggle step on/off
+    ensureAudio();
+    toggleStep(stepCursorPos);
+    renderSteps();
+    updateStepCursor();
+  }
+}
+
+// ── Gamepad polling loop ─────────────────────────────────────
+let _gpPrevButtons = {};
+let _gpPrevAxes = [0, 0, 0, 0];
+
+function pollGamepad() {
+  const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+  for (const gp of gamepads) {
+    if (!gp) continue;
+
+    // D-pad via axes (axe 0 = horizontal, axe 1 = vertical) ou boutons 12-15
+    const axes = gp.axes;
+    const btns = gp.buttons;
+
+    // Bouton B = index 1 (standard mapping)
+    const bPressed = btns[1]?.pressed || false;
+    const bWas = _gpPrevButtons[gp.index + '_1'] || false;
+    if (bPressed && !bWas) gamepadBDown();
+    if (!bPressed && bWas) gamepadBUp();
+    _gpPrevButtons[gp.index + '_1'] = bPressed;
+
+    // L1=4 (Copy), R1=5 (Shift), L2=6 (Delete), R2=7 (Mute)
+    const shoulders = [
+      { idx: 4, down: () => { S._copyHeld = true; S._copySource = null; setCopyLit(true); oled('COPY', 'Copy...', ''); },
+               up:   () => { S._copyHeld = false; S._copySource = null; setCopyLit(false); } },
+      { idx: 5, down: () => { setShiftOn(true); },
+               up:   () => { setShiftOn(false); } },
+      { idx: 6, down: () => { S._deleteHeld = true; setDeleteLit(true); oled('DELETE', 'Delete...', ''); },
+               up:   () => { S._deleteHeld = false; setDeleteLit(false); } },
+      { idx: 7, down: () => { S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', 'Mute...', ''); },
+               up:   () => { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); } },
+    ];
+    shoulders.forEach(s => {
+      const pressed = btns[s.idx]?.pressed || false;
+      const was = _gpPrevButtons[gp.index + '_' + s.idx] || false;
+      if (pressed && !was) s.down();
+      if (!pressed && was) s.up();
+      _gpPrevButtons[gp.index + '_' + s.idx] = pressed;
+    });
+
+    // D-pad buttons (standard: 12=up, 13=down, 14=left, 15=right)
+    const dirs = [
+      { idx: 12, name: 'up' },
+      { idx: 13, name: 'down' },
+      { idx: 14, name: 'left' },
+      { idx: 15, name: 'right' }
+    ];
+    dirs.forEach(d => {
+      const pressed = btns[d.idx]?.pressed || false;
+      const was = _gpPrevButtons[gp.index + '_' + d.idx] || false;
+      if (pressed && !was) {
+        if (anyStepHeld()) {
+          // Step maintenu → transpose/nudge (comportement existant)
+          if (d.name === 'up')    transposeHeldSteps(1);
+          if (d.name === 'down')  transposeHeldSteps(-1);
+          if (d.name === 'left')  nudgeHeldSteps(-1);
+          if (d.name === 'right') nudgeHeldSteps(1);
+        } else {
+          // Pas de step maintenu → curseur/navigation
+          if (d.name === 'left')  moveStepCursor(-1);
+          if (d.name === 'right') moveStepCursor(1);
+          if (d.name === 'up')    navBar(1);
+          if (d.name === 'down')  navBar(-1);
+        }
+      }
+      _gpPrevButtons[gp.index + '_' + d.idx] = pressed;
+    });
+
+    // D-pad via axes (fallback pour certains gamepads)
+    const axH = Math.round(axes[0] || 0); // -1=left, 1=right
+    const axV = Math.round(axes[1] || 0); // -1=up, 1=down
+    const prevH = Math.round(_gpPrevAxes[0] || 0);
+    const prevV = Math.round(_gpPrevAxes[1] || 0);
+    if (axH !== prevH || axV !== prevV) {
+      if (!anyStepHeld()) {
+        if (axH === -1 && prevH !== -1) moveStepCursor(-1);
+        if (axH ===  1 && prevH !==  1) moveStepCursor(1);
+        if (axV === -1 && prevV !== -1) navBar(1);   // stick up = bar suivante
+        if (axV ===  1 && prevV !==  1) navBar(-1);  // stick down = bar précédente
+      } else {
+        if (axH === -1 && prevH !== -1) nudgeHeldSteps(-1);
+        if (axH ===  1 && prevH !==  1) nudgeHeldSteps(1);
+        if (axV === -1 && prevV !== -1) transposeHeldSteps(1);
+        if (axV ===  1 && prevV !==  1) transposeHeldSteps(-1);
+      }
+    }
+    _gpPrevAxes = [axes[0] || 0, axes[1] || 0];
+
+    break; // Utiliser seulement le premier gamepad connecté
+  }
+  requestAnimationFrame(pollGamepad);
+}
+
+// Démarrer le polling gamepad
+window.addEventListener('gamepadconnected', e => {
+  console.log('[J-seq] Gamepad connecté:', e.gamepad.id);
+  oledForce('GAMEPAD', e.gamepad.id.slice(0, 14), 'Connecté');
+  setTimeout(() => S._oledLocked = false, 1500);
+});
+requestAnimationFrame(pollGamepad);
+
 
 // ── Double-tap encodeurs → reset ─────────────────────────────
 // Ce script est en fin de body — DOM garanti chargé
