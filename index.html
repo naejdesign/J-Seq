@@ -10492,51 +10492,70 @@ function dpadAction(name) {
     // Le D-pad utilise les boutons 12-15 (voir dirs.forEach ci-dessus)
 
     // ── Joysticks analogiques → Encodeurs ─────────────────────────
-    // Joystick gauche : axes[0]=horizontal, axes[1]=vertical
-    // Joystick droit  : axes[2]=horizontal, axes[3]=vertical
-    // Valeurs brutes -1.0 à +1.0, deadzone centrale ignorée
-    // Conversion en delta relatif style MPK : ±1 à ±63
-    const JOY_DEADZONE   = 0.15;  // ignorer les micro-déviations au centre
-    const JOY_SENSITIVITY = 2.5;  // multiplier pour vitesse de changement
+    // Mode "seuil" : joystick poussé fort (> THRESHOLD) = un pas par frame
+    // Auto-repeat : après JOY_DELAY ms, répète toutes les JOY_REPEAT ms
+    // Axe vertical INVERSÉ : haut = positif (intuitif)
+    const JOY_THRESHOLD = 0.65; // seuil de déclenchement (0.0-1.0)
+    const JOY_DELAY     = 350;  // délai avant auto-repeat (ms)
+    const JOY_REPEAT    = 120;  // intervalle auto-repeat (ms)
 
-    function joyToCCValue(raw) {
-      // raw = -1.0..+1.0 → valeur relative MPK style
-      // positif (>0) = horaire = 1..63, négatif (<0) = antihoraire = 65..127
-      if (Math.abs(raw) < JOY_DEADZONE) return 0; // deadzone → rien
-      const mag = Math.min(63, Math.round(Math.abs(raw) * 63 * JOY_SENSITIVITY / 10));
-      if (mag === 0) return 0;
-      return raw > 0 ? mag : (128 - mag); // horaire ou antihoraire
+    // État auto-repeat pour chaque axe
+    if (!window._joyRepeat) window._joyRepeat = {};
+
+    function joyAxisAction(axisId, rawValue, ccNormal, ccShift) {
+      // rawValue : valeur brute -1..+1
+      // Axe vertical : inverser (haut du joystick = augmenter)
+      const val = axisId.endsWith('V') ? -rawValue : rawValue;
+      const rKey = 'joy_' + axisId;
+
+      if (Math.abs(val) < JOY_THRESHOLD) {
+        // Joystick au repos → annuler auto-repeat
+        if (window._joyRepeat[rKey]) {
+          clearTimeout(window._joyRepeat[rKey].timer);
+          clearInterval(window._joyRepeat[rKey].interval);
+          delete window._joyRepeat[rKey];
+        }
+        return;
+      }
+
+      // Déjà en cours de repeat → laisser faire
+      if (window._joyRepeat[rKey]) return;
+
+      // Premier dépassement du seuil → action immédiate + démarrer repeat
+      const cc = (ccShift && S.shiftHeld) ? ccShift : ccNormal;
+      if (!cc) return;
+
+      function fireAction() {
+        const ccNow = (ccShift && S.shiftHeld) ? ccShift : ccNormal;
+        // +1 si poussé dans le sens positif, -1 sinon (encodeur relatif)
+        // Valeur CC : 1 = +1 cran, 127 = -1 cran (convention MPK)
+        midiCC(ccNow, val > 0 ? 1 : 127);
+      }
+
+      fireAction();
+      window._joyRepeat[rKey] = {
+        timer: setTimeout(() => {
+          window._joyRepeat[rKey].interval = setInterval(fireAction, JOY_REPEAT);
+        }, JOY_DELAY),
+        interval: null
+      };
     }
 
     // Séparation joystick gauche / D-pad :
-    // Si un bouton D-pad (12-15) est actuellement pressé → ne pas traiter les axes 0/1
-    // car sur certains gamepads le joystick gauche est en miroir du D-pad
     const dpadActive = btns[12]?.pressed || btns[13]?.pressed ||
                        btns[14]?.pressed || btns[15]?.pressed;
 
     if (!dpadActive) {
-      // Joystick gauche vertical → enc0 (Tune/Length) = CC70
-      const jLV = joyToCCValue(axes[1] || 0);
-      if (jLV !== 0) {
-        const cc = S.shiftHeld ? 75 : 70; // Shift = Delay send
-        midiCC(cc, jLV);
-      }
-
-      // Joystick gauche horizontal → enc1 (Decay/Velocity) = CC71
-      const jLH = joyToCCValue(axes[0] || 0);
-      if (jLH !== 0 && !S.shiftHeld) midiCC(71, jLH);
+      // Joystick gauche vertical → enc0 = CC70, Shift = CC75 (Delay send)
+      joyAxisAction('LV', axes[1] || 0, 70, 75);
+      // Joystick gauche horizontal → enc1 = CC71 (pas de Shift)
+      if (!S.shiftHeld) joyAxisAction('LH', axes[0] || 0, 71, null);
     }
 
-    // Joystick droit vertical → enc2 (Tone/Offset) = CC72
-    const jRV = joyToCCValue(axes[3] || 0);
-    if (jRV !== 0) {
-      const cc = S.shiftHeld ? 76 : 72; // Shift = Reverb send
-      midiCC(cc, jRV);
-    }
-
-    // Joystick droit horizontal → enc3 (Drive/Probability) = CC73
-    const jRH = joyToCCValue(axes[2] || 0);
-    if (jRH !== 0 && !S.shiftHeld) midiCC(73, jRH);
+    // Joystick droit vertical → enc2 = CC72, Shift = CC76 (Reverb send)
+    joyAxisAction('RV', axes[3] || 0, 72, 76);
+    // Joystick droit horizontal → enc3 = CC73 (pas de Shift)
+    if (!S.shiftHeld) joyAxisAction('RH', axes[2] || 0, 73, null);
 
     break; // Utiliser seulement le premier gamepad connecté
   }
