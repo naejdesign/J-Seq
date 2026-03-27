@@ -5739,8 +5739,8 @@ svg('btnMute').addEventListener('mousedown', () => {
   oled('MUTE', 'Mute...', '');
 });
 svg('btnMute').addEventListener('mouseup', () => {
-  S._mHeld = false;
-  setBtnLit('btnMute', false, '#ff6b00');
+  // Géré dans document mouseup — ne rien faire ici
+  // (évite désactivation si le doigt vient d'ailleurs)
 });
 // Delete : maintenu = active _deleteHeld pour supprimer clips en session
 // Plus de clear bar au simple clic (trop dangereux)
@@ -5816,11 +5816,25 @@ svg('btnCopy').addEventListener('mousedown', () => {
 });
 
 document.addEventListener('mouseup', (e) => {
-  // Relâcher delete/copy/mute/shift n'importe où (pas seulement sur le bouton)
-  if (S._deleteHeld) { S._deleteHeld = false; setDeleteLit(false); }
-  if (S._copyHeld)   { S._copyHeld = false; S._copySource = null; setCopyLit(false); }
-  if (S._mHeld)      { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); }
-  if (S.shiftHeld && !heldKeys.has('Numpad3'))  { setShiftOn(false); }
+  // Delete/Copy/Mute/Shift : désactiver SEULEMENT si mouseup revient sur le bouton
+  // Si le doigt a glissé sur un pad/step, le bouton reste actif → multi-actions en une passe
+  if (S._deleteHeld && svg('btnDelete').contains(e.target)) {
+    S._deleteHeld = false; setDeleteLit(false);
+  }
+  if (S._copyHeld && svg('btnCopy').contains(e.target)) {
+    // Reset source pour permettre un nouveau cycle src→dst
+    S._copySource = null;
+    // Ne désactiver que si on a déjà fait au moins un collage (ou si pas de source en cours)
+    // En pratique : relâcher sur le bouton = fin de session de copie
+    S._copyHeld = false; setCopyLit(false);
+  }
+  if (S._mHeld && svg('btnMute').contains(e.target)) {
+    S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00');
+  }
+  // Shift : désactiver au mouseup sur le bouton OU partout (comportement clavier physique)
+  if (S.shiftHeld && !heldKeys.has('Numpad3')) {
+    if (svg('btnShift').contains(e.target)) setShiftOn(false);
+  }
 });
 
 svg('btnUndo').addEventListener('mousedown', () => setBtnLit('btnUndo', true, '#aaa'));
@@ -5972,7 +5986,7 @@ svg('btnShift').addEventListener('mousedown', () => {
   setShiftOn(true);
 });
 svg('btnShift').addEventListener('mouseup', () => {
-  if (!heldKeys.has('Numpad3')) setShiftOn(false);
+  // Désactiver uniquement si on relâche sur le bouton (géré dans document mouseup)
 });
 // ── Bouton Mode (burger) ──────────────────────────────────────
 // Appui court = switch définitif · Appui long = mode provisoire
