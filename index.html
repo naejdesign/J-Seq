@@ -2956,7 +2956,7 @@ function makeClip() {
     originalBars: null,
     originalDrumBars: null,
     originalNumBars: 1,
-    drumBars: Array.from({length:8}, () =>
+    drumBars: Array.from({length:16}, () =>
       Array.from({length:8}, () =>
         Array.from({length:16}, () => ({on:false, vel:0.787}))
       )
@@ -10351,23 +10351,41 @@ function moveBarInsert(fromIdx, direction) {
   const maxBar = clip.numBars - 1;
   const toIdx = fromIdx + direction;
   if (toIdx < 0 || toIdx > maxBar) return fromIdx; // bord atteint
+  if (fromIdx < 0 || fromIdx > maxBar) return fromIdx; // sécurité
 
   // Extraire la bar source (mélo + drums)
-  const srcBars = clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
-  const srcDrum = clip.drumBars.map(padSeq => padSeq[fromIdx].map(st => ({...st})));
+  const srcBars = clip.bars[fromIdx]
+    ? clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+    : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+
+  const srcDrum = clip.drumBars.map(padSeq =>
+    padSeq[fromIdx]
+      ? padSeq[fromIdx].map(st => ({...st}))
+      : Array.from({length:16}, () => ({on:false, vel:0.787}))
+  );
 
   // Décaler les bars entre from et to
   if (direction > 0) {
-    // Déplacement vers la droite → décaler [from+1..to] vers la gauche d'une position
     for (let i = fromIdx; i < toIdx; i++) {
-      clip.bars[i] = clip.bars[i+1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
-      clip.drumBars.forEach((padSeq, pi) => { padSeq[i] = padSeq[i+1].map(st => ({...st})); });
+      clip.bars[i] = clip.bars[i+1]
+        ? clip.bars[i+1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+      clip.drumBars.forEach(padSeq => {
+        padSeq[i] = padSeq[i+1]
+          ? padSeq[i+1].map(st => ({...st}))
+          : Array.from({length:16}, () => ({on:false, vel:0.787}));
+      });
     }
   } else {
-    // Déplacement vers la gauche → décaler [to..from-1] vers la droite d'une position
     for (let i = fromIdx; i > toIdx; i--) {
-      clip.bars[i] = clip.bars[i-1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}));
-      clip.drumBars.forEach((padSeq, pi) => { padSeq[i] = padSeq[i-1].map(st => ({...st})); });
+      clip.bars[i] = clip.bars[i-1]
+        ? clip.bars[i-1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+      clip.drumBars.forEach(padSeq => {
+        padSeq[i] = padSeq[i-1]
+          ? padSeq[i-1].map(st => ({...st}))
+          : Array.from({length:16}, () => ({on:false, vel:0.787}));
+      });
     }
   }
 
@@ -10375,7 +10393,7 @@ function moveBarInsert(fromIdx, direction) {
   clip.bars[toIdx] = srcBars;
   clip.drumBars.forEach((padSeq, pi) => { padSeq[toIdx] = srcDrum[pi]; });
 
-  return toIdx; // nouvelle position de la bar déplacée
+  return toIdx;
 }
 
 function dpadAction(name) {
@@ -10458,35 +10476,55 @@ function dpadAction(name) {
       _gpPrevButtons[gp.index + '_' + d.idx] = pressed;
     });
 
-    // D-pad via axes (fallback pour certains gamepads)
-    const axH = Math.round(axes[0] || 0); // -1=left, 1=right
-    const axV = Math.round(axes[1] || 0); // -1=up, 1=down
-    const prevH = Math.round(_gpPrevAxes[0] || 0);
-    const prevV = Math.round(_gpPrevAxes[1] || 0);
-    if (axH !== prevH || axV !== prevV) {
-      // Forcer le step hold si timer en cours
-      if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
-      if (S._loopHeld) {
-        if (axV === -1 && prevV !== -1) duplicatePattern();
-        if (axV ===  1 && prevV !==  1) halvePattern();
-        if (axH === -1 && prevH !== -1) compressPattern();
-        if (axH ===  1 && prevH !==  1) stretchPattern();
-      } else if (anyStepHeld()) {
-        if (axH === -1 && prevH !== -1) nudgeHeldSteps(-1);
-        if (axH ===  1 && prevH !==  1) nudgeHeldSteps(1);
-        if (axV === -1 && prevV !== -1) transposeHeldSteps(1);
-        if (axV ===  1 && prevV !==  1) transposeHeldSteps(-1);
-      } else if (S.shiftHeld) {
-        if (axH === -1 && prevH !== -1) removeBar();
-        if (axH ===  1 && prevH !==  1) addBar();
-      } else {
-        if (axH === -1 && prevH !== -1) moveStepCursor(-1);
-        if (axH ===  1 && prevH !==  1) moveStepCursor(1);
-        if (axV === -1 && prevV !== -1) navBar(1);
-        if (axV ===  1 && prevV !==  1) navBar(-1);
-      }
+    // Note: axes[0]/axes[1] (joystick gauche) utilisés pour les encodeurs ci-dessous
+    // Le D-pad utilise les boutons 12-15 (voir dirs.forEach ci-dessus)
+
+    // ── Joysticks analogiques → Encodeurs ─────────────────────────
+    // Joystick gauche : axes[0]=horizontal, axes[1]=vertical
+    // Joystick droit  : axes[2]=horizontal, axes[3]=vertical
+    // Valeurs brutes -1.0 à +1.0, deadzone centrale ignorée
+    // Conversion en delta relatif style MPK : ±1 à ±63
+    const JOY_DEADZONE   = 0.15;  // ignorer les micro-déviations au centre
+    const JOY_SENSITIVITY = 2.5;  // multiplier pour vitesse de changement
+
+    function joyToCCValue(raw) {
+      // raw = -1.0..+1.0 → valeur relative MPK style
+      // positif (>0) = horaire = 1..63, négatif (<0) = antihoraire = 65..127
+      if (Math.abs(raw) < JOY_DEADZONE) return 0; // deadzone → rien
+      const mag = Math.min(63, Math.round(Math.abs(raw) * 63 * JOY_SENSITIVITY / 10));
+      if (mag === 0) return 0;
+      return raw > 0 ? mag : (128 - mag); // horaire ou antihoraire
     }
-    _gpPrevAxes = [axes[0] || 0, axes[1] || 0];
+
+    // Séparation joystick gauche / D-pad :
+    // Si un bouton D-pad (12-15) est actuellement pressé → ne pas traiter les axes 0/1
+    // car sur certains gamepads le joystick gauche est en miroir du D-pad
+    const dpadActive = btns[12]?.pressed || btns[13]?.pressed ||
+                       btns[14]?.pressed || btns[15]?.pressed;
+
+    if (!dpadActive) {
+      // Joystick gauche vertical → enc0 (Tune/Length) = CC70
+      const jLV = joyToCCValue(axes[1] || 0);
+      if (jLV !== 0) {
+        const cc = S.shiftHeld ? 75 : 70; // Shift = Delay send
+        midiCC(cc, jLV);
+      }
+
+      // Joystick gauche horizontal → enc1 (Decay/Velocity) = CC71
+      const jLH = joyToCCValue(axes[0] || 0);
+      if (jLH !== 0 && !S.shiftHeld) midiCC(71, jLH);
+    }
+
+    // Joystick droit vertical → enc2 (Tone/Offset) = CC72
+    const jRV = joyToCCValue(axes[3] || 0);
+    if (jRV !== 0) {
+      const cc = S.shiftHeld ? 76 : 72; // Shift = Reverb send
+      midiCC(cc, jRV);
+    }
+
+    // Joystick droit horizontal → enc3 (Drive/Probability) = CC73
+    const jRH = joyToCCValue(axes[2] || 0);
+    if (jRH !== 0 && !S.shiftHeld) midiCC(73, jRH);
 
     break; // Utiliser seulement le premier gamepad connecté
   }
