@@ -2396,6 +2396,9 @@ function sf2GetTrackName(ti) {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Alias pour compatibilité
+function getSF2PresetName(ti) { return sf2GetTrackName(ti); }
+
 // ── Routeur central : joue une note sur la track selon son outputMode ────────
 function playTrackNote(ti, midi, vel) {
   const t = S.tracks[ti];
@@ -8953,6 +8956,7 @@ function renderLoopMode() {
 }
 
 function illuminateLoopBarNotes(barIdx) {
+  if (barIdx < 0 || barIdx >= 8) return;
   const clip = activeClipObj();
   const t = S.tracks[S.currentTrack];
   clearStepNoteIllumination();
@@ -8961,7 +8965,7 @@ function illuminateLoopBarNotes(barIdx) {
   if (t.mode === 'drum') {
     // Mode drum : allumer les pads qui ont au moins une note dans cette bar (layout 2×4)
     for (let padIdx = 0; padIdx < 8; padIdx++) {
-      const hasNote = clip.drumBars[padIdx][barIdx].some(st => st.on);
+      const hasNote = clip.drumBars[padIdx]?.[barIdx]?.some(st => st.on) || false;
       if (!hasNote) continue;
       const svgRow = 2 + Math.floor(padIdx / 4);
       const svgCol = padIdx % 4;
@@ -9102,12 +9106,17 @@ function releaseLoopStep(idx) {
 function countBarNotes(barIdx) {
   const clip = activeClipObj();
   const t = S.tracks[S.currentTrack];
+  // drumBars n'a que 8 bars max (indices 0-7)
+  if (barIdx < 0 || barIdx >= 8) return 0;
   if (t.mode === 'drum') {
     let n = 0;
-    for (let p = 0; p < 16; p++)
+    for (let p = 0; p < 16; p++) {
+      if (!clip.drumBars[p] || !clip.drumBars[p][barIdx]) continue;
       clip.drumBars[p][barIdx].forEach(st => { if (st.on) n++; });
+    }
     return n;
   }
+  if (!clip.bars[barIdx]) return 0;
   return clip.bars[barIdx].filter(st => st.on).length;
 }
 
@@ -9181,7 +9190,7 @@ function getBarAvgVel(barIdx) {
   const vels = [];
   if (t.mode === 'drum') {
     for (let p = 0; p < 16; p++)
-      clip.drumBars[p][barIdx].forEach(st => { if (st.on) vels.push(st.vel||0.8); });
+      clip.drumBars[p]?.[barIdx]?.forEach(st => { if (st.on) vels.push(st.vel||0.8); });
   } else {
     clip.bars[barIdx].forEach(st => { if (st.on) vels.push(st.vel||0.8); });
   }
@@ -9207,12 +9216,15 @@ function loopCopyBar(srcBar, dstBar) {
 }
 
 function loopDeleteBar(barIdx) {
+  if (barIdx < 0 || barIdx >= 8) return; // sécurité
   const clip = activeClipObj();
+  if (barIdx >= clip.numBars) return; // hors contenu
   saveUndo();
-  // Vider toutes les notes de cette bar
   clip.bars[barIdx] = Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
-  for (let p = 0; p < 16; p++)
-    clip.drumBars[p][barIdx] = Array.from({length:16}, () => ({on:false, vel:0.8}));
+  for (let p = 0; p < 16; p++) {
+    if (clip.drumBars[p] && clip.drumBars[p][barIdx] !== undefined)
+      clip.drumBars[p][barIdx] = Array.from({length:16}, () => ({on:false, vel:0.8}));
+  }
   oledForce('DELETE', `Bar ${barIdx+1}`, 'vidée');
   renderLoopMode();
 }
