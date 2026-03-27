@@ -10263,6 +10263,31 @@ function pollGamepad() {
     }
     _gpPrevButtons[gp.index + '_1'] = bPressed;
 
+    // Bouton X = index 2 → Undo (court) / Redo (si Shift tenu)
+    const xPressed = btns[2]?.pressed || false;
+    const xWas = _gpPrevButtons[gp.index + '_2'] || false;
+    if (xPressed && !xWas) {
+      setBtnLit('btnUndo', true, '#aaa');
+      if (S.shiftHeld) doRedo(); else doUndo();
+    }
+    if (!xPressed && xWas) {
+      setBtnLit('btnUndo', false, '#aaa');
+    }
+    _gpPrevButtons[gp.index + '_2'] = xPressed;
+
+    // Bouton Y = index 3 → Toggle Session/Note mode
+    const yPressed = btns[3]?.pressed || false;
+    const yWas = _gpPrevButtons[gp.index + '_3'] || false;
+    if (yPressed && !yWas) {
+      setModeButtonLit(true);
+      const otherMode = S.mode === 'note' ? 'session' : 'note';
+      enterMode(otherMode);
+    }
+    if (!yPressed && yWas) {
+      setModeButtonLit(false);
+    }
+    _gpPrevButtons[gp.index + '_3'] = yPressed;
+
     // (debug gamepad removed)
 
     // Bouton Start = index 9 → Play
