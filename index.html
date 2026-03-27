@@ -5072,13 +5072,17 @@ function handleTrackButtonClick(slot) {
     renderRoutingMenu();
     return;
   }
+  // Shift + Mute + Track = SOLO (priorité avant Shift seul)
+  if (S.shiftHeld && (heldKeys.has('Numpad6') || S._mHeld)) {
+    soloTrack(ti);
+    return;
+  }
   if (S.shiftHeld) {
     openRoutingMenu(ti);
     return;
   }
   if (heldKeys.has('Numpad6') || S._mHeld) {
-    if (S.shiftHeld) soloTrack(ti);
-    else muteTrack(ti);
+    muteTrack(ti);
     return;
   }
 
