@@ -245,45 +245,45 @@ body {
   On recalcule: pad cols x: 190,254,318,382,446,510,574,638 → centres: 219,283,347,411,475,539,603,667
 -->
 <g id="encoders">
-  <circle id="enc0" cx="204" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc1" cx="268" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc2" cx="332" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc3" cx="396" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc4" cx="460" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc5" cx="524" cy="52" r="14" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc0" cx="190" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc1" cx="291" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc2" cx="392" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc3" cx="494" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc4" cx="595" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc5" cx="696" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
 </g>
 
 <!-- Labels encodeurs (illuminables) -->
 <g font-family="'DM Mono',monospace" font-size="12" text-anchor="middle">
-  <text id="encLbl0" x="204" y="79" fill="#2a2a2a">Length</text>
-  <text id="encLbl1" x="268" y="79" fill="#2a2a2a">Velocity</text>
-  <text id="encLbl2" x="332" y="79" fill="#2a2a2a">Offset</text>
-  <text id="encLbl3" x="396" y="79" fill="#2a2a2a">Probability</text>
-  <text id="encLbl4" x="460" y="79" fill="#2a2a2a">Delay</text>
-  <text id="encLbl5" x="524" y="79" fill="#2a2a2a">Reverb</text>
+  <text id="encLbl0" x="190" y="79" fill="#2a2a2a">Length</text>
+  <text id="encLbl1" x="291" y="79" fill="#2a2a2a">Velocity</text>
+  <text id="encLbl2" x="392" y="79" fill="#2a2a2a">Offset</text>
+  <text id="encLbl3" x="494" y="79" fill="#2a2a2a">Probability</text>
+  <text id="encLbl4" x="595" y="79" fill="#2a2a2a">Delay</text>
+  <text id="encLbl5" x="696" y="79" fill="#2a2a2a">Reverb</text>
 </g>
 <!-- Arcs encodeurs actifs (technique stroke-dasharray, r=11, rot=-225°) -->
 <!-- r=11 → circ=69.12, arc_total=69.12*0.75=51.84 -->
 <g id="encArcs">
-  <circle id="encArc0" cx="204" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 204 52)" pointer-events="none"/>
-  <circle id="encArc1" cx="268" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 268 52)" pointer-events="none"/>
+  <circle id="encArc0" cx="190" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.1" stroke-linecap="round"
+    transform="rotate(-225 190 52)" pointer-events="none"/>
+  <circle id="encArc1" cx="291" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.1" stroke-linecap="round"
+    transform="rotate(-225 291 52)" pointer-events="none"/>
   <!-- enc2 : converti en circle comme les autres — l'arc bipolaire Offset est calculé dynamiquement via stroke-dashoffset en JS -->
-  <circle id="encArc2" cx="332" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 332 52)" pointer-events="none"/>
-  <circle id="encArc3" cx="396" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 396 52)" pointer-events="none"/>
-  <circle id="encArc4" cx="460" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 460 52)" pointer-events="none"/>
-  <circle id="encArc5" cx="524" cy="52" r="11" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 69.12" stroke-linecap="round"
-    transform="rotate(-225 524 52)" pointer-events="none"/>
+  <circle id="encArc2" cx="392" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.1" stroke-linecap="round"
+    transform="rotate(-225 392 52)" pointer-events="none"/>
+  <circle id="encArc3" cx="494" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.1" stroke-linecap="round"
+    transform="rotate(-225 494 52)" pointer-events="none"/>
+  <circle id="encArc4" cx="595" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.1" stroke-linecap="round"
+    transform="rotate(-225 595 52)" pointer-events="none"/>
+  <circle id="encArc5" cx="696" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.1" stroke-linecap="round"
+    transform="rotate(-225 696 52)" pointer-events="none"/>
 </g>
 
 <!-- ══ ENCODEUR VOLUME (haut droite) ═════════════════════════════
@@ -384,19 +384,19 @@ body {
   Centre global x=754, y=360
   Gauche/Droite écart=33, Haut/Bas écart=17
 -->
-<g id="btnLeft" cursor="pointer">
+<g id="btnLeft" cursor="pointer" visibility="hidden">
   <circle cx="602" cy="52" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
   <path d="M606 47 L601 52 L606 57" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<g id="btnRight" cursor="pointer">
+<g id="btnRight" cursor="pointer" visibility="hidden">
   <circle cx="668" cy="52" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
   <path d="M664 47 L669 52 L664 57" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<g id="btnPlus" cursor="pointer">
+<g id="btnPlus" cursor="pointer" visibility="hidden">
   <circle cx="635" cy="35" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
   <path d="M630 38 L635 32 L640 38" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
-<g id="btnMinus" cursor="pointer">
+<g id="btnMinus" cursor="pointer" visibility="hidden">
   <circle cx="635" cy="69" r="11" fill="#222" stroke="#333" stroke-width="0.8"/>
   <path d="M630 66 L635 72 L640 66" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
@@ -2938,14 +2938,14 @@ const DRUM_SOUNDS = DRUM_SYNTH_TYPES.map(name => ({ name, fn: () => {} }));
 // STATE
 // ═══════════════════════════════════════════════════════════════
 const TRACK_COLORS = [
-  '#ff6b00', // T1 drum — orange
-  '#3399ff', // T2 — bleu
-  '#3ddc84', // T3 — vert
-  '#cc44ff', // T4 — violet
-  '#ff3366', // T5 — rose
-  '#ffcc00', // T6 — jaune
-  '#00cccc', // T7 — cyan
-  '#aaaaaa', // T8 Master — gris
+  '#BE123C', // T1 drum — rouge foncé
+  '#FFCC00', // T2 — jaune
+  '#3ddc84', // T3 — vert (inchangé)
+  '#FF8C00', // T4 — orange
+  '#1D4ED8', // T5 — bleu foncé
+  '#0EA5E9', // T6 — bleu ciel
+  '#A855F7', // T7 — violet
+  '#aaaaaa', // T8 Master — gris (inchangé)
 ];
 const TRACK_MODES  = ['drum','melodic','melodic','melodic','melodic','melodic','melodic','master'];
 
@@ -7098,7 +7098,7 @@ function _projectDimControls(dim) {
     if (lbl) lbl.setAttribute('fill', dim ? '#1a1a1a' : '#2a2a2a');
     if (arc) {
       arc.setAttribute('stroke', 'none');
-      arc.setAttribute('stroke-dasharray', `0 69.12`);
+      arc.setAttribute('stroke-dasharray', `0 ${ENC_CIRC}`);
       arc.setAttribute('stroke-dashoffset', '0');
     }
   }
@@ -7387,10 +7387,10 @@ var ENC_DEFS = [
 function getEncMax(def) {
   return def.getMax ? def.getMax() : def.max;
 }
-var ENC_CX = [285, 349, 413, 477];
+var ENC_CX = [190, 291, 392, 494]; // positions mises à jour
 
 // Arcs encodeurs via stroke-dasharray (technique fiable)
-var ENC_R = 11, ENC_CIRC = 2 * Math.PI * ENC_R; // ~69.12
+var ENC_R = 18, ENC_CIRC = 2 * Math.PI * ENC_R; // ~113.10 (r=18)
 var ENC_ARC_TOTAL = ENC_CIRC * 0.75; // 270° = 75% du cercle
 
 function updateEncArcs() {
