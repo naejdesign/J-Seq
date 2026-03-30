@@ -134,7 +134,7 @@ body {
 -->
 <circle id="wheel" cx="80" cy="141" r="21" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
 <circle cx="80" cy="141" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
-<!-- wheel dot removed (encodeur infini) -->
+<text x="80" y="145" text-anchor="middle" font-family="'DM Mono',monospace" font-size="8" font-weight="500" fill="#555" pointer-events="none">BPM</text>
 
 <!-- ══ BACK + NOTE/SESSION ════════════════════════════════════════
   y≈230 sous la molette
@@ -256,12 +256,12 @@ body {
 
 <!-- Labels encodeurs (illuminables) -->
 <g font-family="'DM Mono',monospace" font-size="12" text-anchor="middle">
-  <text id="encLbl0" x="190" y="85" fill="#2a2a2a">Length</text>
-  <text id="encLbl1" x="291" y="85" fill="#2a2a2a">Velocity</text>
-  <text id="encLbl2" x="392" y="85" fill="#2a2a2a">Offset</text>
-  <text id="encLbl3" x="494" y="85" fill="#2a2a2a">Probability</text>
-  <text id="encLbl4" x="595" y="85" fill="#2a2a2a">Delay</text>
-  <text id="encLbl5" x="696" y="85" fill="#2a2a2a">Reverb</text>
+  <text id="encLbl0" x="190" y="87" fill="#2a2a2a">Length</text>
+  <text id="encLbl1" x="291" y="87" fill="#2a2a2a">Velocity</text>
+  <text id="encLbl2" x="392" y="87" fill="#2a2a2a">Offset</text>
+  <text id="encLbl3" x="494" y="87" fill="#2a2a2a">Probability</text>
+  <text id="encLbl4" x="595" y="87" fill="#2a2a2a">Delay</text>
+  <text id="encLbl5" x="696" y="87" fill="#2a2a2a">Reverb</text>
 </g>
 <!-- Arcs encodeurs actifs (technique stroke-dasharray, r=11, rot=-225°) -->
 <!-- r=11 → circ=69.12, arc_total=69.12*0.75=51.84 -->
@@ -3982,15 +3982,10 @@ function selectTrack(ti) {
 
   if (S.mode === 'session' && !S._mHeld && !heldKeys.has('Numpad6')) {
     S.currentBar = 0;
-    if (isMaster) {
-      // Master depuis session → sortir du mode session pour afficher le panel FX
-      S.mode = 'note';
-      resetAllSteps();
-      renderTrackButtons();
-    } else {
-      enterMode('note');
-    }
-    oled(`TRACK ${ti+1}`, getSound(ti).name, isMaster ? 'MASTER BUS' : `Clip ${t.activeClip+1}`);
+    // Rester en mode session — juste changer la track active
+    renderTrackButtons();
+    renderSessionMode();
+    oled('SESSION', `Track ${ti+1}`, `Clip ${t.activeClip+1}`);
   } else if (S.mode !== 'session') {
     renderTrackButtons();
     if (!isMaster) {
@@ -5586,12 +5581,13 @@ for (let r = 0; r < 4; r++) {
 
         // ── MODE SESSION ──
         if (S.mode === 'session') {
+          const sessionTi = S.page * 4 + row;
           if (S._deleteHeld) {
-            sessionDeleteClip(row, col);
+            sessionDeleteClip(sessionTi, col);
           } else if (S._copyHeld) {
-            sessionCopyClip(row, col);
+            sessionCopyClip(sessionTi, col);
           } else {
-            sessionSelectClip(row, col);
+            sessionSelectClip(sessionTi, col);
           }
           return;
         }
@@ -6108,8 +6104,10 @@ svg('btnMode').addEventListener('click', () => {
 
 function renderSessionMode() {
   if (projectModeActive) return;
+  const pageOffset = S.page * 4;
   for (let r = 0; r < 4; r++) {
-    const t = S.tracks[r];
+    const ti = pageOffset + r;
+    const t = S.tracks[ti];
     const col_hex = t.color;
     for (let c = 0; c < 8; c++) {
       const el = padEl(r, c);
@@ -6117,8 +6115,6 @@ function renderSessionMode() {
       const hasNotes = clipHasNotes(clip);
       const isPlaying = t.playingClip === c && S.playing && clipHasNotes(t.clips[c]);
       const isQueued = t.queuedClip === c;
-      // isActive (bordure blanche) SEULEMENT pour clips avec notes sélectionnés
-      // et seulement quand le séquenceur est arrêté (pour l'édition)
       const isActiveEdit = t.activeClip === c && hasNotes && !S.playing;
 
       if (hasNotes) {
@@ -6205,7 +6201,7 @@ function sessionCopyClip(trackIdx, clipIdx) {
       return;
     }
     S._copySource = { trackIdx, clipIdx };
-    const el = padEl(trackIdx, clipIdx);
+    const el = padEl(trackIdx % 4, clipIdx);
     el.setAttribute('stroke', '#fff');
     el.setAttribute('stroke-width', '3');
     oled('COPY', `Clip ${clipIdx+1} T${trackIdx+1}`, 'cliquez destination');
@@ -6286,15 +6282,18 @@ svg('wheel').addEventListener('mousedown', e => {
   // Molette = BPM uniquement
   svg('wheel').setAttribute('stroke', '#aaa');
   svg('wheel').setAttribute('stroke-width', '2.5');
-  wheelDrag = { type: 'bpm', y: e.clientY, bpm: S.bpm };
+  wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, bpm: S.bpm };
   S._oledLocked = true;
   e.preventDefault();
 });
 document.addEventListener('mousemove', e => {
   if (!wheelDrag) return;
-  // Molette = BPM uniquement
+  // Molette = BPM uniquement — diagonal drag (haut+droite = augmenter, bas+gauche = diminuer)
   if (wheelDrag.type === 'bpm') {
-    setBpm(wheelDrag.bpm + Math.round((wheelDrag.y - e.clientY) / 2));
+    const dy = wheelDrag.y - e.clientY;
+    const dx = e.clientX - wheelDrag.x;
+    const delta = dy + dx;
+    setBpm(wheelDrag.bpm + Math.round(delta / 2));
     oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
   }
 });
@@ -10229,28 +10228,24 @@ function dpadAction(name) {
       _gpPrevButtons[gp.index + '_' + d.idx] = pressed;
     });
 
-    // Note: axes[0]/axes[1] (joystick gauche) utilisés pour les encodeurs ci-dessous
+    // Note: axes[1] (joystick gauche vertical) = tracks 1-4, axes[3] (joystick droit vertical) = tracks 5-8
     // Le D-pad utilise les boutons 12-15 (voir dirs.forEach ci-dessus)
 
-    // ── Joysticks analogiques → Encodeurs ─────────────────────────
-    // Mode "seuil" : joystick poussé fort (> THRESHOLD) = un pas par frame
-    // Auto-repeat : après JOY_DELAY ms, répète toutes les JOY_REPEAT ms
-    // Axe vertical INVERSÉ : haut = positif (intuitif)
-    const JOY_THRESHOLD = 0.65; // seuil de déclenchement (0.0-1.0)
-    const JOY_DELAY     = 350;  // délai avant auto-repeat (ms)
-    const JOY_REPEAT    = 120;  // intervalle auto-repeat (ms)
+    // ── Joysticks analogiques → Sélection de track ─────────────────
+    // Joystick gauche (axes[1]) = cycle tracks 1-4 (indices 0-3)
+    // Joystick droit  (axes[3]) = cycle tracks 5-8 (indices 4-7)
+    // Axe vertical uniquement : haut = track précédente, bas = track suivante
+    const JOY_THRESHOLD = 0.65;
+    const JOY_DELAY     = 350;
+    const JOY_REPEAT    = 200;
 
-    // État auto-repeat pour chaque axe
     if (!window._joyRepeat) window._joyRepeat = {};
 
-    function joyAxisAction(axisId, rawValue, ccNormal, ccShift) {
-      // rawValue : valeur brute -1..+1
-      // Axe vertical : inverser (haut du joystick = augmenter)
-      const val = axisId.endsWith('V') ? -rawValue : rawValue;
+    function joyTrackSelect(axisId, rawValue, groupStart) {
+      const val = -rawValue; // inverser : haut du joystick = négatif → on veut monter = track précédente
       const rKey = 'joy_' + axisId;
 
       if (Math.abs(val) < JOY_THRESHOLD) {
-        // Joystick au repos → annuler auto-repeat
         if (window._joyRepeat[rKey]) {
           clearTimeout(window._joyRepeat[rKey].timer);
           clearInterval(window._joyRepeat[rKey].interval);
@@ -10259,18 +10254,21 @@ function dpadAction(name) {
         return;
       }
 
-      // Déjà en cours de repeat → laisser faire
       if (window._joyRepeat[rKey]) return;
 
-      // Premier dépassement du seuil → action immédiate + démarrer repeat
-      const cc = (ccShift && S.shiftHeld) ? ccShift : ccNormal;
-      if (!cc) return;
-
       function fireAction() {
-        const ccNow = (ccShift && S.shiftHeld) ? ccShift : ccNormal;
-        // +1 si poussé dans le sens positif, -1 sinon (encodeur relatif)
-        // Valeur CC : 1 = +1 cran, 127 = -1 cran (convention MPK)
-        midiCC(ccNow, val > 0 ? 1 : 127);
+        const delta = val > 0 ? -1 : 1; // haut = -1 (track précédente dans le groupe)
+        const groupEnd = groupStart + 3;
+        // Trouver la track courante dans ce groupe, ou démarrer au début du groupe
+        let current = S.currentTrack;
+        if (current < groupStart || current > groupEnd) {
+          current = groupStart; // basculer vers ce groupe
+        }
+        let next = current + delta;
+        // Cycle dans le groupe
+        if (next < groupStart) next = groupEnd;
+        if (next > groupEnd) next = groupStart;
+        selectTrack(next);
       }
 
       fireAction();
@@ -10282,21 +10280,10 @@ function dpadAction(name) {
       };
     }
 
-    // Séparation joystick gauche / D-pad :
-    const dpadActive = btns[12]?.pressed || btns[13]?.pressed ||
-                       btns[14]?.pressed || btns[15]?.pressed;
-
-    if (!dpadActive) {
-      // Joystick gauche vertical → enc0 = CC70, Shift = CC75 (Delay send)
-      joyAxisAction('LV', axes[1] || 0, 70, 75);
-      // Joystick gauche horizontal → enc1 = CC71 (pas de Shift)
-      if (!S.shiftHeld) joyAxisAction('LH', axes[0] || 0, 71, null);
-    }
-
-    // Joystick droit vertical → enc2 = CC72, Shift = CC76 (Reverb send)
-    joyAxisAction('RV', axes[3] || 0, 72, 76);
-    // Joystick droit horizontal → enc3 = CC73 (pas de Shift)
-    if (!S.shiftHeld) joyAxisAction('RH', axes[2] || 0, 73, null);
+    // Joystick gauche vertical → tracks 1-4
+    joyTrackSelect('LV', axes[1] || 0, 0);
+    // Joystick droit vertical → tracks 5-8
+    joyTrackSelect('RV', axes[3] || 0, 4);
 
     break; // Utiliser seulement le premier gamepad connecté
   }
