@@ -302,22 +302,12 @@ body {
 -->
 
 <!-- R0 col0 — CURSOR MODE -->
-<g id="btnCursorMode" cursor="pointer">
-  <circle cx="770" cy="129" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g stroke="#777" stroke-width="1.8" stroke-linecap="round" fill="none">
-    <line x1="762" y1="121" x2="765" y2="121"/><line x1="775" y1="121" x2="778" y2="121"/>
-    <line x1="762" y1="137" x2="765" y2="137"/><line x1="775" y1="137" x2="778" y2="137"/>
-    <line x1="762" y1="121" x2="762" y2="124"/><line x1="762" y1="134" x2="762" y2="137"/>
-    <line x1="778" y1="121" x2="778" y2="124"/><line x1="778" y1="134" x2="778" y2="137"/>
-  </g>
-</g>
-
-<!-- R0 col1 — SETS/PROJECTS -->
+<!-- R0 — SETS/PROJECTS (bouton large) -->
 <g id="btnSets" cursor="pointer">
-  <circle cx="815" cy="129" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <line x1="808" y1="124" x2="822" y2="124" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="808" y1="129" x2="822" y2="129" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="808" y1="134" x2="822" y2="134" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <rect x="754" y="113" width="77" height="32" rx="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <line x1="783" y1="124" x2="797" y2="124" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="783" y1="129" x2="797" y2="129" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="783" y1="134" x2="797" y2="134" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
 </g>
 
 <!-- R1 col0 — UNDO -->
@@ -591,20 +581,20 @@ const arpState = Array.from({length:8}, () => ({
 }));
 
 function arpIsActive(ti) {
-  const slot = trackFX[ti]?.[4]; // index 4 = Arp (Arp est slot 4 : ligne2 slot0)
-  // Chercher le slot arp par id
+  const slot = trackFX[ti]?.[4]; // index 4 = MIDI CTRL (was Arp)
   const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
   if (arpIdx < 0) return false;
-  return trackFX[ti][arpIdx].active;
+  const s = trackFX[ti][arpIdx];
+  return s.active && Math.round(s.params['arpEnabled'] ?? 0) === 1;
 }
 
 function arpGetParams(ti) {
   const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
   const slot = trackFX[ti][arpIdx];
   return {
-    rate:    Math.round(slot.params['arpRate']    ?? 2),  // 0-5
-    mode:    Math.round(slot.params['arpMode']    ?? 0),  // 0=up 1=down 2=updown 3=random 4=order
-    octaves: Math.round(slot.params['arpOctaves'] ?? 1),  // 1-4
+    rate:    Math.round(slot.params['arpRate']    ?? 2),
+    mode:    Math.round(slot.params['arpMode']    ?? 0),
+    octaves: Math.round(slot.params['arpOctaves'] ?? 1),
   };
 }
 
@@ -948,15 +938,19 @@ const FX_DEFS = [
       return node;
     },
   },
-  // ── Ligne 2 : Arp · Phaser · Bitcrush ──
+  // ── Ligne 2 : MIDI Control · Phaser · Bitcrush ──
   {
-    id: 'arp', name: 'Arpeggio', color: '#aaa',
+    id: 'arp', name: 'MIDI CTRL', color: '#aaa',
     params: [
-      { name: 'Rate',    key: 'arpRate',    min: 0, max: 5, def: 2, log: false, labels: ['1/1','1/2','1/4','1/8','1/16','1/32'], cycle: true },
-      { name: 'Mode',    key: 'arpMode',    min: 0, max: 4, def: 0, log: false, labels: ['Up','Down','UpDn','Rand','Order'], cycle: true },
-      { name: 'Octaves', key: 'arpOctaves', min: 1, max: 3, def: 1, log: false, labels: ['1 oct','2 oct','3 oct'], cycle: true, cycleBase: 1 },
+      { name: 'ARP',       key: 'arpEnabled',    min: 0, max: 1,   def: 0,   log: false, labels: ['OFF','ON'], cycle: true },
+      { name: 'Rate',      key: 'arpRate',       min: 0, max: 5,   def: 2,   log: false, labels: ['1/1','1/2','1/4','1/8','1/16','1/32'], cycle: true },
+      { name: 'Mode',      key: 'arpMode',       min: 0, max: 4,   def: 0,   log: false, labels: ['Up','Down','UpDn','Rand','Order'], cycle: true },
+      { name: 'Octaves',   key: 'arpOctaves',    min: 1, max: 3,   def: 1,   log: false, labels: ['1 oct','2 oct','3 oct'], cycle: true, cycleBase: 1 },
+      { name: 'Release',   key: 'midiRelease',   min: 0, max: 127, def: 64,  log: false, fmt: v => Math.round(v) },
+      { name: 'Cutoff',    key: 'midiCutoff',    min: 0, max: 127, def: 127, log: false, fmt: v => Math.round(v) },
+      { name: 'Resonance', key: 'midiReson',     min: 0, max: 127, def: 0,   log: false, fmt: v => Math.round(v) },
     ],
-    mainParams: [0, 1, 2],
+    mainParams: [4, 5, 6, 0], // Release, Cutoff, Resonance, ARP ON/OFF
     doubleSlot: true,
     create: () => null,
   },
@@ -1177,7 +1171,14 @@ function fxToggle(ti, slotIdx) {
   const def = FX_DEFS[slotIdx];
   slot.active = !slot.active;
   if (def.id === 'arp') {
-    if (def.id === 'arp' && !slot.active) arpStop(ti);
+    if (!slot.active) {
+      arpStop(ti);
+      // Reset MIDI CCs to defaults
+      midiCtrlReset(ti);
+    } else {
+      // Apply current MIDI CC values
+      midiCtrlApply(ti);
+    }
     renderFXPanel();
     return;
   }
@@ -1222,15 +1223,29 @@ function fxSetParam(ti, slotIdx, paramKey, value) {
   const def = FX_DEFS[slotIdx];
   slot.params[paramKey] = value;
 
-  // Params arp — pas de nœud audio, mais relancer si arp actif
+  // Params MIDI CTRL — pas de nœud audio
   if (def.id === 'arp') {
     // Forcer entier pour octaves
     if (paramKey === 'arpOctaves') value = Math.round(value);
     slot.params[paramKey] = value;
+    
+    // Envoyer les CC MIDI en temps réel si le slot est actif
+    if (slot.active) {
+      if (paramKey === 'midiRelease') midiCtrlSendCC(ti, 72, Math.round(value));
+      if (paramKey === 'midiCutoff')  midiCtrlSendCC(ti, 74, Math.round(value));
+      if (paramKey === 'midiReson')   midiCtrlSendCC(ti, 71, Math.round(value));
+    }
+    
+    // Arp ON/OFF toggle
+    if (paramKey === 'arpEnabled') {
+      value = Math.round(value);
+      slot.params[paramKey] = value;
+      if (value === 0) arpStop(ti);
+    }
+    
     if (paramKey === 'arpMode' && arpState[ti].timer) {
       arpState[ti].noteIdx = 0;
     }
-    // Rate changé → redémarrer l'intervalle immédiatement
     if (paramKey === 'arpRate' && arpState[ti].timer) {
       clearInterval(arpState[ti].timer);
       arpState[ti].timer = null;
@@ -1630,12 +1645,11 @@ function renderFXPageMain(ti) {
     sg.appendChild(led);
 
     if (isArp) {
-      // ── Arp double-slot : 3 params affichés en façade ──
-      const params = def.params; // [arpRate, arpMode, arpOctaves]
-      const colW   = w / 3;     // 3 colonnes égales
-      const encR   = 11;        // rayon réduit pour rester dans le slot
+      // ── MIDI CTRL double-slot : 4 indicateurs read-only ──
+      const mainP = def.mainParams || [4, 5, 6, 0]; // Release, Cutoff, Resonance, ARP
+      const colW  = w / 4;
 
-      // Zone de toggle sur le fond du slot — AVANT les zones encodeurs pour être en dessous
+      // Zone de toggle sur le fond du slot
       const toggleHit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       toggleHit.setAttribute('x', sx + margin); toggleHit.setAttribute('y', sy + margin);
       toggleHit.setAttribute('width', w - margin*2); toggleHit.setAttribute('height', FX_SH - margin*2);
@@ -1644,33 +1658,14 @@ function renderFXPageMain(ti) {
       toggleHit.setAttribute('data-fxslot', defIdx);
       sg.appendChild(toggleHit);
 
-      params.forEach((p, pi) => {
-        const val   = slot.params[p.key] ?? p.def;
-        const px    = sx + colW * pi + colW/2;
-        const yBase = sy + 30;
+      mainP.forEach((pi, col) => {
+        const p   = def.params[pi];
+        const val = slot.params[p.key] ?? p.def;
+        const px  = sx + colW * col + colW/2;
 
-        const START = 135, END = 405;
-        const pct = Math.max(0, Math.min(1, (val - p.min) / (p.max - p.min)));
-        const angleFill = START + pct * (END - START);
-
-        const trackArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        trackArc.setAttribute('d', arcPathFX(px, yBase + encR, encR, START, END));
-        trackArc.setAttribute('fill', 'none'); trackArc.setAttribute('stroke', '#2a2a2e');
-        trackArc.setAttribute('stroke-width', '2.5'); trackArc.setAttribute('stroke-linecap', 'round');
-        trackArc.setAttribute('pointer-events', 'none');
-        sg.appendChild(trackArc);
-
-        const valArc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        valArc.setAttribute('id', `fxpv_arc_${defIdx}_${pi}`);
-        valArc.setAttribute('d', angleFill > START + 0.5 ? arcPathFX(px, yBase + encR, encR, START, angleFill) : '');
-        valArc.setAttribute('fill', 'none');
-        valArc.setAttribute('stroke', active ? def.color : '#555');
-        valArc.setAttribute('stroke-width', '2.5'); valArc.setAttribute('stroke-linecap', 'round');
-        valArc.setAttribute('pointer-events', 'none');
-        sg.appendChild(valArc);
-
+        // Nom du param
         const pname = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        pname.setAttribute('x', px); pname.setAttribute('y', yBase + encR*2 + 10);
+        pname.setAttribute('x', px); pname.setAttribute('y', sy + 38);
         pname.setAttribute('text-anchor', 'middle');
         pname.setAttribute('font-family', "'DM Mono',monospace");
         pname.setAttribute('font-size', '10');
@@ -1679,25 +1674,17 @@ function renderFXPageMain(ti) {
         pname.textContent = p.name;
         sg.appendChild(pname);
 
+        // Valeur du param
         const pval = document.createElementNS('http://www.w3.org/2000/svg', 'text');
         pval.setAttribute('id', `fxpv_${defIdx}_${pi}`);
-        pval.setAttribute('x', px); pval.setAttribute('y', yBase + encR*2 + 20);
+        pval.setAttribute('x', px); pval.setAttribute('y', sy + 52);
         pval.setAttribute('text-anchor', 'middle');
         pval.setAttribute('font-family', "'DM Mono',monospace");
-        pval.setAttribute('font-size', '10');
+        pval.setAttribute('font-size', '11'); pval.setAttribute('font-weight', '500');
         pval.setAttribute('fill', active ? def.color : '#555');
         pval.setAttribute('pointer-events', 'none');
         pval.textContent = fxFormatVal(p, val);
         sg.appendChild(pval);
-
-        // Zone clic encodeur — au-dessus du toggleHit (dessinée après)
-        const encHit = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        encHit.setAttribute('cx', px); encHit.setAttribute('cy', yBase + encR);
-        encHit.setAttribute('r', encR + 6);
-        encHit.setAttribute('fill', 'transparent'); encHit.setAttribute('cursor', 'pointer');
-        encHit.setAttribute('data-fxslot', defIdx);
-        encHit.setAttribute('data-fxparam', pi);
-        sg.appendChild(encHit);
       });
 
     } else {
@@ -1991,11 +1978,11 @@ function fxHandleDown(e) {
       const def = FX_DEFS[slotIdx];
       if (!def) return false;
       if (def.id === 'arp') {
-        // Arp : long press toggle on/off, clic court aussi
+        // MIDI CTRL : clic court = toggle on/off, clic long = page avancée
         _fxPressTimer = setTimeout(() => {
           _fxPressTimer = null;
-          fxToggle(S.currentTrack, slotIdx);
-          renderFXPageMain(S.currentTrack);
+          fxPage = slotIdx;
+          renderFXPanel();
         }, 500);
         e.stopPropagation(); e.preventDefault();
         return true;
@@ -2379,6 +2366,27 @@ function sf2NoteOff(trackIdx, midi) {
 function sf2AllNotesOff(trackIdx) {
   if (!sf2Ready) return;
   jsSynths[trackIdx].midiAllNotesOff(SF2_CHANNEL);
+}
+
+// ── MIDI CTRL — envoyer des CC FluidSynth ──
+function midiCtrlSendCC(ti, cc, value) {
+  if (!sf2Ready || !jsSynths[ti]) return;
+  jsSynths[ti].midiControl(SF2_CHANNEL, cc, Math.max(0, Math.min(127, Math.round(value))));
+}
+
+function midiCtrlApply(ti) {
+  const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+  if (arpIdx < 0) return;
+  const slot = trackFX[ti][arpIdx];
+  midiCtrlSendCC(ti, 72, Math.round(slot.params['midiRelease'] ?? 64));
+  midiCtrlSendCC(ti, 74, Math.round(slot.params['midiCutoff']  ?? 127));
+  midiCtrlSendCC(ti, 71, Math.round(slot.params['midiReson']   ?? 0));
+}
+
+function midiCtrlReset(ti) {
+  midiCtrlSendCC(ti, 72, 64);   // Release → default
+  midiCtrlSendCC(ti, 74, 127);  // Cutoff → full open
+  midiCtrlSendCC(ti, 71, 0);    // Resonance → none
 }
 
 function sf2GetTrackName(ti) {
@@ -3095,7 +3103,26 @@ function scheduler() {
 
     for (let ti = 0; ti < 8; ti++) {
       const t = S.tracks[ti];
-      if (t.mode === 'master') continue; // master = pas de séquenceur
+      if (t.mode === 'master') {
+        // Master = automation BPM
+        const clip = playingClip(ti);
+        const loopStart = clip.loopStart ?? 0;
+        const loopEnd   = clip.loopEnd   ?? (clip.numBars - 1);
+        const loopLen   = Math.max(1, loopEnd - loopStart + 1);
+        const loopSteps = loopLen * 16;
+        const posInLoop = trackTick[ti] % loopSteps;
+        const bar  = loopStart + Math.floor(posInLoop / 16);
+        const step = posInLoop % 16;
+        const masterBar = clip.bars[bar];
+        if (masterBar && masterBar[step] && masterBar[step].on) {
+          const newBpm = masterBar[step].note;
+          if (newBpm >= 20 && newBpm <= 300 && newBpm !== S.bpm) {
+            setBpm(newBpm);
+          }
+        }
+        trackTick[ti]++;
+        continue;
+      }
       if (t.muted || (anySolo && !t.soloed)) continue;
       const clip = playingClip(ti);
       const loopStart = clip.loopStart ?? 0;
@@ -3738,8 +3765,34 @@ function renderSteps() {
   if (S.mode === 'session') return;
   if (S.mode === 'loop') { renderLoopMode(); return; }
   const bar = currentStepBar();
+  const isMaster = S.tracks[S.currentTrack].mode === 'master';
   for (let i = 0; i < 16; i++) {
     setStepAppearance(i, bar[i].on, false);
+    // Afficher BPM sur les steps master actifs
+    const txtId = `stepBpm${i}`;
+    let txt = document.getElementById(txtId);
+    if (isMaster && bar[i].on) {
+      const el = svg(`step${i}`);
+      const x = parseFloat(el.getAttribute('x')) + parseFloat(el.getAttribute('width')) / 2;
+      const y = parseFloat(el.getAttribute('y')) + parseFloat(el.getAttribute('height')) / 2 + 4;
+      if (!txt) {
+        txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        txt.id = txtId;
+        txt.setAttribute('text-anchor', 'middle');
+        txt.setAttribute('font-family', "'DM Mono',monospace");
+        txt.setAttribute('font-size', '9');
+        txt.setAttribute('font-weight', '600');
+        txt.setAttribute('pointer-events', 'none');
+        el.parentNode.appendChild(txt);
+      }
+      txt.setAttribute('x', x);
+      txt.setAttribute('y', y);
+      txt.setAttribute('fill', trackColor(S.currentTrack));
+      txt.textContent = Math.round(bar[i].note);
+      txt.style.display = '';
+    } else if (txt) {
+      txt.style.display = 'none';
+    }
   }
   if (typeof updatePianoOctaveIndicators === 'function') updatePianoOctaveIndicators();
   if (typeof saveUndoAfter === 'function') saveUndoAfter();
@@ -3968,16 +4021,13 @@ function selectTrack(ti) {
   const t = S.tracks[ti];
   const isMaster = t.mode === 'master';
 
-  // Sur la piste Master : vider le séquenceur (pas de steps)
+  // Sur la piste Master : désactiver loop mode mais afficher les steps (BPM automation)
   if (isMaster) {
-    hideStepCursor();
-    // Désactiver loop mode si actif
     if (S.mode === 'loop') {
       S.mode = 'note';
       S._loopBarHeld = -1; S._loopBar2 = -1;
       setBtnLit('btnLoop', false, '#3ddc84');
     }
-    resetAllSteps();
   }
 
   if (S.mode === 'session' && !S._mHeld && !heldKeys.has('Numpad6')) {
@@ -3988,10 +4038,8 @@ function selectTrack(ti) {
     oled('SESSION', `Track ${ti+1}`, `Clip ${t.activeClip+1}`);
   } else if (S.mode !== 'session') {
     renderTrackButtons();
-    if (!isMaster) {
-      renderPads();
-      renderSteps();
-    }
+    renderPads();
+    renderSteps();
     oled(`TRACK ${ti+1}`, getSound(ti).name, isMaster ? 'MASTER BUS' : t.mode.toUpperCase());
   }
   if (S.mode === 'session') {
@@ -4019,7 +4067,11 @@ function toggleStep(i) {
   if (st.on) {
     st.vel = 0.787;
     st.extraNotes = [];
-    if (t.mode === 'drum') {
+    if (t.mode === 'master') {
+      // Master : stocker le BPM actuel
+      st.note = S.bpm;
+      oled(`STEP ${i+1}`, `${S.bpm} BPM`, `Bar ${S.currentBar+1}`);
+    } else if (t.mode === 'drum') {
       triggerDrumPad(S.selectedDrumPad, 0.65);
       oled(`STEP ${i+1}`, `ON · ${getDrumPadName(S.currentTrack, S.selectedDrumPad)}`, `pad ${S.selectedDrumPad+1}`);
     } else {
@@ -4033,6 +4085,7 @@ function toggleStep(i) {
     oled(`STEP ${i+1}`, 'OFF', trackInfo());
   }
   setStepAppearance(i, st.on, false);
+  renderSteps(); // mettre à jour le texte BPM sur master
 }
 
 function playPad(row, col) {
@@ -4597,12 +4650,6 @@ document.addEventListener('keydown', e => {
     heldKeys.add('Numpad3');
     setNumpadLit('Numpad3', true);
     setShiftOn(true);
-    return;
-  }
-
-  // NumpadEqual (=) → bouton CursorMode — toggle cursor
-  if (e.code === 'NumpadEqual') {
-    svg('btnCursorMode').dispatchEvent(new Event('click'));
     return;
   }
 
@@ -5236,6 +5283,22 @@ function transposeHeldSteps(octaveDelta) {
   saveUndo();
   const t = S.tracks[S.currentTrack];
   if (t.mode === 'drum') return;
+  if (t.mode === 'master') {
+    // Sur master : +/- ajuste le BPM des steps tenus par ±10
+    const bar = currentStepBar();
+    const delta = octaveDelta * 10;
+    for (const idx of heldSteps.keys()) {
+      const st = bar[idx];
+      if (!st || !st.on) continue;
+      st.note = Math.max(20, Math.min(300, st.note + delta));
+      heldSteps.get(idx).didAction = true;
+    }
+    renderSteps();
+    const firstIdx = [...heldSteps.keys()][0];
+    const bpm = bar[firstIdx]?.note || S.bpm;
+    oledForce('BPM EDIT', `${Math.round(bpm)} BPM`, `${delta > 0 ? '+' : ''}${delta}`);
+    return;
+  }
   const bar = currentStepBar();
   const newOctave = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE, S.octave + octaveDelta));
   if (newOctave === S.octave && octaveDelta !== 0) {
@@ -5383,7 +5446,12 @@ function pressStep(idx) {
     illuminateHeldStepNotes();
     if (S.pianoOpen) illuminatePianoNotes();
     const count = heldSteps.size;
-    oled(count + ' STEP' + (count > 1 ? 'S' : '') + ' TENUS', 'VOL=velo wheel=duree', '+/-=oct  </>=nudge');
+    if (S.tracks[S.currentTrack].mode === 'master') {
+      const bpmVal = bar[idx].on ? bar[idx].note : S.bpm;
+      oled(count + ' STEP' + (count > 1 ? 'S' : ''), `${Math.round(bpmVal)} BPM`, 'wheel=BPM  </>=nudge');
+    } else {
+      oled(count + ' STEP' + (count > 1 ? 'S' : '') + ' TENUS', 'VOL=velo wheel=duree', '+/-=oct  </>=nudge');
+    }
   }, 250);
   heldSteps.set(idx, obj);
   renderSteps();
@@ -5423,9 +5491,6 @@ for (let i = 0; i < 16; i++) {
     stepEl.addEventListener('mousedown', function(e) {
       e.preventDefault();
       ensureAudio();
-
-      // ── Piste Master : steps non utilisés ──
-      if (S.tracks[S.currentTrack].mode === 'master') return;
 
       // ── Session mode : steps non utilisés ──
       if (S.mode === 'session') return;
@@ -5747,12 +5812,17 @@ function setBtnLit(id, on, color) {
   if (!g) return;
   const col = color || '#aaa';
   const offCol = '#777';
-  // Main circle (first circle child)
+  // Main shape (first circle or first rect child)
   const mainCircle = g.querySelector('circle');
+  const mainRect = g.querySelector('rect');
   if (mainCircle) {
     mainCircle.setAttribute('fill',         on ? '#1a1a22' : '#222');
     mainCircle.setAttribute('stroke',       on ? col       : '#333');
     mainCircle.setAttribute('stroke-width', '1');
+  } else if (mainRect) {
+    mainRect.setAttribute('fill',         on ? '#1a1a22' : '#222');
+    mainRect.setAttribute('stroke',       on ? col       : '#333');
+    mainRect.setAttribute('stroke-width', '1');
   }
   // Nested <g> groups with stroke (icon containers) — set group stroke
   g.querySelectorAll('g').forEach(sub => {
@@ -5838,32 +5908,8 @@ svg('btnUndo').addEventListener('mousedown', () => setBtnLit('btnUndo', true, '#
 svg('btnUndo').addEventListener('mouseup',   () => { setBtnLit('btnUndo', false, '#aaa'); if (S.shiftHeld) doRedo(); else doUndo(); });
 svg('btnUndo').addEventListener('mouseleave',() => setBtnLit('btnUndo', false, '#aaa'));
 
-// CursorMode — toggle step cursor on/off
+// Cursor toujours activé
 var cursorEnabled = true;
-
-function setCursorModeVisual() {
-  const col = cursorEnabled ? '#aaa' : '#333';
-  const g = svg('btnCursorMode');
-  if (!g) return;
-  const circle = g.querySelector('circle');
-  if (circle) {
-    circle.setAttribute('stroke', cursorEnabled ? '#aaa' : '#333');
-    circle.setAttribute('fill', cursorEnabled ? '#1a1a22' : '#222');
-  }
-  const lines = g.querySelectorAll('line');
-  lines.forEach(l => l.setAttribute('stroke', cursorEnabled ? '#aaa' : '#777'));
-}
-
-svg('btnCursorMode').addEventListener('click', () => {
-  cursorEnabled = !cursorEnabled;
-  setCursorModeVisual();
-  if (!cursorEnabled) hideStepCursor();
-  oledForce('CURSOR', cursorEnabled ? 'ON' : 'OFF', cursorEnabled ? 'D-pad = steps' : 'D-pad = bars');
-  setTimeout(() => { S._oledLocked = false; }, 1000);
-});
-
-// Initialiser le visuel du bouton cursor mode au démarrage
-setTimeout(setCursorModeVisual, 100);
 
 // Sets — toggle project mode
 svg('btnSets').addEventListener('mousedown', () => {
@@ -5892,7 +5938,7 @@ function setLoopHeld(on) {
   S._loopHeld = on;
   if (on) {
     setBtnLit('btnLoop', true, '#3ddc84');
-    oled('LOOP TENU', '+/-=dup/halve', '</>=stretch/compress');
+    oled('LOOP TENU', '+/-=double/halve', '</>=stretch/compress');
   } else {
     // Garder le bouton allumé si on est en mode loop
     if (S.mode !== 'loop') setBtnLit('btnLoop', false, '#3ddc84');
@@ -6276,25 +6322,62 @@ function sessionDeleteClip(trackIdx, clipIdx) {
   renderSessionMode();
   oled(`DELETE`, `Clip ${clipIdx+1}`, `Track ${trackIdx+1}`);
 }
-// ── Wheel drag → BPM (ou longueur de note si step tenu) ──
+// ── Wheel drag → BPM uniquement ──
 let wheelDrag = null;
+let _wheelLastTap = 0;
+
 svg('wheel').addEventListener('mousedown', e => {
-  // Molette = BPM uniquement
+  const now = Date.now();
+  
+  // Double-tap → reset BPM à 120
+  if (now - _wheelLastTap < 350) {
+    _wheelLastTap = 0;
+    setBpm(120);
+    oledForce('BPM', '120', 'RESET');
+    svg('wheel').setAttribute('stroke', '#aaa');
+    svg('wheel').setAttribute('stroke-width', '2.5');
+    setTimeout(() => {
+      svg('wheel').setAttribute('stroke', '#3a3a3a');
+      svg('wheel').setAttribute('stroke-width', '1.5');
+      S._oledLocked = false;
+    }, 800);
+    e.preventDefault();
+    return;
+  }
+  _wheelLastTap = now;
+  
   svg('wheel').setAttribute('stroke', '#aaa');
   svg('wheel').setAttribute('stroke-width', '2.5');
-  wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, bpm: S.bpm };
+  wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, bpm: S.bpm, moved: false };
   S._oledLocked = true;
+  // Afficher BPM immédiatement au clic
+  oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
   e.preventDefault();
 });
 document.addEventListener('mousemove', e => {
   if (!wheelDrag) return;
-  // Molette = BPM uniquement — diagonal drag (haut+droite = augmenter, bas+gauche = diminuer)
   if (wheelDrag.type === 'bpm') {
     const dy = wheelDrag.y - e.clientY;
     const dx = e.clientX - wheelDrag.x;
     const delta = dy + dx;
-    setBpm(wheelDrag.bpm + Math.round(delta / 2));
-    oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
+    if (Math.abs(delta) > 1) wheelDrag.moved = true;
+    
+    // Si un step master est maintenu → modifier le BPM de ce step
+    const isMaster = S.tracks[S.currentTrack].mode === 'master';
+    if (isMaster && anyStepHeld()) {
+      const newBpm = Math.max(20, Math.min(300, wheelDrag.bpm + Math.round(delta / 2)));
+      const bar = currentStepBar();
+      for (const [idx] of heldSteps) {
+        bar[idx].note = newBpm;
+        bar[idx].on = true;
+      }
+      renderSteps();
+      const stepList = [...heldSteps.keys()];
+      oledForce(`STEP ${stepList[0]+1}`, `${newBpm} BPM`, `Bar ${S.currentBar+1}`);
+    } else {
+      setBpm(wheelDrag.bpm + Math.round(delta / 2));
+      oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
+    }
   }
 });
 document.addEventListener('mouseup', () => {
@@ -8088,49 +8171,8 @@ function midiCC(cc, value) {
     return;
   }
   if (cc === 116) {
-    // Clic molette — ouvrir le menu de sélection de son
-    // (même comportement qu'un clic sans drag sur la molette)
-    const tWheel = S.tracks[S.currentTrack];
-    if (tWheel.mode === 'drum' && !anyStepHeld()) {
-      if (!tWheel.drumPads) tWheel.drumPads = makeDefaultDrumPads();
-      if (!drumSoundSelectMode) {
-        drumSoundSelectMode = true;
-        const pad = tWheel.drumPads[S.selectedDrumPad];
-        drumSoundSelectOrigin = Math.max(0, DRUM_SYNTH_TYPES.indexOf(pad.synthType || 'Kick'));
-        drumSoundSelectIdx    = drumSoundSelectOrigin;
-        oledForce('SELECT SOUND', DRUM_SYNTH_TYPES[drumSoundSelectIdx],
-                  `${drumSoundSelectIdx+1}/${DRUM_SYNTH_TYPES.length}`);
-        S._oledLocked = true;
-      } else {
-        // 2ème appui = confirmer
-        const pad = tWheel.drumPads[S.selectedDrumPad];
-        saveUndo();
-        pad.synthType = DRUM_SYNTH_TYPES[drumSoundSelectIdx];
-        pad.mode = 'synth';
-        const defs = DRUM_SYNTH_DEFAULTS[pad.synthType] || DRUM_SYNTH_DEFAULTS['Kick'];
-        pad.tune = defs.tune; pad.decay = defs.decay;
-        pad.tone = defs.tone; pad.drive = defs.drive;
-        drumSoundSelectMode = false;
-        S._oledLocked = false;
-        renderDrumPadSelection();
-        updateEncArcs();
-        oled('DRUM', pad.synthType, `pad ${S.selectedDrumPad+1} · seq`);
-      }
-    } else if (tWheel.mode !== 'drum' && !anyStepHeld()) {
-      const ti = S.currentTrack;
-      const ts = trackSF2[ti];
-      if (!ts.presets.length) {
-        oledForce('SELECT SOUND', 'No SF2', 'Shift+track pour charger');
-        S._oledLocked = true;
-        setTimeout(() => { S._oledLocked = false; }, 1500);
-      } else {
-        const curIdx = ts.presets.findIndex(p => p.bank === ts.bank && p.program === ts.program);
-        const idx = curIdx >= 0 ? curIdx : 0;
-        oledForce('SELECT SOUND', ts.presets[idx].name.slice(0,14),
-                  `${idx+1}/${ts.presets.length}`);
-        S._oledLocked = true;
-      }
-    }
+    // Clic molette via MIDI — afficher BPM
+    oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
     return;
   }
 }
@@ -9877,8 +9919,8 @@ function hideStepCursor() {
 }
 
 function moveStepCursor(delta) {
-  // Désactivé sur master, session, ou si cursorMode off → fallback navBar
-  if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') {
+  // Désactivé en session ou si cursorMode off → fallback navBar
+  if (!cursorEnabled || S.mode === 'session') {
     navBar(delta);
     return;
   }
@@ -9889,7 +9931,8 @@ function moveStepCursor(delta) {
   const st = bar[stepCursorPos];
   const t = S.tracks[S.currentTrack];
   let info = st.on ? 'ON' : '—';
-  if (st.on && t.mode !== 'drum') info = noteName(st.note);
+  if (st.on && t.mode === 'master') info = st.note + ' BPM';
+  else if (st.on && t.mode !== 'drum') info = noteName(st.note);
   oled(`STEP ${stepCursorPos + 1}`, info, `Bar ${S.currentBar + 1}`);
 }
 
@@ -9905,7 +9948,7 @@ function gamepadBDown() {
     oledForce('PROJECTS', `Page ${projectPage+1}/16`, 'clic=preview · 2x=charger');
     return;
   }
-  if (!cursorEnabled || S.tracks[S.currentTrack].mode === 'master' || S.mode === 'session') return;
+  if (!cursorEnabled || S.mode === 'session') return;
   _gamepadBHeld = true;
   _gamepadBLong = false;
   _gamepadBHeldIdx = stepCursorPos;
