@@ -106,7 +106,7 @@ body {
   </filter>
   <!-- Clip pour l'écran OLED -->
   <clipPath id="oledClip">
-    <rect x="31" y="33" width="113" height="48" rx="2"/>
+    <rect x="15" y="28" width="129" height="58" rx="2"/>
   </clipPath>
 </defs>
 
@@ -120,34 +120,35 @@ body {
 <!-- ══ OLED ════════════════════════════════════════════════════════
   10mm/15mm → @2.745px/mm : x=27, y=41   72×35px → ~26×13mm
 -->
-<rect id="oled" x="27" y="30" width="121" height="54" rx="3" fill="#000" stroke="#3a3a3a" stroke-width="1"/>
+<rect id="oled" x="11" y="25" width="137" height="64" rx="3" fill="#000" stroke="#3a3a3a" stroke-width="1"/>
 <g clip-path="url(#oledClip)">
-  <text id="oTop"  x="32" y="43"  font-family="'DM Mono',monospace" font-size="8"  fill="#555" style="pointer-events:none">NOTE MODE</text>
-  <text id="oMain" x="32" y="57"  font-family="'DM Mono',monospace" font-size="11" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
-  <text id="oSub"  x="32" y="68"  font-family="'DM Mono',monospace" font-size="7"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
+  <text id="oTop"  x="16" y="39"  font-family="'DM Mono',monospace" font-size="9"  fill="#555" style="pointer-events:none">NOTE MODE</text>
+  <text id="oMain" x="16" y="57"  font-family="'DM Mono',monospace" font-size="14" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
+  <text id="oSub"  x="16" y="76"  font-family="'DM Mono',monospace" font-size="9"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
 </g>
 <!-- Zone de clic OLED — par dessus tout, capte les clics sur toute la surface -->
-<rect id="oledClickZone" x="27" y="30" width="121" height="54" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
+<rect id="oledClickZone" x="11" y="25" width="137" height="64" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
 
 <!-- ══ MOLETTE ═══════════════════════════════════════════════════
   Centre x=73, centre y=168  rayon=34
 -->
-<circle id="wheel" cx="88" cy="141" r="34" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
-<circle cx="88" cy="141" r="22" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+<circle id="wheel" cx="80" cy="141" r="21" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
+<circle cx="80" cy="141" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
 <!-- wheel dot removed (encodeur infini) -->
 
 <!-- ══ BACK + NOTE/SESSION ════════════════════════════════════════
   y≈230 sous la molette
 -->
 <g id="btnBack" cursor="pointer">
-  <circle cx="70" cy="205" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 199 L66 205 L74 211" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="62" cy="205" r="14" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M66 199 L58 205 L66 211" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnMode" cursor="pointer">
-  <circle cx="106" cy="205" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <line x1="99" y1="200" x2="113" y2="200" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="99" y1="205" x2="113" y2="205" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="99" y1="210" x2="113" y2="210" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <circle cx="98" cy="205" r="14" fill="#222" stroke="#333" stroke-width="1"/>
+  <g fill="none" stroke="#777" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M91 197 L91 213 L105 213 L105 201 L101 197 Z"/>
+    <path d="M101 197 L101 201 L105 201"/>
+  </g>
 </g>
 
 <!-- ══ PLAY + RECORD ══════════════════════════════════════════════
@@ -160,10 +161,10 @@ body {
   gap=5, largeur=28, hauteur des pads
   Rangées y: 107, 152, 197, 242
 -->
-<rect id="trkBtn0" x="162" y="107" width="14" height="44" rx="7" fill="#ff6b00" opacity="0.7" cursor="pointer"/>
-<rect id="trkBtn1" x="162" y="155" width="14" height="44" rx="7" fill="#3399ff" opacity="0.4" cursor="pointer"/>
-<rect id="trkBtn2" x="162" y="203" width="14" height="44" rx="7" fill="#3ddc84" opacity="0.4" cursor="pointer"/>
-<rect id="trkBtn3" x="162" y="251" width="14" height="44" rx="7" fill="#cc44ff" opacity="0.4" cursor="pointer"/>
+<rect id="trkBtn0" x="162" y="107" width="14" height="44" rx="7" fill="#ff6b00" opacity="1" cursor="pointer"/>
+<rect id="trkBtn1" x="162" y="155" width="14" height="44" rx="7" fill="#3399ff" opacity="1" cursor="pointer"/>
+<rect id="trkBtn2" x="162" y="203" width="14" height="44" rx="7" fill="#3ddc84" opacity="1" cursor="pointer"/>
+<rect id="trkBtn3" x="162" y="251" width="14" height="44" rx="7" fill="#cc44ff" opacity="1" cursor="pointer"/>
 
 <!-- ══ 32 PADS 4×8 ════════════════════════════════════════════════
   x start=190, pad_w=58, pad_h=44, gap=6
@@ -255,12 +256,12 @@ body {
 
 <!-- Labels encodeurs (illuminables) -->
 <g font-family="'DM Mono',monospace" font-size="12" text-anchor="middle">
-  <text id="encLbl0" x="190" y="79" fill="#2a2a2a">Length</text>
-  <text id="encLbl1" x="291" y="79" fill="#2a2a2a">Velocity</text>
-  <text id="encLbl2" x="392" y="79" fill="#2a2a2a">Offset</text>
-  <text id="encLbl3" x="494" y="79" fill="#2a2a2a">Probability</text>
-  <text id="encLbl4" x="595" y="79" fill="#2a2a2a">Delay</text>
-  <text id="encLbl5" x="696" y="79" fill="#2a2a2a">Reverb</text>
+  <text id="encLbl0" x="190" y="85" fill="#2a2a2a">Length</text>
+  <text id="encLbl1" x="291" y="85" fill="#2a2a2a">Velocity</text>
+  <text id="encLbl2" x="392" y="85" fill="#2a2a2a">Offset</text>
+  <text id="encLbl3" x="494" y="85" fill="#2a2a2a">Probability</text>
+  <text id="encLbl4" x="595" y="85" fill="#2a2a2a">Delay</text>
+  <text id="encLbl5" x="696" y="85" fill="#2a2a2a">Reverb</text>
 </g>
 <!-- Arcs encodeurs actifs (technique stroke-dasharray, r=11, rot=-225°) -->
 <!-- r=11 → circ=69.12, arc_total=69.12*0.75=51.84 -->
@@ -314,10 +315,9 @@ body {
 <!-- R0 col1 — SETS/PROJECTS -->
 <g id="btnSets" cursor="pointer">
   <circle cx="815" cy="129" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g fill="none" stroke="#777" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M808 121 L808 137 L822 137 L822 125 L818 121 Z"/>
-    <path d="M818 121 L818 125 L822 125"/>
-  </g>
+  <line x1="808" y1="124" x2="822" y2="124" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="808" y1="129" x2="822" y2="129" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="808" y1="134" x2="822" y2="134" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
 </g>
 
 <!-- R1 col0 — UNDO -->
@@ -410,12 +410,12 @@ body {
 <!-- ══ PLAY + REC ══ -->
   <g id="playRecGroup">
     <g id="btnPlay" cursor="pointer">
-      <rect x="38" y="243" width="43" height="38" rx="6" fill="#252528" stroke="#444" stroke-width="1"/>
-      <path id="playIcon" d="M49 251 L49 273 L67 262 Z" fill="#888"/>
+      <rect x="33" y="243" width="43" height="38" rx="6" fill="#252528" stroke="#444" stroke-width="1"/>
+      <path id="playIcon" d="M44 251 L44 273 L62 262 Z" fill="#888"/>
     </g>
     <g id="btnRec" cursor="pointer">
-      <circle cx="112" cy="262" r="18" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
-      <circle id="recDot" cx="112" cy="262" r="9" fill="#882222"/>
+      <circle cx="106" cy="262" r="18" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
+      <circle id="recDot" cx="106" cy="262" r="9" fill="#882222"/>
     </g>
   </g>
 
@@ -3779,7 +3779,7 @@ function renderTrackButtons() {
     const isMaster    = t.mode === 'master';
 
     // Couleur du bouton = couleur de la track
-    el.setAttribute('fill', TRACK_COLORS[ti] + (isActive ? 'ff' : '44'));
+    el.setAttribute('fill', TRACK_COLORS[ti] + (isActive ? 'ff' : 'cc'));
 
     if (isSoloed) {
       el.setAttribute('opacity', '1');
@@ -3796,7 +3796,7 @@ function renderTrackButtons() {
       el.setAttribute('stroke-width', '1.5');
       el.setAttribute('stroke-dasharray', 'none');
     } else {
-      el.setAttribute('opacity', '0.55');
+      el.setAttribute('opacity', '1');
       el.setAttribute('stroke', 'none');
       el.setAttribute('stroke-dasharray', 'none');
     }
@@ -5876,15 +5876,26 @@ svg('btnCursorMode').addEventListener('click', () => {
 setTimeout(setCursorModeVisual, 100);
 
 // Sets — toggle project mode
-svg('btnSets').addEventListener('click', () => {
-  if (projectModeActive) {
-    exitProjectMode();
-    setBtnLit('btnSets', false, '#aaa');
-  } else {
-    enterProjectMode();
-    setBtnLit('btnSets', true, '#aaa');
+svg('btnSets').addEventListener('mousedown', () => {
+  modePressTime = Date.now();
+  setModeButtonLit(true);
+  if (S.mode === 'loop') {
+    S.mode = 'note';
+    S._loopBarHeld = -1; S._loopBar2 = -1;
+    setBtnLit('btnLoop', false, '#3ddc84');
+  }
+  const otherMode = S.mode === 'note' ? 'session' : 'note';
+  enterMode(otherMode);
+});
+svg('btnSets').addEventListener('mouseup', () => {
+  setModeButtonLit(false);
+  const held = Date.now() - modePressTime;
+  if (held >= MODE_LONG_PRESS) {
+    const back = S.mode === 'session' ? 'note' : 'session';
+    enterMode(back);
   }
 });
+svg('btnSets').addEventListener('mouseleave', () => {});
 // Bouton Loop : maintenu + autre bouton = combo
 // ── Bouton LOOP : hold détecté au niveau document ──
 function setLoopHeld(on) {
@@ -6000,7 +6011,7 @@ svg('btnShift').addEventListener('mouseup', () => {
 let modePressTime = 0;
 const MODE_LONG_PRESS = 300; // ms
 
-function setModeButtonLit(on) { setBtnLit('btnMode', on); }
+function setModeButtonLit(on) { setBtnLit('btnSets', on); }
 
 function resetDirButtons() {
   // Éteindre tous les boutons de la croix directionnelle
@@ -6091,37 +6102,14 @@ svg('btnBack').addEventListener('click', () => {
   }
 });
 
-svg('btnMode').addEventListener('mousedown', () => {
-  modePressTime = Date.now();
-  setModeButtonLit(true);
-  // Désactiver loop si actif avant de basculer
-  if (S.mode === 'loop') {
-    S.mode = 'note';
-    S._loopBarHeld = -1; S._loopBar2 = -1;
-    setBtnLit('btnLoop', false, '#3ddc84');
-  }
-  // Basculer provisoirement dans l'autre mode
-  const otherMode = S.mode === 'note' ? 'session' : 'note';
-  enterMode(otherMode);
-});
-
-svg('btnMode').addEventListener('mouseup', () => {
-  setModeButtonLit(false);
-  const held = Date.now() - modePressTime;
-  if (held >= MODE_LONG_PRESS) {
-    // Appui long → revenir au mode d'origine
-    const back = S.mode === 'session' ? 'note' : 'session';
-    enterMode(back);
-    status(`Retour mode ${back.toUpperCase()}`);
+svg('btnMode').addEventListener('click', () => {
+  if (projectModeActive) {
+    exitProjectMode();
+    setBtnLit('btnMode', false, '#aaa');
   } else {
-    // Appui court → rester dans le nouveau mode
-    status(`Mode ${S.mode.toUpperCase()}`);
+    enterProjectMode();
+    setBtnLit('btnMode', true, '#aaa');
   }
-});
-
-svg('btnMode').addEventListener('mouseleave', () => {
-  // Si la souris quitte pendant l'appui long → on reste dans le mode provisoire
-  // On ne fait rien ici, le mouseup gérera
 });
 
 function renderSessionMode() {
@@ -6589,6 +6577,13 @@ document.addEventListener('mouseup', () => {
   wheelDrag = null;
   volDrag = null;
   S._stepsLocked = false;
+
+  // Si des steps sont encore tenus (mouseup hors zone) → les relâcher proprement
+  if (heldSteps.size > 0) {
+    heldSteps.forEach((obj, idx) => { releaseStep(idx); });
+    // updateEncArcs est appelé dans releaseStep via renderSteps
+  }
+
   if (!keepOledLocked) {
     S._oledLocked = false;
     // Refresh OLED to default display after drag release (delayed to ensure all handlers done)
@@ -7071,7 +7066,7 @@ function exitProjectMode() {
   projectModeActive = false;
   projectSelected = null;
   S._oledLocked = false;
-  setBtnLit('btnSets', false, '#aaa');
+  setBtnLit('btnMode', false, '#aaa');
   _projectDimControls(false);
   clearAllDynamicLabels();
   resetAllPads();
@@ -10312,8 +10307,8 @@ function pollGamepad() {
     const selectPressed = btns[8]?.pressed || false;
     const selectWas = _gpPrevButtons[gp.index + '_8'] || false;
     if (selectPressed && !selectWas) {
-      if (projectModeActive) { exitProjectMode(); setBtnLit('btnSets', false, '#aaa'); }
-      else { enterProjectMode(); setBtnLit('btnSets', true, '#aaa'); }
+      if (projectModeActive) { exitProjectMode(); setBtnLit('btnMode', false, '#aaa'); }
+      else { enterProjectMode(); setBtnLit('btnMode', true, '#aaa'); }
     }
     _gpPrevButtons[gp.index + '_8'] = selectPressed;
 
