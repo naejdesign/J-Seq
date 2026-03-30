@@ -3084,7 +3084,6 @@ function scheduler() {
     // Switch quantisé : au début de la région de chaque track
     for (let ti = 0; ti < 8; ti++) {
       const t = S.tracks[ti];
-      if (t.mode === 'master') continue;
       const clip = playingClip(ti);
       const loopSteps = clipLoopSteps(clip);
       if (trackTick[ti] % loopSteps === 0 && t.queuedClip !== null) {
@@ -3804,8 +3803,36 @@ function highlightStep(step) {
   if (S.mode === 'session') return;
   if (S.mode === 'loop') { renderLoopMode(); return; }
   const bar = currentStepBar();
+  const isMaster = S.tracks[S.currentTrack].mode === 'master';
   for (let i = 0; i < 16; i++) {
     setStepAppearance(i, bar[i].on, i === step);
+    // Mettre à jour le texte BPM sur master
+    if (isMaster) {
+      const txtId = `stepBpm${i}`;
+      let txt = document.getElementById(txtId);
+      if (bar[i].on) {
+        const el = svg(`step${i}`);
+        const x = parseFloat(el.getAttribute('x')) + parseFloat(el.getAttribute('width')) / 2;
+        const y = parseFloat(el.getAttribute('y')) + parseFloat(el.getAttribute('height')) / 2 + 4;
+        if (!txt) {
+          txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          txt.id = txtId;
+          txt.setAttribute('text-anchor', 'middle');
+          txt.setAttribute('font-family', "'DM Mono',monospace");
+          txt.setAttribute('font-size', '9');
+          txt.setAttribute('font-weight', '600');
+          txt.setAttribute('pointer-events', 'none');
+          el.parentNode.appendChild(txt);
+        }
+        txt.setAttribute('x', x);
+        txt.setAttribute('y', y);
+        txt.setAttribute('fill', (i === step) ? '#fff' : trackColor(S.currentTrack));
+        txt.textContent = Math.round(bar[i].note);
+        txt.style.display = '';
+      } else if (txt) {
+        txt.style.display = 'none';
+      }
+    }
   }
 }
 
