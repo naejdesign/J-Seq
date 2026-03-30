@@ -2955,12 +2955,13 @@ const TRACK_MODES  = ['drum','melodic','melodic','melodic','melodic','melodic','
 function makeClip() {
   return {
     numBars: 1,
-    loopStart: 0,   // première bar jouée (incluse)
-    loopEnd: 0,     // dernière bar jouée (incluse)
+    loopStart: 0,
+    loopEnd: 0,
     stretchState: 0,
     originalBars: null,
     originalDrumBars: null,
     originalNumBars: 1,
+    columnRepeats: 0, // 0=Free (manuel), 1+=nombre de répétitions pour le song mode
     drumBars: Array.from({length:16}, () =>
       Array.from({length:8}, () =>
         Array.from({length:16}, () => ({on:false, vel:0.787}))
@@ -3077,6 +3078,10 @@ function clipLoopSteps(clip) {
 // trackTick[ti] = position dans la région de loop (0..loopSteps-1)
 let trackTick = [0, 0, 0, 0, 0, 0, 0, 0];
 
+// Song mode — auto-avancement des colonnes
+let _songColumnRepeatCount = 0; // compteur de répétitions de la colonne courante
+let _songCurrentColumn = 0;     // colonne session en cours (0-7)
+
 function scheduler() {
   while (nextTime < actx.currentTime + 0.12) {
     const anySolo = S.tracks.some(t => t.soloed);
@@ -3096,6 +3101,53 @@ function scheduler() {
         if (S.mode === 'session') {
           const delay = Math.max(0, (nextTime - actx.currentTime) * 1000);
           setTimeout(() => { if (S.mode === 'session') renderSessionMode(); }, delay);
+        }
+      }
+    }
+
+    // ── Song mode : auto-avancement des colonnes via piste master ──
+    const masterTi = S.tracks.findIndex(t => t.mode === 'master');
+    if (masterTi >= 0) {
+      const masterT = S.tracks[masterTi];
+      const masterClip = playingClip(masterTi);
+      const masterLoopSteps = clipLoopSteps(masterClip);
+      // Détecter le début d'un nouveau cycle de la colonne master
+      if (trackTick[masterTi] > 0 && trackTick[masterTi] % masterLoopSteps === 0) {
+        const repeats = masterClip.columnRepeats || 0;
+        if (repeats > 0) {
+          _songColumnRepeatCount++;
+          if (_songColumnRepeatCount >= repeats) {
+            // Passer à la colonne suivante
+            _songColumnRepeatCount = 0;
+            const nextCol = _songCurrentColumn + 1;
+            // Vérifier si la colonne suivante a des clips (hors master)
+            const hasContent = S.tracks.some((t, i) => {
+              if (t.mode === 'master') return false;
+              return clipHasNotes(t.clips[nextCol]);
+            });
+            if (nextCol < 8 && hasContent) {
+              _songCurrentColumn = nextCol;
+              // Lancer tous les clips de la nouvelle colonne
+              for (let ti2 = 0; ti2 < 8; ti2++) {
+                const t2 = S.tracks[ti2];
+                if (clipHasNotes(t2.clips[nextCol])) {
+                  t2.queuedClip = nextCol;
+                } else if (t2.mode !== 'master') {
+                  t2.queuedClip = -1; // stopper les tracks sans clip sur cette colonne
+                }
+              }
+              // Master aussi
+              masterT.playingClip = nextCol;
+              masterT.activeClip = nextCol;
+              trackTick[masterTi] = 0;
+              if (S.mode === 'session') {
+                setTimeout(() => renderSessionMode(), 50);
+              }
+            } else {
+              // Pas de contenu sur la colonne suivante → arrêter la lecture
+              togglePlay();
+            }
+          }
         }
       }
     }
@@ -3386,6 +3438,11 @@ function startPlay() {
   S.playing = true;
   globalTick = 0;
   trackTick = [0, 0, 0, 0, 0, 0, 0, 0];
+  // Reset song mode
+  _songColumnRepeatCount = 0;
+  // Déterminer la colonne de départ (basée sur le playingClip du master)
+  const masterTi = S.tracks.findIndex(t => t.mode === 'master');
+  _songCurrentColumn = masterTi >= 0 ? S.tracks[masterTi].playingClip : 0;
   nextTime = actx.currentTime + 0.05;
   schedTimer = setInterval(scheduler, 25);
   if (S.mode === 'session') {
@@ -5674,6 +5731,11 @@ for (let r = 0; r < 4; r++) {
         // ── MODE SESSION ──
         if (S.mode === 'session') {
           const sessionTi = S.page * 4 + row;
+          // Shift + clic sur clip master → éditer les répétitions de colonne
+          if (S.shiftHeld && S.tracks[sessionTi].mode === 'master') {
+            openColumnRepeatEditor(col);
+            return;
+          }
           if (S._deleteHeld) {
             sessionDeleteClip(sessionTi, col);
           } else if (S._copyHeld) {
@@ -6224,12 +6286,25 @@ function renderSessionMode() {
         const lbl = document.getElementById(`${pfx}_${r}_${c}`);
         if (lbl) lbl.textContent = '';
       });
+      // Afficher le nombre de répétitions sur les clips master
+      if (t.mode === 'master') {
+        const repeats = clip.columnRepeats || 0;
+        const lbl = document.getElementById(`padlbl_${r}_${c}`);
+        if (lbl) {
+          lbl.textContent = repeats === 0 ? '∞' : `×${repeats}`;
+          lbl.setAttribute('fill', repeats === 0 ? '#555' : '#fff');
+          lbl.setAttribute('font-size', '13');
+        }
+      }
     }
   }
   for (let i = 0; i < 16; i++) {
     svg(`step${i}`).setAttribute('fill', '#111113');
     svg(`step${i}`).setAttribute('stroke', '#1a1a1c');
     svg(`sled${i}`).setAttribute('fill', '#1a1a1c');
+    // Cacher les labels BPM des steps master
+    const bpmTxt = document.getElementById(`stepBpm${i}`);
+    if (bpmTxt) bpmTxt.style.display = 'none';
   }
 }
 
@@ -6294,6 +6369,143 @@ function sessionCopyClip(trackIdx, clipIdx) {
 }
 
 // ── Copier un step mélodique vers un autre (même bar) ──
+
+// ── Song mode : éditeur de répétitions de colonne ──
+var _repeatEditorOpen = false;
+var _repeatEditorCol = 0;
+
+function openColumnRepeatEditor(col) {
+  _repeatEditorCol = col;
+  _repeatEditorOpen = true;
+  const masterTi = S.tracks.findIndex(t => t.mode === 'master');
+  if (masterTi < 0) return;
+  const clip = S.tracks[masterTi].clips[col];
+  const val = clip.columnRepeats || 0;
+  renderColumnRepeatEditor(val);
+}
+
+function renderColumnRepeatEditor(val) {
+  // Supprimer l'ancien popup
+  const old = document.getElementById('repeatEditorG');
+  if (old) old.remove();
+
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.id = 'repeatEditorG';
+
+  // Fond semi-transparent
+  const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  bg.setAttribute('x', '250'); bg.setAttribute('y', '120');
+  bg.setAttribute('width', '360'); bg.setAttribute('height', '125');
+  bg.setAttribute('rx', '12'); bg.setAttribute('fill', '#1a1a22');
+  bg.setAttribute('stroke', '#666'); bg.setAttribute('stroke-width', '1.5');
+  g.appendChild(bg);
+
+  // Titre
+  const title = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  title.setAttribute('x', '430'); title.setAttribute('y', '148');
+  title.setAttribute('text-anchor', 'middle');
+  title.setAttribute('font-family', "'DM Mono',monospace");
+  title.setAttribute('font-size', '13'); title.setAttribute('font-weight', '600');
+  title.setAttribute('fill', '#aaa');
+  title.textContent = `COLUMN ${_repeatEditorCol + 1} REPEATS`;
+  g.appendChild(title);
+
+  // Bouton -
+  const btnMinus = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  btnMinus.setAttribute('x', '290'); btnMinus.setAttribute('y', '160');
+  btnMinus.setAttribute('width', '50'); btnMinus.setAttribute('height', '34');
+  btnMinus.setAttribute('rx', '6'); btnMinus.setAttribute('fill', '#333');
+  btnMinus.setAttribute('cursor', 'pointer');
+  btnMinus.addEventListener('click', () => {
+    const masterTi = S.tracks.findIndex(t => t.mode === 'master');
+    const clip = S.tracks[masterTi].clips[_repeatEditorCol];
+    clip.columnRepeats = Math.max(0, (clip.columnRepeats || 0) - 1);
+    renderColumnRepeatEditor(clip.columnRepeats);
+    renderSessionMode();
+  });
+  g.appendChild(btnMinus);
+  const minusTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  minusTxt.setAttribute('x', '315'); minusTxt.setAttribute('y', '183');
+  minusTxt.setAttribute('text-anchor', 'middle');
+  minusTxt.setAttribute('font-family', "'DM Mono',monospace");
+  minusTxt.setAttribute('font-size', '18'); minusTxt.setAttribute('font-weight', '700');
+  minusTxt.setAttribute('fill', '#aaa'); minusTxt.setAttribute('pointer-events', 'none');
+  minusTxt.textContent = '−';
+  g.appendChild(minusTxt);
+
+  // Valeur
+  const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  valTxt.setAttribute('x', '430'); valTxt.setAttribute('y', '185');
+  valTxt.setAttribute('text-anchor', 'middle');
+  valTxt.setAttribute('font-family', "'DM Mono',monospace");
+  valTxt.setAttribute('font-size', '22'); valTxt.setAttribute('font-weight', '700');
+  valTxt.setAttribute('fill', '#fff');
+  valTxt.textContent = val === 0 ? 'FREE' : `× ${val}`;
+  g.appendChild(valTxt);
+
+  // Bouton +
+  const btnPlus = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  btnPlus.setAttribute('x', '520'); btnPlus.setAttribute('y', '160');
+  btnPlus.setAttribute('width', '50'); btnPlus.setAttribute('height', '34');
+  btnPlus.setAttribute('rx', '6'); btnPlus.setAttribute('fill', '#333');
+  btnPlus.setAttribute('cursor', 'pointer');
+  btnPlus.addEventListener('click', () => {
+    const masterTi = S.tracks.findIndex(t => t.mode === 'master');
+    const clip = S.tracks[masterTi].clips[_repeatEditorCol];
+    clip.columnRepeats = Math.min(99, (clip.columnRepeats || 0) + 1);
+    renderColumnRepeatEditor(clip.columnRepeats);
+    renderSessionMode();
+  });
+  g.appendChild(btnPlus);
+  const plusTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  plusTxt.setAttribute('x', '545'); plusTxt.setAttribute('y', '183');
+  plusTxt.setAttribute('text-anchor', 'middle');
+  plusTxt.setAttribute('font-family', "'DM Mono',monospace");
+  plusTxt.setAttribute('font-size', '18'); plusTxt.setAttribute('font-weight', '700');
+  plusTxt.setAttribute('fill', '#aaa'); plusTxt.setAttribute('pointer-events', 'none');
+  plusTxt.textContent = '+';
+  g.appendChild(plusTxt);
+
+  // Bouton VALIDER
+  const btnOk = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+  btnOk.setAttribute('x', '370'); btnOk.setAttribute('y', '200');
+  btnOk.setAttribute('width', '120'); btnOk.setAttribute('height', '30');
+  btnOk.setAttribute('rx', '6'); btnOk.setAttribute('fill', '#3ddc84');
+  btnOk.setAttribute('cursor', 'pointer');
+  btnOk.addEventListener('click', () => {
+    _repeatEditorOpen = false;
+    g.remove();
+    renderSessionMode();
+  });
+  g.appendChild(btnOk);
+  const okTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  okTxt.setAttribute('x', '430'); okTxt.setAttribute('y', '221');
+  okTxt.setAttribute('text-anchor', 'middle');
+  okTxt.setAttribute('font-family', "'DM Mono',monospace");
+  okTxt.setAttribute('font-size', '13'); okTxt.setAttribute('font-weight', '700');
+  okTxt.setAttribute('fill', '#111'); okTxt.setAttribute('pointer-events', 'none');
+  okTxt.textContent = 'OK';
+  g.appendChild(okTxt);
+
+  // Bouton fermer ✕
+  const closeHit = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+  closeHit.setAttribute('x', '598'); closeHit.setAttribute('y', '138');
+  closeHit.setAttribute('text-anchor', 'middle');
+  closeHit.setAttribute('font-family', "'DM Mono',monospace");
+  closeHit.setAttribute('font-size', '16'); closeHit.setAttribute('font-weight', '600');
+  closeHit.setAttribute('fill', '#888'); closeHit.setAttribute('cursor', 'pointer');
+  closeHit.textContent = '✕';
+  closeHit.addEventListener('click', () => {
+    _repeatEditorOpen = false;
+    g.remove();
+    renderSessionMode();
+  });
+  g.appendChild(closeHit);
+
+  svg('moveSVG').appendChild(g);
+  oledForce('SONG MODE', `Col ${_repeatEditorCol+1}`, val === 0 ? 'FREE (manuel)' : `${val} répétitions`);
+}
+
 function copyStep(srcIdx, dstIdx) {
   saveUndo();
   const t = S.tracks[S.currentTrack];
