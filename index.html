@@ -293,8 +293,8 @@ body {
 <circle id="encVol" cx="793" cy="52" r="21" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
 <circle cx="793" cy="52" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
 <!-- Indicateur MIDI connecté (entre enc7 et encVol) -->
-<circle id="midiDot" cx="730" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
-<text id="midiLbl" x="730" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
+<circle id="midiDot" cx="745" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
+<text id="midiLbl" x="745" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
 
 <!-- ══ 8 BOUTONS FONCTION DROITS ══════════════════════════════════
   Zone droite: x cols 770 et 810, rows y=128,178,228,278 (centrés rangées pads)
@@ -554,13 +554,7 @@ var undoStack = {
   lastSaveTime: null,
   _restoring: false,
 };
-var drumSoundSelectMode = false;
 var _countdownActive = false; // true pendant le décompte
-var drumSoundSelectIdx = 0;
-var drumSoundSelectOrigin = 0;
-var melodicSoundSelectMode = false;
-var melodicSoundSelectIdx = 0;
-var melodicSoundSelectOrigin = 0;
 var recHeld = new Map();
 var recBlinkTimer = null;
 var metronomeTimer = null;
@@ -5080,8 +5074,8 @@ function handleTrackButtonClick(slot) {
     soloTrack(ti);
     return;
   }
+  // Shift + Track seul : libre (routing menu supprimé)
   if (S.shiftHeld) {
-    openRoutingMenu(ti);
     return;
   }
   if (heldKeys.has('Numpad6') || S._mHeld) {
@@ -6289,156 +6283,19 @@ function sessionDeleteClip(trackIdx, clipIdx) {
 // ── Wheel drag → BPM (ou longueur de note si step tenu) ──
 let wheelDrag = null;
 svg('wheel').addEventListener('mousedown', e => {
-  const tWheel = S.tracks[S.currentTrack];
-  // Light up wheel ring
+  // Molette = BPM uniquement
   svg('wheel').setAttribute('stroke', '#aaa');
   svg('wheel').setAttribute('stroke-width', '2.5');
-
-  // ── Menu routing actif : molette = naviguer dans la liste ──
-  if (routingMenuMode) {
-    wheelDrag = { type: 'routing', y: e.clientY, moved: false, startSel: routingMenuSel };
-    S._oledLocked = true;
-    e.preventDefault();
-    return;
-  }
-
-  // ── Modes sélection son actifs → drag molette = naviguer ──
-  if (drumSoundSelectMode && !anyStepHeld()) {
-    wheelDrag = { type: 'drumsound', y: e.clientY, moved: false, startIdx: drumSoundSelectIdx };
-    S._oledLocked = true;
-    e.preventDefault();
-    return;
-  }
-
-  // ── Track drum sans step tenu : clic molette → pending sélection de son ──
-  if (tWheel.mode === 'drum' && !anyStepHeld()) {
-    if (!tWheel.drumPads) tWheel.drumPads = makeDefaultDrumPads();
-    const pad = tWheel.drumPads[S.selectedDrumPad];
-    const curIdx = DRUM_SYNTH_TYPES.indexOf(pad.synthType || 'Kick');
-    wheelDrag = { type: 'drumsound_pending', y: e.clientY, moved: false,
-                  startIdx: Math.max(0, curIdx) };
-    e.preventDefault();
-    return;
-  }
-
-  // ── Track mélodique sans step tenu : clic molette → pending sélection de son ──
-  if (tWheel.mode !== 'drum' && !anyStepHeld()) {
-    if (melodicSoundSelectMode) {
-      // Déjà en mode sélection → continuer avec le curseur actuel
-      wheelDrag = { type: 'melodicsound', y: e.clientY, moved: false,
-                    startIdx: melodicSoundSelectIdx };
-    } else {
-      wheelDrag = { type: 'melodicsound_pending', y: e.clientY, moved: false,
-                    startIdx: tWheel.soundIndex };
-    }
-    e.preventDefault();
-    return;
-  }
-  if (anyStepHeld()) {
-    const firstIdx = heldStepList()[0];
-    const bar = currentStepBar();
-    const st = bar[firstIdx];
-    const t = S.tracks[S.currentTrack];
-    if (heldSteps.has(firstIdx)) heldSteps.get(firstIdx).didAction = true;
-    wheelDrag = {
-      type: 'notelen',
-      y: e.clientY,
-      startLen: st.len || 1,
-      stepIdx: firstIdx,
-      startBar: S.currentBar,
-      isDrum: t.mode === 'drum',
-      drumPadIdx: S.selectedDrumPad,
-      moved: false
-    };
-  } else {
-    wheelDrag = { type: 'bpm', y: e.clientY, bpm: S.bpm };
-  }
+  wheelDrag = { type: 'bpm', y: e.clientY, bpm: S.bpm };
   S._oledLocked = true;
-  S._stepsLocked = (wheelDrag && wheelDrag.type === 'notelen') ? true : false;
   e.preventDefault();
 });
 document.addEventListener('mousemove', e => {
   if (!wheelDrag) return;
-  if (wheelDrag.type === 'routing') {
-    const dy = Math.round((wheelDrag.y - e.clientY) / 12);
-    if (dy === 0) return;
-    wheelDrag.moved = true;
-    wheelDrag.y = e.clientY;
-    routingMenuScroll(dy);
-    return;
-  }
-  if (wheelDrag.type === 'drumsound_pending') {
-    wheelDrag.moved = true;
-    return;
-  }
-  if (wheelDrag.type === 'melodicsound_pending') {
-    wheelDrag.moved = true;
-    return; // drag depuis pending → ignorer (ni BPM ni liste)
-  }
-  if (wheelDrag.type === 'melodicsound') {
-    const dy = Math.round((wheelDrag.y - e.clientY) / 12);
-    if (dy === 0) return;
-    wheelDrag.moved = true;
-    wheelDrag.y = e.clientY;
-    const ti = S.currentTrack;
-    const ts = trackSF2[ti];
-    if (!ts.presets.length) return;
-    const newIdx = Math.max(0, Math.min(ts.presets.length - 1, wheelDrag.startIdx - dy));
-    wheelDrag.startIdx = newIdx;
-    melodicSoundSelectIdx = newIdx;
-    const preset = sf2SelectPreset(ti, newIdx);
-    oledForce('SELECT SOUND', preset.name.slice(0,14), `${newIdx+1}/${ts.presets.length}`);
-    return;
-  }
-  if (wheelDrag.type === 'drumsound') {
-    const dy = Math.round((wheelDrag.y - e.clientY) / 12);
-    if (dy === 0) return;
-    wheelDrag.moved = true;
-    const nSounds = DRUM_SYNTH_TYPES.length;
-    const newIdx = Math.max(0, Math.min(nSounds - 1, wheelDrag.startIdx - dy));
-    wheelDrag.startIdx = newIdx;
-    wheelDrag.y = e.clientY;
-    // Preview
-    const ti = S.currentTrack;
-    const t = S.tracks[ti];
-    if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
-    const previewPad = { ...t.drumPads[S.selectedDrumPad], synthType: DRUM_SYNTH_TYPES[newIdx], mode: 'synth' };
-    drumSynth(previewPad, 0.7, getMaster());
-    oledForce('SELECT SOUND', DRUM_SYNTH_TYPES[newIdx], `${newIdx+1}/${nSounds}`);
-    drumSoundSelectIdx = newIdx;
-    return;
-  }
+  // Molette = BPM uniquement
   if (wheelDrag.type === 'bpm') {
-    S._stepsLocked = false;
     setBpm(wheelDrag.bpm + Math.round((wheelDrag.y - e.clientY) / 2));
     oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
-  } else if (wheelDrag.type === 'notelen') {
-    S._stepsLocked = true;
-    const delta = Math.round((wheelDrag.y - e.clientY) / 8);
-    if (delta === 0 && !wheelDrag.moved) return; // clic sans drag → ne rien modifier
-    wheelDrag.moved = true;
-    const stepIdx = wheelDrag.stepIdx;
-    const clip = activeClip();
-    const totalSteps = clip.numBars * 16;
-    const absPos = wheelDrag.startBar * 16 + stepIdx;
-    const maxLen = totalSteps - absPos;
-    const newLen = Math.max(1, Math.min(maxLen, wheelDrag.startLen + delta));
-
-    // Écrire dans le bon array selon le mode
-    let st;
-    if (wheelDrag.isDrum) {
-      st = clip.drumBars[wheelDrag.drumPadIdx][wheelDrag.startBar][stepIdx];
-    } else {
-      st = clip.bars[wheelDrag.startBar][stepIdx];
-    }
-    if (!st.on) { st.on = true; st.vel = 0.787; }
-    st.len = newLen;
-
-    // Feedback visuel sur les steps du bar courant (startBar)
-    showNoteLengthFeedback(stepIdx, true, newLen);
-
-    // OLED : uniquement en steps
-    oledForce(`STEP ${stepIdx+1}`, `${newLen} step${newLen>1?'s':''}`, `= ${(newLen * stepDur()).toFixed(2)}s`);
   }
 });
 document.addEventListener('mouseup', () => {
@@ -6451,118 +6308,7 @@ document.addEventListener('mouseup', () => {
   svg('wheel').setAttribute('stroke', '#3a3a3a');
   svg('wheel').setAttribute('stroke-width', '1.5');
 
-  // ── Menu routing : clic sans drag = confirmer ──
-  if (wheelDrag && wheelDrag.type === 'routing') {
-    if (!wheelDrag.moved) {
-      confirmRoutingMenu();
-    } else {
-      // Drag terminé → rester dans le menu, oled déjà à jour
-      keepOledLocked = true;
-    }
-    wheelDrag = null;
-    return;
-  }
-
-  // Clic sans drag sur molette en mode drum → entrer dans la sélection de son
-  if (wheelDrag && wheelDrag.type === 'drumsound_pending') {
-    if (!wheelDrag.moved) {
-      drumSoundSelectMode = true;
-      const tDs = S.tracks[S.currentTrack];
-      if (!tDs.drumPads) tDs.drumPads = makeDefaultDrumPads();
-      const pad = tDs.drumPads[S.selectedDrumPad];
-      drumSoundSelectOrigin = DRUM_SYNTH_TYPES.indexOf(pad.synthType || 'Kick');
-      if (drumSoundSelectOrigin < 0) drumSoundSelectOrigin = 0;
-      drumSoundSelectIdx = drumSoundSelectOrigin;
-      oledForce('SELECT SOUND', DRUM_SYNTH_TYPES[drumSoundSelectIdx],
-                `${drumSoundSelectIdx+1}/${DRUM_SYNTH_TYPES.length}`);
-      S._oledLocked = true;
-    }
-    wheelDrag = null;
-    return;
-  }
-  // Drumsound (déjà en mode select) : clic = confirmer, drag terminé = rester
-  if (wheelDrag && wheelDrag.type === 'drumsound') {
-    if (!wheelDrag.moved) {
-      const tDs = S.tracks[S.currentTrack];
-      if (!tDs.drumPads) tDs.drumPads = makeDefaultDrumPads();
-      const pad = tDs.drumPads[S.selectedDrumPad];
-      saveUndo();
-      pad.synthType = DRUM_SYNTH_TYPES[drumSoundSelectIdx];
-      pad.mode = 'synth';
-      // Appliquer les valeurs par défaut du nouveau type
-      const defs = DRUM_SYNTH_DEFAULTS[pad.synthType] || DRUM_SYNTH_DEFAULTS['Kick'];
-      pad.tune = defs.tune; pad.decay = defs.decay;
-      pad.tone = defs.tone; pad.drive = defs.drive;
-      drumSoundSelectMode = false;
-      S._oledLocked = false;
-      renderDrumPadSelection();
-      updateEncArcs();
-      oled('DRUM', pad.synthType, `pad ${S.selectedDrumPad+1} · seq`);
-    } else {
-      oledForce('SELECT SOUND', DRUM_SYNTH_TYPES[drumSoundSelectIdx],
-                `${drumSoundSelectIdx+1}/${DRUM_SYNTH_TYPES.length} · clic=ok`);
-      S._oledLocked = true;
-    }
-    wheelDrag = null;
-    return;
-  }
-
-  // ── Mélodique pending : vrai clic → entrer en mode sélection ──
-  if (wheelDrag && wheelDrag.type === 'melodicsound_pending') {
-    if (!wheelDrag.moved) {
-      const ti = S.currentTrack;
-      const ts = trackSF2[ti];
-      if (!ts.presets.length) {
-        oledForce('SELECT SOUND', 'No SF2', 'Shift+track pour charger');
-        S._oledLocked = true;
-        setTimeout(() => { S._oledLocked = false; }, 1500);
-      } else {
-        const curIdx = ts.presets.findIndex(p => p.bank === ts.bank && p.program === ts.program);
-        const idx = curIdx >= 0 ? curIdx : 0;
-        melodicSoundSelectMode = true;
-        melodicSoundSelectIdx = idx;
-        melodicSoundSelectOrigin = idx;
-        wheelDrag = { type: 'melodicsound', y: wheelDrag.y, moved: false, startIdx: idx };
-        oledForce('SELECT SOUND', ts.presets[idx].name.slice(0,14),
-                  `${idx+1}/${ts.presets.length}`);
-        S._oledLocked = true;
-      }
-    }
-    wheelDrag = null;
-    return;
-  }
-  // ── Mélodique déjà en mode select : clic = confirmer ──
-  if (wheelDrag && wheelDrag.type === 'melodicsound') {
-    if (!wheelDrag.moved) {
-      const ti = S.currentTrack;
-      const ts = trackSF2[ti];
-      const preset = sf2SelectPreset(ti, wheelDrag.startIdx);
-      melodicSoundSelectMode = false;
-      S._oledLocked = false;
-      if (preset) oled('SOUND', preset.name.slice(0,14), trackInfo());
-    } else {
-      const ti = S.currentTrack;
-      const ts = trackSF2[ti];
-      const p = ts.presets[wheelDrag.startIdx];
-      oledForce('SELECT SOUND', p?.name.slice(0,14) || '?',
-                `${wheelDrag.startIdx+1}/${ts.presets.length} · clic=ok`);
-      S._oledLocked = true;
-    }
-    wheelDrag = null;
-    return;
-  }
-
-  // Clic sans drag sur la molette + step tenu → afficher longueur
-  if (wheelDrag && wheelDrag.type === 'notelen' && !wheelDrag.moved) {
-    const len = wheelDrag.startLen;
-    oledForce(`STEP ${wheelDrag.stepIdx+1}`, `${len} step${len>1?'s':''}`, `= ${(len * stepDur()).toFixed(2)}s`);
-    keepOledLocked = true;
-    setTimeout(() => { S._oledLocked = false; }, 2000);
-  } else if (wheelDrag && wheelDrag.type === 'notelen') {
-    S.currentBar = wheelDrag.startBar;
-    showNoteLengthFeedback(wheelDrag.stepIdx, false);
-    renderSteps();
-  }
+  // Molette = BPM uniquement, pas d'action spéciale au clic
 
   // Clic sans drag sur encVol + step tenu → afficher vélocité
   if (volDrag && volDrag.type === 'vel' && !volDrag.moved) {
