@@ -9933,8 +9933,13 @@ function createDemoProject() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // TEMPORAIRE : forcer la recréation du demo à chaque lancement
-  createDemoProject();
+  // Créer le projet Demo par défaut s'il n'existe pas ou est obsolète
+  const DEMO_VER = 11;
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY(0));
+    const d = raw ? JSON.parse(raw) : null;
+    if (!d || (d._meta?.demoVersion || 0) < DEMO_VER) createDemoProject();
+  } catch(e) { createDemoProject(); }
   document.getElementById('oledClickZone')?.addEventListener('click', () => {
     // Bloquer en modes non-éditables
     if (projectModeActive) return;
