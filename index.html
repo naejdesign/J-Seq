@@ -7367,6 +7367,7 @@ function clearProjectLabels() {
         renderTrackButtons();
         renderPads();
         renderSteps();
+        renderFXPanel();
         if (S.pianoOpen) buildPiano();
         updateEncArcs();
         updateSendArcs();
@@ -9820,7 +9821,7 @@ function createDemoProject() {
     version: 2, bpm: 110, masterVolume: 0.65, octave: 0,
     masterFX: JSON.parse(JSON.stringify(masterFX)),
     tracks: [],
-    _meta: { savedAt: Date.now(), name: 'Demo Song', color: '#3ddc84', demoVersion: 3 }
+    _meta: { savedAt: Date.now(), name: 'Demo Song', color: '#3ddc84', demoVersion: 11 }
   };
 
   // Helper : créer un clip vide
@@ -9918,9 +9919,9 @@ function createDemoProject() {
   ];
 
   demo.tracks = [
-    makeTrackData('sf2', t1clips),                   // T1 basse
-    makeTrackData('sf2', t2clips),                   // T2 accords
-    makeTrackData('drum', t3clips, demoDrumPads),    // T3 drums
+    makeTrackData('drum', t3clips, demoDrumPads),    // T1 drums (toujours T1)
+    makeTrackData('sf2', t1clips),                   // T2 basse
+    makeTrackData('sf2', t2clips),                   // T3 accords
     makeTrackData('sf2', emptyTrackClips()),          // T4
     makeTrackData('sf2', emptyTrackClips()),          // T5
     makeTrackData('sf2', emptyTrackClips()),          // T6
@@ -9932,18 +9933,13 @@ function createDemoProject() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  // Créer/mettre à jour le projet Demo par défaut
-  const DEMO_VERSION = 3;
-  const existingDemo = localStorage.getItem(PROJECT_KEY(0));
-  let needsDemo = !existingDemo;
-  if (!needsDemo) {
-    try {
-      const d = JSON.parse(existingDemo);
-      const v = d._meta?.demoVersion || 0;
-      needsDemo = v < DEMO_VERSION;
-    } catch(e) { needsDemo = true; }
-  }
-  if (needsDemo) createDemoProject();
+  // Créer le projet Demo par défaut s'il n'existe pas ou est obsolète
+  const DEMO_VER = 11;
+  try {
+    const raw = localStorage.getItem(PROJECT_KEY(0));
+    const d = raw ? JSON.parse(raw) : null;
+    if (!d || (d._meta?.demoVersion || 0) < DEMO_VER) createDemoProject();
+  } catch(e) { createDemoProject(); }
   document.getElementById('oledClickZone')?.addEventListener('click', () => {
     // Bloquer en modes non-éditables
     if (projectModeActive) return;
