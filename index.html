@@ -6169,6 +6169,11 @@ function enterMode(m) {
     oled('SESSION', `Track ${S.currentTrack+1}`, `Clip ${t.activeClip+1}`);
   } else {
     S.currentBar = 0;
+    // Cacher les labels de répétitions master (session only)
+    for (let c = 0; c < 8; c++) {
+      const lbl = document.getElementById(`masterRepLbl_${c}`);
+      if (lbl) lbl.style.display = 'none';
+    }
     renderPads();
     renderSteps();
     updateEncArcs();
@@ -6289,12 +6294,26 @@ function renderSessionMode() {
       // Afficher le nombre de répétitions sur les clips master
       if (t.mode === 'master') {
         const repeats = clip.columnRepeats || 0;
-        const lbl = document.getElementById(`padlbl_${r}_${c}`);
-        if (lbl) {
-          lbl.textContent = repeats === 0 ? '∞' : `×${repeats}`;
-          lbl.setAttribute('fill', repeats === 0 ? '#555' : '#fff');
-          lbl.setAttribute('font-size', '13');
+        const lblId = `masterRepLbl_${c}`;
+        let lbl = document.getElementById(lblId);
+        const padRect = padEl(r, c);
+        const px = parseFloat(padRect.getAttribute('x')) + parseFloat(padRect.getAttribute('width')) / 2;
+        const py = parseFloat(padRect.getAttribute('y')) + parseFloat(padRect.getAttribute('height')) / 2 + 5;
+        if (!lbl) {
+          lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          lbl.id = lblId;
+          lbl.setAttribute('text-anchor', 'middle');
+          lbl.setAttribute('font-family', "'DM Mono',monospace");
+          lbl.setAttribute('font-weight', '700');
+          lbl.setAttribute('pointer-events', 'none');
+          padRect.parentNode.appendChild(lbl);
         }
+        lbl.setAttribute('x', px);
+        lbl.setAttribute('y', py);
+        lbl.setAttribute('font-size', '15');
+        lbl.setAttribute('fill', repeats === 0 ? '#555' : '#fff');
+        lbl.textContent = repeats === 0 ? '∞' : `×${repeats}`;
+        lbl.style.display = '';
       }
     }
   }
@@ -6906,6 +6925,7 @@ function serializeProject() {
           nb: clip.numBars,
           ls: clip.loopStart ?? 0,
           le: clip.loopEnd   ?? (clip.numBars - 1),
+          cr: clip.columnRepeats || 0,
           b:  bars,
           d:  drumBars,
         };
@@ -6977,6 +6997,7 @@ function deserializeProject(data, slot) {
         clip.numBars   = cd.nb ?? 1;
         clip.loopStart = cd.ls ?? 0;
         clip.loopEnd   = cd.le ?? (clip.numBars - 1);
+        clip.columnRepeats = cd.cr ?? 0;
         // Réinitialiser à vide
         clip.bars = Array.from({length:8}, () =>
           Array.from({length:16}, () => ({on:false, note:60, vel:0.787}))
@@ -7067,6 +7088,16 @@ function clearAllDynamicLabels() {
         if (el) el.textContent = '';
       });
     }
+  }
+  // Cacher les labels de répétitions master
+  for (let c = 0; c < 8; c++) {
+    const lbl = document.getElementById(`masterRepLbl_${c}`);
+    if (lbl) lbl.style.display = 'none';
+  }
+  // Cacher les labels BPM des steps
+  for (let i = 0; i < 16; i++) {
+    const bpmTxt = document.getElementById(`stepBpm${i}`);
+    if (bpmTxt) bpmTxt.style.display = 'none';
   }
 }
 
@@ -9777,7 +9808,131 @@ async function restoreSF2Dir() {
 }
 
 // Clic sur l'OLED → ouvrir le browser adapté à la track courante
+// ── Projet Demo par défaut ──
+function createDemoProject() {
+  const demo = {
+    version: 2, bpm: 110, masterVolume: 0.65, octave: 0,
+    masterFX: JSON.parse(JSON.stringify(masterFX)),
+    tracks: [],
+    _meta: { savedAt: Date.now(), name: 'Demo Song', color: '#3ddc84' }
+  };
+
+  // Helper : créer un clip vide
+  function emptyClip(numBars, cr) {
+    return { nb: numBars || 1, ls: 0, le: (numBars || 1) - 1, cr: cr || 0, b: [], d: [] };
+  }
+
+  // T1 (SF2) — basse mélodique
+  const t1clips = [];
+  // Col 0 : basse simple 2 bars
+  const c0b = [];
+  [0, 4, 8, 12].forEach(s => c0b.push([0, s, {n:36, v:0.8}])); // C2
+  [0, 4, 8, 12].forEach(s => c0b.push([1, s, {n:36, v:0.75}]));
+  c0b.push([1, 6, {n:39, v:0.7}]); // Eb2
+  c0b.push([1, 10, {n:43, v:0.7}]); // G2
+  t1clips.push({ nb: 2, ls: 0, le: 1, cr: 0, b: c0b, d: [] });
+  // Col 1 : variation
+  const c1b = [];
+  [0, 8].forEach(s => c1b.push([0, s, {n:41, v:0.8}])); // F2
+  c1b.push([0, 4, {n:43, v:0.75}]); // G2
+  c1b.push([0, 12, {n:39, v:0.7}]); // Eb2
+  t1clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: c1b, d: [] });
+  // Col 2-7 vides
+  for (let i = 2; i < 8; i++) t1clips.push(emptyClip(1));
+
+  // T2 (SF2) — accords/pads
+  const t2clips = [];
+  // Col 0 : accords
+  const c0a = [];
+  c0a.push([0, 0, {n:60, v:0.6, e:[63,67]}]); // Cm (C Eb G)
+  c0a.push([0, 8, {n:60, v:0.55, e:[63,67]}]);
+  t2clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: c0a, d: [] });
+  // Col 1 : accord différent
+  const c1a = [];
+  c1a.push([0, 0, {n:65, v:0.6, e:[68,72]}]); // Fm
+  c1a.push([0, 8, {n:63, v:0.55, e:[67,70]}]); // Eb
+  t2clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: c1a, d: [] });
+  // Col 2 : break
+  const c2a = [];
+  c2a.push([0, 0, {n:67, v:0.65, e:[70,74]}]); // G dim-ish
+  t2clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: c2a, d: [] });
+  for (let i = 3; i < 8; i++) t2clips.push(emptyClip(1));
+
+  // T3 (drum) — kick/snare pattern
+  const t3clips = [];
+  // Col 0 : basic beat
+  const c0d = [];
+  // Pad 0 = kick : 0,8
+  c0d.push([0, 0, 0, {v:0.9}]); c0d.push([0, 0, 8, {v:0.85}]);
+  // Pad 1 = snare : 4,12
+  c0d.push([1, 0, 4, {v:0.8}]); c0d.push([1, 0, 12, {v:0.8}]);
+  // Pad 2 = hihat : every 2 steps
+  for (let s = 0; s < 16; s += 2) c0d.push([2, 0, s, {v: s%4===0 ? 0.7 : 0.5}]);
+  t3clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: [], d: c0d });
+  // Col 1 : fill
+  const c1d = [];
+  c1d.push([0, 0, 0, {v:0.9}]); c1d.push([0, 0, 6, {v:0.7}]); c1d.push([0, 0, 10, {v:0.75}]);
+  c1d.push([1, 0, 4, {v:0.8}]); c1d.push([1, 0, 8, {v:0.7}]);
+  c1d.push([1, 0, 13, {v:0.6}]); c1d.push([1, 0, 14, {v:0.65}]); c1d.push([1, 0, 15, {v:0.75}]);
+  for (let s = 0; s < 16; s += 2) c1d.push([2, 0, s, {v:0.6}]);
+  t3clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: [], d: c1d });
+  // Col 2 : half-time
+  const c2d = [];
+  c2d.push([0, 0, 0, {v:0.9}]);
+  c2d.push([1, 0, 8, {v:0.85}]);
+  for (let s = 0; s < 16; s += 4) c2d.push([2, 0, s, {v:0.55}]);
+  t3clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: [], d: c2d });
+  for (let i = 3; i < 8; i++) t3clips.push(emptyClip(1));
+
+  // T4-T7 : vides
+  const emptyTrackClips = () => Array.from({length:8}, () => emptyClip(1));
+
+  // T8 = Master — BPM automation + song mode repeats
+  const t8clips = [];
+  // Col 0 : 110 BPM, repeat ×4
+  const m0b = [];
+  m0b.push([0, 0, {n:110, v:0.8}]); // step 0 = 110 BPM
+  t8clips.push({ nb: 1, ls: 0, le: 0, cr: 4, b: m0b, d: [] });
+  // Col 1 : 120 BPM, repeat ×2
+  const m1b = [];
+  m1b.push([0, 0, {n:120, v:0.8}]);
+  t8clips.push({ nb: 1, ls: 0, le: 0, cr: 2, b: m1b, d: [] });
+  // Col 2 : 90 BPM, repeat ×2 (ralentissement)
+  const m2b = [];
+  m2b.push([0, 0, {n:90, v:0.8}]);
+  t8clips.push({ nb: 1, ls: 0, le: 0, cr: 2, b: m2b, d: [] });
+  for (let i = 3; i < 8; i++) t8clips.push(emptyClip(1));
+
+  // Assembler les tracks
+  function makeTrackData(mode, clips) {
+    return {
+      mode, muted: false, soloed: false, volume: 0.8,
+      sendDelay: 0, sendReverb: 0, soundIndex: 0,
+      outputMode: 'sf2', midiChannel: 1, midiOutputId: null,
+      drumSoundMap: [0,1,2,3,4,5,6,7], drumPads: null,
+      activeClip: 0, clips
+    };
+  }
+
+  demo.tracks = [
+    makeTrackData('sf2', t1clips),   // T1 basse
+    makeTrackData('sf2', t2clips),   // T2 accords
+    makeTrackData('drum', t3clips),  // T3 drums
+    makeTrackData('sf2', emptyTrackClips()),   // T4
+    makeTrackData('sf2', emptyTrackClips()),   // T5
+    makeTrackData('sf2', emptyTrackClips()),   // T6
+    makeTrackData('sf2', emptyTrackClips()),   // T7
+    makeTrackData('master', t8clips), // T8 master
+  ];
+
+  localStorage.setItem(PROJECT_KEY(0), JSON.stringify(demo));
+}
+
 document.addEventListener('DOMContentLoaded', () => {
+  // Créer le projet Demo par défaut s'il n'existe pas
+  if (!localStorage.getItem(PROJECT_KEY(0))) {
+    createDemoProject();
+  }
   document.getElementById('oledClickZone')?.addEventListener('click', () => {
     // Bloquer en modes non-éditables
     if (projectModeActive) return;
