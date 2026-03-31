@@ -132,22 +132,16 @@ body {
 <!-- ══ MOLETTE ═══════════════════════════════════════════════════
   Centre x=73, centre y=168  rayon=34
 -->
-<circle id="wheel" cx="80" cy="141" r="21" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
-<circle cx="80" cy="141" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
-<text x="80" y="145" text-anchor="middle" font-family="'DM Mono',monospace" font-size="8" font-weight="500" fill="#555" pointer-events="none">BPM</text>
 
-<!-- ══ BACK + NOTE/SESSION ════════════════════════════════════════
-  y≈230 sous la molette
--->
-<g id="btnBack" cursor="pointer">
-  <circle cx="62" cy="205" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M66 199 L58 205 L66 211" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-</g>
-<g id="btnMode" cursor="pointer">
-  <circle cx="98" cy="205" r="14" fill="#222" stroke="#333" stroke-width="1"/>
+<!-- ══ BPM WHEEL + PROJECT BUTTON ════════════════════════════════ -->
+<circle id="wheel" cx="54" cy="141" r="20" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
+<text x="54" y="145" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">BPM</text>
+
+<g id="btnSets" cursor="pointer">
+  <rect x="84" y="122" width="43" height="38" rx="6" fill="#222" stroke="#333" stroke-width="1"/>
   <g fill="none" stroke="#777" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M91 197 L91 213 L105 213 L105 201 L101 197 Z"/>
-    <path d="M101 197 L101 201 L105 201"/>
+    <path d="M98 133 L98 149 L112 149 L112 137 L108 133 Z"/>
+    <path d="M108 133 L108 137 L112 137"/>
   </g>
 </g>
 
@@ -291,7 +285,7 @@ body {
   10mm bord droit = 860-27=833, 15mm haut → y bord=25, centre=25+21=46, r=21
 -->
 <circle id="encVol" cx="793" cy="52" r="21" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
-<circle cx="793" cy="52" r="13" fill="none" stroke="#2a2a2a" stroke-width="1"/>
+<text x="793" y="56" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">VOL</text>
 <!-- Indicateur MIDI connecté (entre enc7 et encVol) -->
 <circle id="midiDot" cx="745" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
 <text id="midiLbl" x="745" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
@@ -303,7 +297,7 @@ body {
 
 <!-- R0 col0 — CURSOR MODE -->
 <!-- R0 — SETS/PROJECTS (bouton large) -->
-<g id="btnSets" cursor="pointer">
+<g id="btnSession" cursor="pointer">
   <rect x="754" y="113" width="77" height="32" rx="16" fill="#222" stroke="#333" stroke-width="1"/>
   <line x1="783" y1="124" x2="797" y2="124" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
   <line x1="783" y1="129" x2="797" y2="129" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
@@ -404,8 +398,8 @@ body {
       <path id="playIcon" d="M44 251 L44 273 L62 262 Z" fill="#888"/>
     </g>
     <g id="btnRec" cursor="pointer">
-      <circle cx="106" cy="262" r="18" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
-      <circle id="recDot" cx="106" cy="262" r="9" fill="#882222"/>
+      <circle cx="105" cy="262" r="20" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
+      <circle id="recDot" cx="105" cy="262" r="9" fill="#882222"/>
     </g>
   </g>
 
@@ -4753,8 +4747,8 @@ document.addEventListener('keydown', e => {
   // NumpadDivide (/) → bouton Sets — toggle project mode
   if (e.code === 'NumpadDivide') {
     e.preventDefault();
-    setBtnLit('btnSets', true);
-    setTimeout(() => setBtnLit('btnSets', false), 150);
+    setBtnLit('btnSession', true);
+    setTimeout(() => setBtnLit('btnSession', false), 150);
     if (projectModeActive) exitProjectMode();
     else enterProjectMode();
     return;
@@ -4771,13 +4765,6 @@ document.addEventListener('keydown', e => {
 
   // ── Transport ──
   if (key === ' ') { e.preventDefault(); togglePlay(); return; }
-  if (e.code === 'Backspace') {
-    e.preventDefault();
-    setBackLit(true);
-    svg('btnBack').dispatchEvent(new Event('click'));
-    setTimeout(() => setBackLit(false), 150);
-    return;
-  }
   if (e.code === 'KeyR') {
     toggleRec();
     return;
@@ -6014,7 +6001,7 @@ svg('btnUndo').addEventListener('mouseleave',() => setBtnLit('btnUndo', false, '
 var cursorEnabled = true;
 
 // Sets — toggle project mode
-svg('btnSets').addEventListener('mousedown', () => {
+svg('btnSession').addEventListener('mousedown', () => {
   modePressTime = Date.now();
   setModeButtonLit(true);
   if (S.mode === 'loop') {
@@ -6025,7 +6012,7 @@ svg('btnSets').addEventListener('mousedown', () => {
   const otherMode = S.mode === 'note' ? 'session' : 'note';
   enterMode(otherMode);
 });
-svg('btnSets').addEventListener('mouseup', () => {
+svg('btnSession').addEventListener('mouseup', () => {
   setModeButtonLit(false);
   const held = Date.now() - modePressTime;
   if (held >= MODE_LONG_PRESS) {
@@ -6033,7 +6020,7 @@ svg('btnSets').addEventListener('mouseup', () => {
     enterMode(back);
   }
 });
-svg('btnSets').addEventListener('mouseleave', () => {});
+svg('btnSession').addEventListener('mouseleave', () => {});
 // Bouton Loop : maintenu + autre bouton = combo
 // ── Bouton LOOP : hold détecté au niveau document ──
 function setLoopHeld(on) {
@@ -6149,7 +6136,7 @@ svg('btnShift').addEventListener('mouseup', () => {
 let modePressTime = 0;
 const MODE_LONG_PRESS = 300; // ms
 
-function setModeButtonLit(on) { setBtnLit('btnSets', on); }
+function setModeButtonLit(on) { setBtnLit('btnSession', on); }
 
 function resetDirButtons() {
   // Éteindre tous les boutons de la croix directionnelle
@@ -6199,59 +6186,15 @@ function enterMode(m) {
 }
 
 // Bouton Back — retour visuel + annule mode sélection son drum
-function setBackLit(on) {
-  setBtnLit('btnBack', on);
-  const arrow = svg('btnBack')?.querySelector('path');
-  if (arrow) arrow.setAttribute('stroke', on ? '#ccc' : '#888');
-}
-svg('btnBack').addEventListener('mousedown', () => setBackLit(true));
-svg('btnBack').addEventListener('mouseup',   () => setBackLit(false));
-svg('btnBack').addEventListener('mouseleave',() => setBackLit(false));
-svg('btnBack').addEventListener('click', () => {
-  if (projectModeActive) {
-    exitProjectMode();
-    clearProjectLabels();
-    return;
-  }
-  if (routingMenuMode) {
-    closeRoutingMenu(true); // annuler sans sauvegarder
-  } else if (drumSoundSelectMode) {
-    const tDs = S.tracks[S.currentTrack];
-    if (!tDs.drumPads) tDs.drumPads = makeDefaultDrumPads();
-    const pad = tDs.drumPads[S.selectedDrumPad];
-    pad.synthType = DRUM_SYNTH_TYPES[drumSoundSelectOrigin] || pad.synthType;
-    drumSoundSelectMode = false;
-    drumSoundSelectIdx = drumSoundSelectOrigin;
-    S._oledLocked = false;
-    renderDrumPadSelection();
-    oled('DRUM', pad.synthType, `pad ${S.selectedDrumPad+1} · seq`);
-  } else if (melodicSoundSelectMode) {
-    // Annuler sélection son mélodique → revenir au son d'origine
-    const ti = S.currentTrack;
-    const ts = trackSF2[ti];
-    if (ts.presets.length && melodicSoundSelectOrigin >= 0) {
-      sf2SelectPreset(ti, melodicSoundSelectOrigin);
-    }
-    melodicSoundSelectMode = false;
-    S._oledLocked = false;
-    oled('SOUND', getSF2PresetName(ti), trackInfo());
-  } else if (typeof fxPage === 'number') {
-    // Retour depuis page FX avancée → page principale
-    fxPage = 'main';
-    renderFXPanel();
-  } else {
-    // Annuler tout verrouillage OLED résiduel
-    S._oledLocked = false;
-  }
-});
+// btnBack supprimé — ses anciennes fonctions sont gérées autrement
 
-svg('btnMode').addEventListener('click', () => {
+svg('btnSets').addEventListener('click', () => {
   if (projectModeActive) {
     exitProjectMode();
-    setBtnLit('btnMode', false, '#aaa');
+    setBtnLit('btnSets', false, '#aaa');
   } else {
     enterProjectMode();
-    setBtnLit('btnMode', true, '#aaa');
+    setBtnLit('btnSets', true, '#aaa');
   }
 });
 
@@ -7186,7 +7129,7 @@ function exitProjectMode() {
   projectModeActive = false;
   projectSelected = null;
   S._oledLocked = false;
-  setBtnLit('btnMode', false, '#aaa');
+  setBtnLit('btnSets', false, '#aaa');
   _projectDimControls(false);
   clearAllDynamicLabels();
   resetAllPads();
@@ -8441,14 +8384,6 @@ function midiCC(cc, value) {
 
   if (cc === 118) { ensureAudio(); togglePlay(); return; }
   if (cc === 119) { ensureAudio(); toggleRec();  return; }
-
-  if (cc === 115) {
-    // Back — flash lumineux + action
-    setBackLit(true);
-    svg('btnBack').dispatchEvent(new Event('click'));
-    setTimeout(() => setBackLit(false), 150);
-    return;
-  }
 
   if (cc === 117) {
     // Mode/burger — flash lumineux + toggle session/note
@@ -10512,8 +10447,8 @@ function pollGamepad() {
     const selectPressed = btns[8]?.pressed || false;
     const selectWas = _gpPrevButtons[gp.index + '_8'] || false;
     if (selectPressed && !selectWas) {
-      if (projectModeActive) { exitProjectMode(); setBtnLit('btnMode', false, '#aaa'); }
-      else { enterProjectMode(); setBtnLit('btnMode', true, '#aaa'); }
+      if (projectModeActive) { exitProjectMode(); setBtnLit('btnSets', false, '#aaa'); }
+      else { enterProjectMode(); setBtnLit('btnSets', true, '#aaa'); }
     }
     _gpPrevButtons[gp.index + '_8'] = selectPressed;
 
