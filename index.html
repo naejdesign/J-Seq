@@ -6245,6 +6245,12 @@ svg('btnMode').addEventListener('click', () => {
 function renderSessionMode() {
   if (projectModeActive) return;
   const pageOffset = S.page * 4;
+  // Cacher les labels de répétitions master si pas sur la page du master
+  const masterOnPage = S.tracks.slice(pageOffset, pageOffset + 4).some(t => t.mode === 'master');
+  for (let c = 0; c < 8; c++) {
+    const lbl = document.getElementById(`masterRepLbl_${c}`);
+    if (lbl && !masterOnPage) lbl.style.display = 'none';
+  }
   for (let r = 0; r < 4; r++) {
     const ti = pageOffset + r;
     const t = S.tracks[ti];
@@ -9862,11 +9868,8 @@ function createDemoProject() {
   const t3clips = [];
   // Col 0 : basic beat
   const c0d = [];
-  // Pad 0 = kick : 0,8
   c0d.push([0, 0, 0, {v:0.9}]); c0d.push([0, 0, 8, {v:0.85}]);
-  // Pad 1 = snare : 4,12
   c0d.push([1, 0, 4, {v:0.8}]); c0d.push([1, 0, 12, {v:0.8}]);
-  // Pad 2 = hihat : every 2 steps
   for (let s = 0; s < 16; s += 2) c0d.push([2, 0, s, {v: s%4===0 ? 0.7 : 0.5}]);
   t3clips.push({ nb: 1, ls: 0, le: 0, cr: 0, b: [], d: c0d });
   // Col 1 : fill
@@ -9887,42 +9890,42 @@ function createDemoProject() {
   // T4-T7 : vides
   const emptyTrackClips = () => Array.from({length:8}, () => emptyClip(1));
 
-  // T8 = Master — BPM automation + song mode repeats
-  const t8clips = [];
-  // Col 0 : 110 BPM, repeat ×4
-  const m0b = [];
-  m0b.push([0, 0, {n:110, v:0.8}]); // step 0 = 110 BPM
-  t8clips.push({ nb: 1, ls: 0, le: 0, cr: 4, b: m0b, d: [] });
-  // Col 1 : 120 BPM, repeat ×2
-  const m1b = [];
-  m1b.push([0, 0, {n:120, v:0.8}]);
-  t8clips.push({ nb: 1, ls: 0, le: 0, cr: 2, b: m1b, d: [] });
-  // Col 2 : 90 BPM, repeat ×2 (ralentissement)
-  const m2b = [];
-  m2b.push([0, 0, {n:90, v:0.8}]);
-  t8clips.push({ nb: 1, ls: 0, le: 0, cr: 2, b: m2b, d: [] });
-  for (let i = 3; i < 8; i++) t8clips.push(emptyClip(1));
+  // T8 = Master — vide (l'utilisateur remplira les automations BPM et répétitions)
+  const t8clips = Array.from({length:8}, () => emptyClip(1));
 
   // Assembler les tracks
-  function makeTrackData(mode, clips) {
+  function makeTrackData(mode, clips, pads) {
     return {
       mode, muted: false, soloed: false, volume: 0.8,
       sendDelay: 0, sendReverb: 0, soundIndex: 0,
       outputMode: 'sf2', midiChannel: 1, midiOutputId: null,
-      drumSoundMap: [0,1,2,3,4,5,6,7], drumPads: null,
+      drumSoundMap: [0,1,2,3,4,5,6,7],
+      drumPads: pads || null,
       activeClip: 0, clips
     };
   }
 
+  // Drum pads par défaut pour la sérialisation
+  const demoDrumPads = [
+    { mode:'synth', synthType:'Kick',    tune:0, decay:0.4, tone:0.5, drive:0.3, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Snare',   tune:0, decay:0.3, tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'HiHat',   tune:0, decay:0.15,tone:0.6, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Clap',    tune:0, decay:0.25,tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.75,sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Tom',     tune:0, decay:0.3, tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Rim',     tune:0, decay:0.2, tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Cowbell', tune:0, decay:0.2, tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Clave',   tune:0, decay:0.15,tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+  ];
+
   demo.tracks = [
-    makeTrackData('sf2', t1clips),   // T1 basse
-    makeTrackData('sf2', t2clips),   // T2 accords
-    makeTrackData('drum', t3clips),  // T3 drums
-    makeTrackData('sf2', emptyTrackClips()),   // T4
-    makeTrackData('sf2', emptyTrackClips()),   // T5
-    makeTrackData('sf2', emptyTrackClips()),   // T6
-    makeTrackData('sf2', emptyTrackClips()),   // T7
-    makeTrackData('master', t8clips), // T8 master
+    makeTrackData('sf2', t1clips),                   // T1 basse
+    makeTrackData('sf2', t2clips),                   // T2 accords
+    makeTrackData('drum', t3clips, demoDrumPads),    // T3 drums
+    makeTrackData('sf2', emptyTrackClips()),          // T4
+    makeTrackData('sf2', emptyTrackClips()),          // T5
+    makeTrackData('sf2', emptyTrackClips()),          // T6
+    makeTrackData('sf2', emptyTrackClips()),          // T7
+    makeTrackData('master', t8clips),                // T8 master (vide)
   ];
 
   localStorage.setItem(PROJECT_KEY(0), JSON.stringify(demo));
