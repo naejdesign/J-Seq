@@ -3014,8 +3014,9 @@ const S = {
     _stopped: false,
     drumSoundMap: Array.from({length:8}, (_,j) => j),
     drumPads: null,
-    sendReverb: 0,   // 0..1 — send reverb global de la track (mélodique)
-    sendDelay:  0,   // 0..1 — send delay global de la track (mélodique)
+    sendReverb: 0,
+    sendDelay:  0,
+    octave: 3,    // registre clavier par track (default = 3 = C3)
   })),
   currentBar: 0,
   playingBar: 0,
@@ -4079,6 +4080,8 @@ function padNote(row, col) {
 function selectTrack(ti) {
   const prevTi = S.currentTrack;
   const prev   = S.tracks[prevTi];
+  // Sauvegarder l'octave courante dans la track précédente
+  prev.octave = S.octave;
   if (ti !== prevTi) {
     if (prev.outputMode === 'midi') midiAllNotesOff(prevTi);
     if (prev.outputMode === 'sf2')  sf2AllNotesOff(prevTi);
@@ -4088,6 +4091,9 @@ function selectTrack(ti) {
 
   // Sync page avec la track sélectionnée
   S.page = Math.floor(ti / 4);
+
+  // Restaurer l'octave de la nouvelle track
+  S.octave = S.tracks[ti].octave ?? 3;
 
   for (let r = 0; r < 4; r++)
     for (let c = 0; c < 8; c++)
@@ -4134,7 +4140,14 @@ function selectTrack(ti) {
   updateEncArcs();
   updateSendArcs();
   renderFXPanel();
-  renderTrackButtons(); // toujours re-render en dernier pour garantir l'état correct
+  renderTrackButtons();
+  // Mettre à jour l'affichage de l'octave du clavier
+  if (S.pianoOpen && typeof updatePianoOctaveIndicators === 'function') {
+    updatePianoOctaveIndicators();
+  }
+  const octStr = octaveRegistre() === 0 ? '0' : (octaveRegistre() > 0 ? '+' + octaveRegistre() : '' + octaveRegistre());
+  const octDisp = document.getElementById('octaveDisplay');
+  if (octDisp) octDisp.textContent = octStr;
 }
 
 function toggleStep(i) {
@@ -6836,7 +6849,7 @@ const NAME_NOUN = [
 function generateProjectName() {
   const adj  = NAME_ADJ [Math.floor(Math.random() * NAME_ADJ.length)];
   const noun = NAME_NOUN[Math.floor(Math.random() * NAME_NOUN.length)];
-  return `${adj}${noun}`;
+  return `${adj}${noun}`.slice(0, 8);
 }
 
 // Palette de couleurs de set — distinctes et lisibles sur fond noir
@@ -6884,6 +6897,7 @@ function serializeProject() {
       muted: t.muted,
       soloed: t.soloed,
       volume: t.volume,
+      octave: t.octave ?? 3,
       sendDelay:  t.sendDelay  || 0,
       sendReverb: t.sendReverb || 0,
       soundIndex: t.soundIndex,
@@ -6970,6 +6984,7 @@ function deserializeProject(data, slot) {
     t.muted       = td.muted       ?? false;
     t.soloed      = td.soloed      ?? false;
     t.volume      = td.volume      ?? 0.8;
+    t.octave      = td.octave      ?? 3;
     t.sendDelay   = td.sendDelay   ?? 0;
     t.sendReverb  = td.sendReverb  ?? 0;
     t.soundIndex  = td.soundIndex  ?? 0;
@@ -7051,6 +7066,7 @@ function deserializeProject(data, slot) {
   S.playing = false; S.recording = false;
   S.currentTrack = 0; S.currentBar = 0;
   S.mode = 'note';
+  S.octave = S.tracks[0].octave ?? 3;
   heldSteps.clear(); recHeld.clear();
 
   if (slot !== undefined) {
@@ -9821,7 +9837,7 @@ function createDemoProject() {
     version: 2, bpm: 110, masterVolume: 0.65, octave: 0,
     masterFX: JSON.parse(JSON.stringify(masterFX)),
     tracks: [],
-    _meta: { savedAt: Date.now(), name: 'Demo Song', color: '#3ddc84', demoVersion: 11 }
+    _meta: { savedAt: Date.now(), name: 'DemoSong', color: '#3ddc84', demoVersion: 11 }
   };
 
   // Helper : créer un clip vide
