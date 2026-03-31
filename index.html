@@ -135,6 +135,7 @@ body {
 
 <!-- ══ BPM WHEEL + PROJECT BUTTON ════════════════════════════════ -->
 <circle id="wheel" cx="54" cy="141" r="20" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
+<circle cx="54" cy="141" r="16" fill="none" stroke="#2a2a2a" stroke-width="0.8" pointer-events="none"/>
 <text x="54" y="145" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">BPM</text>
 
 <g id="btnSets" cursor="pointer">
@@ -285,6 +286,7 @@ body {
   10mm bord droit = 860-27=833, 15mm haut → y bord=25, centre=25+21=46, r=21
 -->
 <circle id="encVol" cx="793" cy="52" r="21" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
+<circle cx="793" cy="52" r="17" fill="none" stroke="#2a2a2a" stroke-width="0.8" pointer-events="none"/>
 <text x="793" y="56" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">VOL</text>
 <!-- Indicateur MIDI connecté (entre enc7 et encVol) -->
 <circle id="midiDot" cx="745" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
@@ -551,6 +553,21 @@ let actx = null;
 function ensureAudio() {
   if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
   if (actx.state === 'suspended') actx.resume();
+  // Keepalive : oscillateur quasi-silencieux qui empêche Chrome/Android de suspendre le contexte
+  if (!window._audioKeepAlive) {
+    const osc = actx.createOscillator();
+    osc.frequency.value = 1; // 1Hz — infra-basse inaudible
+    const g = actx.createGain();
+    g.gain.value = 0.0001; // quasi-silencieux mais non-nul (Chrome ignore gain=0)
+    osc.connect(g);
+    g.connect(actx.destination);
+    osc.start();
+    window._audioKeepAlive = osc;
+    // Relancer le contexte périodiquement au cas où Android le suspend
+    window._audioKeepAliveTimer = setInterval(() => {
+      if (actx.state === 'suspended') actx.resume();
+    }, 5000);
+  }
   // Initialiser FluidSynth WASM au premier geste
   if (!sf2Ready && !sf2Initializing) initSF2();
 }
@@ -940,7 +957,7 @@ const FX_DEFS = [
       { name: 'Rate',      key: 'arpRate',       min: 0, max: 5,   def: 2,   log: false, labels: ['1/1','1/2','1/4','1/8','1/16','1/32'], cycle: true },
       { name: 'Mode',      key: 'arpMode',       min: 0, max: 4,   def: 0,   log: false, labels: ['Up','Down','UpDn','Rand','Order'], cycle: true },
       { name: 'Octaves',   key: 'arpOctaves',    min: 1, max: 3,   def: 1,   log: false, labels: ['1 oct','2 oct','3 oct'], cycle: true, cycleBase: 1 },
-      { name: 'Release',   key: 'midiRelease',   min: 0, max: 127, def: 64,  log: false, fmt: v => Math.round(v) },
+      { name: 'Release',   key: 'midiRelease',   min: 0, max: 127, def: 0,   log: false, fmt: v => Math.round(v) },
       { name: 'Cutoff',    key: 'midiCutoff',    min: 0, max: 127, def: 127, log: false, fmt: v => Math.round(v) },
       { name: 'Resonance', key: 'midiReson',     min: 0, max: 127, def: 0,   log: false, fmt: v => Math.round(v) },
     ],
@@ -2228,22 +2245,30 @@ async function initSF2() {
   ensureAudio();
   try {
     await JSSynth.Synthesizer.waitForWasmInitialized();
-    // Créer 8 instances indépendantes — une par track
+    // Créer des instances FluidSynth uniquement pour les tracks mélodiques (pas drum ni master)
+    let instanceCount = 0;
     for (let ti = 0; ti < 8; ti++) {
+      if (TRACK_MODES[ti] === 'drum' || TRACK_MODES[ti] === 'master') {
+        jsSynths[ti] = null;
+        jsSynthNodes[ti] = null;
+        console.log(`[SF2] Track ${ti+1} (${TRACK_MODES[ti]}) — pas de FluidSynth`);
+        continue;
+      }
       const synth = new JSSynth.Synthesizer();
       await synth.init(actx.sampleRate, [
         ['synth.sample-rate', actx.sampleRate],
         ['synth.gain', 0.8],
-        ['synth.polyphony', 32], // réduit pour économiser la mémoire
+        ['synth.polyphony', 32],
       ]);
-      const node = synth.createAudioNode(actx, 512);
+      const node = synth.createAudioNode(actx, 2048);
       jsSynths[ti]     = synth;
       jsSynthNodes[ti] = node;
-      console.log(`[SF2] Instance ${ti+1} prête`);
+      instanceCount++;
+      console.log(`[SF2] Instance T${ti+1} prête`);
     }
     sf2Ready = true;
     sf2Initializing = false;
-    console.log('[SF2] FluidSynth WASM prêt — 8 instances');
+    console.log(`[SF2] FluidSynth WASM prêt — ${instanceCount} instances`);
     // Construire les chaînes FX (une par track)
     setTimeout(() => { for (let ti = 0; ti < 8; ti++) fxRebuildChain(ti); }, 100);
   } catch(e) {
@@ -2365,22 +2390,58 @@ function sf2AllNotesOff(trackIdx) {
 // ── MIDI CTRL — envoyer des CC FluidSynth ──
 function midiCtrlSendCC(ti, cc, value) {
   if (!sf2Ready || !jsSynths[ti]) return;
-  jsSynths[ti].midiControl(SF2_CHANNEL, cc, Math.max(0, Math.min(127, Math.round(value))));
+  const synth = jsSynths[ti];
+  try {
+    if (cc === 74) {
+      // Cutoff : value 0-127, 127=original SF2, 0=très fermé
+      // Generator 8 est additif → offset négatif pour fermer le filtre
+      // 127 = offset 0 (pas de changement), 0 = offset -9000 cents (très sombre)
+      const offset = -((127 - value) / 127) * 9000;
+      synth.setGenerator(SF2_CHANNEL, 8, offset);
+      return;
+    } else if (cc === 71) {
+      // Resonance : value 0-127, 0=flat, 127=max resonance
+      // Generator 9 est additif → offset positif pour ajouter de la résonance
+      // Limiter à 200cB max pour éviter la coupure du son
+      const offset = (value / 127) * 200;
+      synth.setGenerator(SF2_CHANNEL, 9, offset);
+      return;
+    } else if (cc === 72) {
+      // Release : value 0-127, 0=original SF2, 127=très long
+      // Generator 38 est additif en timecents
+      // 0 = offset 0 (pas de changement), 127 = +8000 (très long)
+      const offset = (value / 127) * 8000;
+      synth.setGenerator(SF2_CHANNEL, 38, offset);
+      return;
+    }
+  } catch(e) {
+    // setGenerator non disponible → fallback CC MIDI
+  }
+  synth.midiControl(SF2_CHANNEL, cc, Math.max(0, Math.min(127, Math.round(value))));
 }
 
 function midiCtrlApply(ti) {
   const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
   if (arpIdx < 0) return;
   const slot = trackFX[ti][arpIdx];
-  midiCtrlSendCC(ti, 72, Math.round(slot.params['midiRelease'] ?? 64));
+  if (!slot || !slot.active) return;
+  midiCtrlSendCC(ti, 72, Math.round(slot.params['midiRelease'] ?? 0));
   midiCtrlSendCC(ti, 74, Math.round(slot.params['midiCutoff']  ?? 127));
   midiCtrlSendCC(ti, 71, Math.round(slot.params['midiReson']   ?? 0));
 }
 
 function midiCtrlReset(ti) {
-  midiCtrlSendCC(ti, 72, 64);   // Release → default
-  midiCtrlSendCC(ti, 74, 127);  // Cutoff → full open
-  midiCtrlSendCC(ti, 71, 0);    // Resonance → none
+  if (!sf2Ready || !jsSynths[ti]) return;
+  const synth = jsSynths[ti];
+  try {
+    synth.setGenerator(SF2_CHANNEL, 8, 0);   // Cutoff → original SF2
+    synth.setGenerator(SF2_CHANNEL, 9, 0);   // Resonance → original SF2
+    synth.setGenerator(SF2_CHANNEL, 38, 0);  // Release → original SF2
+  } catch(e) {
+    synth.midiControl(SF2_CHANNEL, 74, 127);
+    synth.midiControl(SF2_CHANNEL, 71, 0);
+    synth.midiControl(SF2_CHANNEL, 72, 64);
+  }
 }
 
 function sf2GetTrackName(ti) {
@@ -2660,19 +2721,35 @@ const noteName = m => noteNames[m%12] + (Math.floor(m/12)-1);
 
 // Types de sons synthétisés disponibles
 const DRUM_SYNTH_TYPES = [
-  'Kick','Snare','Clap','HH Cl','HH Op','Rim','Tom Hi','Tom Lo'
+  'Kick','Snare','Clap','HH Cl','HH Op','Rim','Tom Hi','Tom Mid','Tom Lo',
+  'Crash','Ride','Shaker','Tamb','Conga','Bongo','Maracas',
+  'Woodblk','Triangle','Snap','Zap','Noise','Click'
 ];
 
 // Valeurs par défaut par type
 const DRUM_SYNTH_DEFAULTS = {
-  'Kick':   { tune:0, decay:0.5, tone:0.5, drive:0 },
-  'Snare':  { tune:0, decay:0.3, tone:0.5, drive:0 },
-  'Clap':   { tune:0, decay:0.2, tone:0.5, drive:0 },
-  'HH Cl':  { tune:0, decay:0.1, tone:0.7, drive:0 },
-  'HH Op':  { tune:0, decay:0.4, tone:0.7, drive:0 },
-  'Rim':    { tune:0, decay:0.15, tone:0.5, drive:0 },
-  'Tom Hi': { tune:0, decay:0.35, tone:0.5, drive:0 },
-  'Tom Lo': { tune:0, decay:0.45, tone:0.4, drive:0 },
+  'Kick':     { tune:0, decay:0.5,  tone:0.5, drive:0 },
+  'Snare':    { tune:0, decay:0.3,  tone:0.5, drive:0 },
+  'Clap':     { tune:0, decay:0.2,  tone:0.5, drive:0 },
+  'HH Cl':    { tune:0, decay:0.1,  tone:0.7, drive:0 },
+  'HH Op':    { tune:0, decay:0.4,  tone:0.7, drive:0 },
+  'Rim':      { tune:0, decay:0.15, tone:0.5, drive:0 },
+  'Tom Hi':   { tune:0, decay:0.35, tone:0.5, drive:0 },
+  'Tom Mid':  { tune:0, decay:0.4,  tone:0.45,drive:0 },
+  'Tom Lo':   { tune:0, decay:0.45, tone:0.4, drive:0 },
+  'Crash':    { tune:0, decay:0.8,  tone:0.6, drive:0 },
+  'Ride':     { tune:0, decay:0.6,  tone:0.7, drive:0 },
+  'Shaker':   { tune:0, decay:0.08, tone:0.8, drive:0 },
+  'Tamb':     { tune:0, decay:0.25, tone:0.7, drive:0 },
+  'Conga':    { tune:0, decay:0.3,  tone:0.5, drive:0 },
+  'Bongo':    { tune:0, decay:0.2,  tone:0.55,drive:0 },
+  'Maracas':  { tune:0, decay:0.05, tone:0.85,drive:0 },
+  'Woodblk':  { tune:0, decay:0.1,  tone:0.6, drive:0 },
+  'Triangle': { tune:0, decay:0.5,  tone:0.9, drive:0 },
+  'Snap':     { tune:0, decay:0.06, tone:0.7, drive:0 },
+  'Zap':      { tune:0, decay:0.15, tone:0.5, drive:0.2 },
+  'Noise':    { tune:0, decay:0.3,  tone:0.5, drive:0 },
+  'Click':    { tune:0, decay:0.03, tone:0.8, drive:0 },
 };
 
 // Fabrique un pad drum vide
@@ -2707,6 +2784,28 @@ function makeDefaultDrumPads() {
 // tone 0   → LP 200Hz  (très sombre)
 // tone 0.5 → LP 8kHz   (neutre/ouvert)
 // tone 1   → LP 18kHz + résonance Q=12 (brillant / acide)
+
+// Pré-générer des buffers de bruit pour éviter les allocations à chaque hit
+var _noiseBuffers = {};
+function getNoiseBuffer(durationSec) {
+  const key = Math.round(durationSec * 100); // arrondi au centième
+  if (_noiseBuffers[key]) return _noiseBuffers[key];
+  const len = Math.round(actx.sampleRate * durationSec);
+  const buf = actx.createBuffer(1, len, actx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+  _noiseBuffers[key] = buf;
+  // Limiter le cache à 50 entrées
+  const keys = Object.keys(_noiseBuffers);
+  if (keys.length > 50) delete _noiseBuffers[keys[0]];
+  return buf;
+}
+
+// Nettoyage des nœuds audio : WebAudio garbage-collecte automatiquement
+// les nœuds dont la source est terminée (stop() appelé).
+// On ne fait PAS de disconnect() car ça crée des clics.
+// Les nœuds seront GC quand leur source BufferSource/Oscillator est stoppée.
+
 function applyToneFilter(inputNode, tone, dest) {
   const t   = actx.currentTime;
   const f   = actx.createBiquadFilter();
@@ -2753,6 +2852,13 @@ function drumSynth(pad, vel, dest) {
     applyToneFilter(node, tone, masterOut);
   }
 
+  function noiseSrc(durSec) {
+    const buf = getNoiseBuffer(Math.max(0.01, durSec));
+    const s = actx.createBufferSource();
+    s.buffer = buf;
+    return s;
+  }
+
   if (type === 'Kick') {
     const o = actx.createOscillator(), g = actx.createGain();
     const f0 = 150 * tuneRatio, f1 = 30 * tuneRatio;
@@ -2760,27 +2866,25 @@ function drumSynth(pad, vel, dest) {
     o.frequency.exponentialRampToValueAtTime(f1, t + decSec * 0.3);
     g.gain.setValueAtTime(vel, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec + 0.05);
+    o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Snare') {
     // Bruit
-    const len = Math.round(actx.sampleRate * Math.max(0.05, decSec * 0.8));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d   = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    const s = noiseSrc(decSec * 0.8), gn = actx.createGain();
     gn.gain.setValueAtTime(vel * 0.7, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
     // Corps
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'triangle'; o.frequency.value = 180 * tuneRatio;
     og.gain.setValueAtTime(vel * 0.4, t);
     og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
     o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + decSec * 0.4 + 0.05);
+    o.start(t); o.stop(t + decSec * 0.4 + 0.04);
 
   } else if (type === 'Clap') {
     [0, 0.008, 0.018].forEach(dly => {
@@ -2792,6 +2896,7 @@ function drumSynth(pad, vel, dest) {
       s2.buffer = buf2;
       g2.gain.setValueAtTime(vel * 0.55, t + dly);
       g2.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.6);
+    g2.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.6 + 0.02);
       s2.connect(g2); buildChain(g2); s2.start(t + dly);
     });
 
@@ -2804,6 +2909,7 @@ function drumSynth(pad, vel, dest) {
     s3.buffer = buf3;
     g3.gain.setValueAtTime(vel * 0.5, t);
     g3.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
+    g3.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
     s3.connect(g3); buildChain(g3); s3.start(t);
 
   } else if (type === 'HH Op') {
@@ -2815,6 +2921,7 @@ function drumSynth(pad, vel, dest) {
     s4.buffer = buf4;
     g4.gain.setValueAtTime(vel * 0.45, t);
     g4.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g4.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     s4.connect(g4); buildChain(g4); s4.start(t);
 
   } else if (type === 'Rim') {
@@ -2832,6 +2939,7 @@ function drumSynth(pad, vel, dest) {
     o6.frequency.exponentialRampToValueAtTime(90 * tuneRatio, t + decSec);
     g6.gain.setValueAtTime(vel, t);
     g6.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g6.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o6.connect(g6); buildChain(g6);
     o6.start(t); o6.stop(t + decSec + 0.05);
 
@@ -2842,8 +2950,204 @@ function drumSynth(pad, vel, dest) {
     o7.frequency.exponentialRampToValueAtTime(42 * tuneRatio, t + decSec);
     g7.gain.setValueAtTime(vel, t);
     g7.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g7.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o7.connect(g7); buildChain(g7);
     o7.start(t); o7.stop(t + decSec + 0.05);
+
+  } else if (type === 'Tom Mid') {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(160 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(65 * tuneRatio, t + decSec);
+    g.gain.setValueAtTime(vel, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Crash') {
+    // Bruit long filtré haut + composante métallique
+    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = buf;
+    gn.gain.setValueAtTime(vel * 0.6, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
+    // Composante métallique
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = 'square'; o.frequency.value = 3200 * tuneRatio;
+    og.gain.setValueAtTime(vel * 0.15, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.6);
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.6 + 0.02);
+    o.connect(og); buildChain(og);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Ride') {
+    // Bruit medium + sinusoïde métallique haute
+    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec * 0.8));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = buf;
+    gn.gain.setValueAtTime(vel * 0.35, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = 'triangle'; o.frequency.value = 4800 * tuneRatio;
+    og.gain.setValueAtTime(vel * 0.2, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    og.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(og); buildChain(og);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Shaker') {
+    // Burst de bruit très court, filtré haut
+    const len = Math.round(actx.sampleRate * Math.max(0.01, decSec * 0.3));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = buf;
+    gn.gain.setValueAtTime(vel * 0.4, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.3);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.3 + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
+
+  } else if (type === 'Tamb') {
+    // Bruit + cliquetis métalliques (multi-burst)
+    [0, 0.005, 0.012].forEach(dly => {
+      const len = Math.round(actx.sampleRate * Math.max(0.03, decSec * 0.5));
+      const buf = actx.createBuffer(1, len, actx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const s = actx.createBufferSource(), g = actx.createGain();
+      s.buffer = buf;
+      g.gain.setValueAtTime(vel * 0.35, t + dly);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.5);
+    g.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.5 + 0.02);
+      s.connect(g); buildChain(g); s.start(t + dly);
+    });
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = 'square'; o.frequency.value = 5500 * tuneRatio;
+    og.gain.setValueAtTime(vel * 0.1, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
+    o.connect(og); buildChain(og);
+    o.start(t); o.stop(t + decSec * 0.4 + 0.04);
+
+  } else if (type === 'Conga') {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(280 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(180 * tuneRatio, t + decSec * 0.3);
+    g.gain.setValueAtTime(vel * 0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Bongo') {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(420 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(280 * tuneRatio, t + decSec * 0.2);
+    g.gain.setValueAtTime(vel * 0.85, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Maracas') {
+    // Micro-burst de bruit
+    const len = Math.round(actx.sampleRate * Math.max(0.005, decSec * 0.15));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = buf;
+    gn.gain.setValueAtTime(vel * 0.35, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.15);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.15 + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
+
+  } else if (type === 'Woodblk') {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'triangle'; o.frequency.value = 900 * tuneRatio;
+    g.gain.setValueAtTime(vel * 0.6, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.03, decSec * 0.3));
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec * 0.3 + 0.04);
+
+  } else if (type === 'Triangle') {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.value = 6000 * tuneRatio;
+    g.gain.setValueAtTime(vel * 0.3, t);
+    g.gain.setValueAtTime(vel * 0.3, t + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Snap') {
+    // Burst de bruit très court
+    const len = Math.round(actx.sampleRate * Math.max(0.005, decSec * 0.12));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = buf;
+    gn.gain.setValueAtTime(vel * 0.6, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.12);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.12 + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
+    // Petit clic tonal
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = 'sine'; o.frequency.value = 1800 * tuneRatio;
+    og.gain.setValueAtTime(vel * 0.3, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+    og.gain.linearRampToValueAtTime(0, t + 0.02 + 0.02);
+    o.connect(og); buildChain(og);
+    o.start(t); o.stop(t + 0.06);
+
+  } else if (type === 'Zap') {
+    // Pitch bend descendant rapide
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(2000 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(50 * tuneRatio, t + decSec);
+    g.gain.setValueAtTime(vel * 0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec + 0.04);
+
+  } else if (type === 'Noise') {
+    // Bruit blanc pur
+    const len = Math.round(actx.sampleRate * Math.max(0.05, decSec));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = buf;
+    gn.gain.setValueAtTime(vel * 0.4, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
+
+  } else if (type === 'Click') {
+    // Impulsion ultra-courte
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.value = 2500 * tuneRatio;
+    g.gain.setValueAtTime(vel * 0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.005, decSec * 0.08));
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + 0.06);
   }
 }
 
@@ -3467,8 +3771,14 @@ function stopPlay() {
   S.tracks.forEach(t => { t.queuedClip = null; });
   // Arrêter tous les arps
   for (let ti = 0; ti < 8; ti++) arpStop(ti);
-  // Envoyer allNotesOff sur toutes les tracks MIDI out
-  S.tracks.forEach((t, ti) => { if (t.outputMode === 'midi') midiAllNotesOff(ti); });
+  // Envoyer allNotesOff sur toutes les tracks
+  S.tracks.forEach((t, ti) => {
+    if (t.outputMode === 'midi') midiAllNotesOff(ti);
+    if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
+      // allSoundOff (CC120) coupe immédiatement sans release → pas de clic traînant
+      jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0);
+    }
+  });
   if (projectModeActive) {
     // En project mode : ne rien re-rendre, juste restaurer le rendu projet
     renderProjectMode();
@@ -5900,18 +6210,18 @@ function setBtnLit(id, on, color) {
   const g = svg(id);
   if (!g) return;
   const col = color || '#aaa';
-  const offCol = '#777';
+  const offCol = '#888';
   // Main shape (first circle or first rect child)
   const mainCircle = g.querySelector('circle');
   const mainRect = g.querySelector('rect');
   if (mainCircle) {
     mainCircle.setAttribute('fill',         on ? '#1a1a22' : '#222');
     mainCircle.setAttribute('stroke',       on ? col       : '#333');
-    mainCircle.setAttribute('stroke-width', '1');
+    mainCircle.setAttribute('stroke-width', on ? '1.5'     : '1');
   } else if (mainRect) {
     mainRect.setAttribute('fill',         on ? '#1a1a22' : '#222');
     mainRect.setAttribute('stroke',       on ? col       : '#333');
-    mainRect.setAttribute('stroke-width', '1');
+    mainRect.setAttribute('stroke-width', on ? '1.5'     : '1');
   }
   // Nested <g> groups with stroke (icon containers) — set group stroke
   g.querySelectorAll('g').forEach(sub => {
@@ -5930,8 +6240,9 @@ function setBtnLit(id, on, color) {
       p.setAttribute('stroke', on ? col : offCol);
     }
   });
-  // Rects inside (not the main circle) — for icons like copy/mute
+  // Rects inside (not the main rect) — for icons like copy/mute
   g.querySelectorAll('rect').forEach(r => {
+    if (r === mainRect) return; // skip main rect
     if (r.getAttribute('stroke') && r.getAttribute('stroke') !== 'none') {
       r.setAttribute('stroke', on ? col : offCol);
     }
