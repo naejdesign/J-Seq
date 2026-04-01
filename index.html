@@ -10686,12 +10686,76 @@ let _gpLoopTimer = null;
 let _gpLoopLongFired = false;
 let _gpLoopPressTime = 0;
 
+// ── Gamepad helpers (définis une seule fois, hors de la boucle de polling) ──
+function _gpRestoreOled() {
+  S._oledLocked = false;
+  const t = S.tracks[S.currentTrack];
+  if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
+  else if (t.mode === 'master') oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
+  else oled('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
+}
+
+const _gpShoulders = [
+  { idx: 4, down: () => { S._copyHeld = true; S._copySource = null; setCopyLit(true); oled('COPY', 'Copy...', ''); },
+           up:   () => { S._copyHeld = false; S._copySource = null; setCopyLit(false); _gpRestoreOled(); } },
+  { idx: 5, down: () => { setShiftOn(true); },
+           up:   () => { setShiftOn(false); } },
+  { idx: 6, down: () => { S._deleteHeld = true; setDeleteLit(true); oled('DELETE', 'Delete...', ''); },
+           up:   () => { S._deleteHeld = false; setDeleteLit(false); _gpRestoreOled(); } },
+  { idx: 7, down: () => { S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', 'Mute...', ''); },
+           up:   () => { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); _gpRestoreOled(); } },
+];
+
+const _gpDirs = [
+  { idx: 12, name: 'up' },
+  { idx: 13, name: 'down' },
+  { idx: 14, name: 'left' },
+  { idx: 15, name: 'right' }
+];
+if (!window._gpDpadRepeat) window._gpDpadRepeat = {};
+
+const JOY_THRESHOLD = 0.65;
+const JOY_DELAY     = 350;
+const JOY_REPEAT    = 200;
+if (!window._joyRepeat) window._joyRepeat = {};
+
+function joyTrackSelect(axisId, rawValue, groupStart) {
+  const val = -rawValue;
+  const rKey = 'joy_' + axisId;
+  if (Math.abs(val) < JOY_THRESHOLD) {
+    if (window._joyRepeat[rKey]) {
+      clearTimeout(window._joyRepeat[rKey].timer);
+      clearInterval(window._joyRepeat[rKey].interval);
+      delete window._joyRepeat[rKey];
+    }
+    return;
+  }
+  if (window._joyRepeat[rKey]) return;
+  function fireAction() {
+    const delta = val > 0 ? -1 : 1;
+    const groupEnd = groupStart + 3;
+    let current = S.currentTrack;
+    if (current < groupStart || current > groupEnd) {
+      current = groupStart;
+    }
+    let next = current + delta;
+    if (next < groupStart) next = groupEnd;
+    if (next > groupEnd) next = groupStart;
+    selectTrack(next);
+  }
+  fireAction();
+  window._joyRepeat[rKey] = {
+    timer: setTimeout(() => {
+      window._joyRepeat[rKey].interval = setInterval(fireAction, JOY_REPEAT);
+    }, JOY_DELAY),
+    interval: null
+  };
+}
+
 function pollGamepad() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const gp of gamepads) {
     if (!gp) continue;
-
-    // D-pad via axes (axe 0 = horizontal, axe 1 = vertical) ou boutons 12-15
     const axes = gp.axes;
     const btns = gp.buttons;
 
@@ -10764,24 +10828,7 @@ function pollGamepad() {
     _gpPrevButtons[gp.index + '_8'] = selectPressed;
 
     // L1=4 (Copy), R1=5 (Shift), L2=6 (Delete), R2=7 (Mute)
-    function _gpRestoreOled() {
-      S._oledLocked = false;
-      const t = S.tracks[S.currentTrack];
-      if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
-      else if (t.mode === 'master') oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
-      else oled('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
-    }
-    const shoulders = [
-      { idx: 4, down: () => { S._copyHeld = true; S._copySource = null; setCopyLit(true); oled('COPY', 'Copy...', ''); },
-               up:   () => { S._copyHeld = false; S._copySource = null; setCopyLit(false); _gpRestoreOled(); } },
-      { idx: 5, down: () => { setShiftOn(true); },
-               up:   () => { setShiftOn(false); } },
-      { idx: 6, down: () => { S._deleteHeld = true; setDeleteLit(true); oled('DELETE', 'Delete...', ''); },
-               up:   () => { S._deleteHeld = false; setDeleteLit(false); _gpRestoreOled(); } },
-      { idx: 7, down: () => { S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', 'Mute...', ''); },
-               up:   () => { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); _gpRestoreOled(); } },
-    ];
-    shoulders.forEach(s => {
+    _gpShoulders.forEach(s => {
       const pressed = btns[s.idx]?.pressed || false;
       const was = _gpPrevButtons[gp.index + '_' + s.idx] || false;
       if (pressed && !was) s.down();
@@ -10790,14 +10837,6 @@ function pollGamepad() {
     });
 
     // D-pad buttons (standard: 12=up, 13=down, 14=left, 15=right)
-    // Auto-repeat : maintenir = répéter après 300ms, puis tous les 100ms
-    if (!window._gpDpadRepeat) window._gpDpadRepeat = {};
-    const dirs = [
-      { idx: 12, name: 'up' },
-      { idx: 13, name: 'down' },
-      { idx: 14, name: 'left' },
-      { idx: 15, name: 'right' }
-    ];
 
     
 // ── Déplacer une bar par insertion (gamepad A+dpad en loop mode) ──
@@ -10908,7 +10947,7 @@ function dpadAction(name) {
       if (name === 'down')  navBar(-1);
     }
 
-    dirs.forEach(d => {
+    _gpDirs.forEach(d => {
       const pressed = btns[d.idx]?.pressed || false;
       const was = _gpPrevButtons[gp.index + '_' + d.idx] || false;
       const rKey = 'dpad_' + d.name;
@@ -10938,54 +10977,6 @@ function dpadAction(name) {
     // Le D-pad utilise les boutons 12-15 (voir dirs.forEach ci-dessus)
 
     // ── Joysticks analogiques → Sélection de track ─────────────────
-    // Joystick gauche (axes[1]) = cycle tracks 1-4 (indices 0-3)
-    // Joystick droit  (axes[3]) = cycle tracks 5-8 (indices 4-7)
-    // Axe vertical uniquement : haut = track précédente, bas = track suivante
-    const JOY_THRESHOLD = 0.65;
-    const JOY_DELAY     = 350;
-    const JOY_REPEAT    = 200;
-
-    if (!window._joyRepeat) window._joyRepeat = {};
-
-    function joyTrackSelect(axisId, rawValue, groupStart) {
-      const val = -rawValue; // inverser : haut du joystick = négatif → on veut monter = track précédente
-      const rKey = 'joy_' + axisId;
-
-      if (Math.abs(val) < JOY_THRESHOLD) {
-        if (window._joyRepeat[rKey]) {
-          clearTimeout(window._joyRepeat[rKey].timer);
-          clearInterval(window._joyRepeat[rKey].interval);
-          delete window._joyRepeat[rKey];
-        }
-        return;
-      }
-
-      if (window._joyRepeat[rKey]) return;
-
-      function fireAction() {
-        const delta = val > 0 ? -1 : 1; // haut = -1 (track précédente dans le groupe)
-        const groupEnd = groupStart + 3;
-        // Trouver la track courante dans ce groupe, ou démarrer au début du groupe
-        let current = S.currentTrack;
-        if (current < groupStart || current > groupEnd) {
-          current = groupStart; // basculer vers ce groupe
-        }
-        let next = current + delta;
-        // Cycle dans le groupe
-        if (next < groupStart) next = groupEnd;
-        if (next > groupEnd) next = groupStart;
-        selectTrack(next);
-      }
-
-      fireAction();
-      window._joyRepeat[rKey] = {
-        timer: setTimeout(() => {
-          window._joyRepeat[rKey].interval = setInterval(fireAction, JOY_REPEAT);
-        }, JOY_DELAY),
-        interval: null
-      };
-    }
-
     // Joystick gauche vertical → tracks 1-4
     joyTrackSelect('LV', axes[1] || 0, 0);
     // Joystick droit vertical → tracks 5-8
