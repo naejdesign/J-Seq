@@ -2265,7 +2265,7 @@ async function initSF2() {
         ['synth.gain', 0.8],
         ['synth.polyphony', 32],
       ]);
-      const node = synth.createAudioNode(actx, 2048);
+      const node = synth.createAudioNode(actx, 4096);
       jsSynths[ti]     = synth;
       jsSynthNodes[ti] = node;
       instanceCount++;
