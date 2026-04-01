@@ -1141,6 +1141,11 @@ function fxRebuildChain(ti) {
   for (let si = 0; si < FX_DEFS.length; si++) {
     if (FX_DEFS[si].id === 'arp') continue;
     const slot = trackFX[ti][si];
+    if (!slot.active) {
+      // Déconnecter le nœud s'il existe et n'est plus actif
+      if (slot.node) { try { slot.node.output?.disconnect(); slot.node.input?.disconnect(); } catch(e) {} }
+      continue;
+    }
     if (!slot.node) slot.node = fxCreateNode(ti, si);
     if (slot.node) nodes.push(slot.node);
   }
