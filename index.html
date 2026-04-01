@@ -2353,7 +2353,7 @@ function sf2GetPresets(ti, sfontId) {
 // Changer de preset sur une track + preview
 function sf2SelectPreset(ti, presetIdx) {
   const ts = trackSF2[ti];
-  if (!ts.presets.length || ts.sfontId < 0) return;
+  if (!ts.presets.length || ts.sfontId < 0 || !jsSynths[ti]) return;
   const preset = ts.presets[Math.max(0, Math.min(presetIdx, ts.presets.length - 1))];
   ts.bank    = preset.bank;
   ts.program = preset.program;
@@ -2363,27 +2363,27 @@ function sf2SelectPreset(ti, presetIdx) {
 }
 
 function sf2PreviewNote(ti) {
-  if (!sf2Ready) return;
+  if (!sf2Ready || !jsSynths[ti]) return;
   jsSynths[ti].midiNoteOff(SF2_CHANNEL, PREVIEW_NOTE);
   clearTimeout(previewTimer);
   jsSynths[ti].midiNoteOn(SF2_CHANNEL, PREVIEW_NOTE, 100);
-  previewTimer = setTimeout(() => jsSynths[ti].midiNoteOff(SF2_CHANNEL, PREVIEW_NOTE), 1000);
+  previewTimer = setTimeout(() => { if (jsSynths[ti]) jsSynths[ti].midiNoteOff(SF2_CHANNEL, PREVIEW_NOTE); }, 1000);
 }
 
 function sf2NoteOn(trackIdx, midi, velocity) {
-  if (!sf2Ready) return;
+  if (!sf2Ready || !jsSynths[trackIdx]) return;
   ensureAudio();
   const vel = Math.max(1, Math.min(127, Math.round(velocity * 127)));
   jsSynths[trackIdx].midiNoteOn(SF2_CHANNEL, midi, vel);
 }
 
 function sf2NoteOff(trackIdx, midi) {
-  if (!sf2Ready) return;
+  if (!sf2Ready || !jsSynths[trackIdx]) return;
   jsSynths[trackIdx].midiNoteOff(SF2_CHANNEL, midi);
 }
 
 function sf2AllNotesOff(trackIdx) {
-  if (!sf2Ready) return;
+  if (!sf2Ready || !jsSynths[trackIdx]) return;
   jsSynths[trackIdx].midiAllNotesOff(SF2_CHANNEL);
 }
 
