@@ -563,10 +563,6 @@ function ensureAudio() {
     g.connect(actx.destination);
     osc.start();
     window._audioKeepAlive = osc;
-    // Relancer le contexte périodiquement au cas où Android le suspend
-    window._audioKeepAliveTimer = setInterval(() => {
-      if (actx.state === 'suspended') actx.resume();
-    }, 5000);
   }
   // Initialiser FluidSynth WASM au premier geste
   if (!sf2Ready && !sf2Initializing) initSF2();
