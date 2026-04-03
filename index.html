@@ -3780,6 +3780,22 @@ function stopPlay() {
       jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0);
     }
   });
+  // Rampdown reverb + delay master pour éviter le gel Chrome Android
+  // (les boucles comb de la freeverb continuent de résonner ~10s → Chrome gèle → pop)
+  if (_masterNodes) {
+    const t0 = actx.currentTime;
+    _masterNodes.reverbWet.gain.setTargetAtTime(0, t0, 0.4);   // décroît en ~1.5s
+    _masterNodes.delayWet.gain.setTargetAtTime(0, t0, 0.4);
+    // Restaurer les gains après que la queue soit éteinte
+    setTimeout(() => {
+      if (_masterNodes) {
+        _masterNodes.reverbWet.gain.cancelScheduledValues(0);
+        _masterNodes.reverbWet.gain.value = 1.0;
+        _masterNodes.delayWet.gain.cancelScheduledValues(0);
+        _masterNodes.delayWet.gain.value  = 1.0;
+      }
+    }, 3000);
+  }
   if (projectModeActive) {
     // En project mode : ne rien re-rendre, juste restaurer le rendu projet
     renderProjectMode();
