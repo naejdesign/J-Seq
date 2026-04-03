@@ -10217,7 +10217,7 @@ function createDemoProject() {
     version: 2, bpm: 110, masterVolume: 0.65, octave: 0,
     masterFX: JSON.parse(JSON.stringify(masterFX)),
     tracks: [],
-    _meta: { savedAt: Date.now(), name: 'DemoSong', color: '#3ddc84', demoVersion: 11 }
+    _meta: { savedAt: Date.now(), name: 'DemoSong', color: '#3ddc84', demoVersion: 12 }
   };
 
   // Helper : créer un clip vide
@@ -10306,12 +10306,12 @@ function createDemoProject() {
   const demoDrumPads = [
     { mode:'synth', synthType:'Kick',    tune:0, decay:0.4, tone:0.5, drive:0.3, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
     { mode:'synth', synthType:'Snare',   tune:0, decay:0.3, tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
-    { mode:'synth', synthType:'HiHat',   tune:0, decay:0.15,tone:0.6, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'HH Cl',   tune:0, decay:0.15,tone:0.6, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
     { mode:'synth', synthType:'Clap',    tune:0, decay:0.25,tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.75,sendReverb:0, sendDelay:0 },
-    { mode:'synth', synthType:'Tom',     tune:0, decay:0.3, tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Tom Mid', tune:0, decay:0.3, tone:0.5, drive:0.2, fileName:'', startPoint:0, reverse:false, volume:0.8, sendReverb:0, sendDelay:0 },
     { mode:'synth', synthType:'Rim',     tune:0, decay:0.2, tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
-    { mode:'synth', synthType:'Cowbell', tune:0, decay:0.2, tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
-    { mode:'synth', synthType:'Clave',   tune:0, decay:0.15,tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Woodblk', tune:0, decay:0.2, tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
+    { mode:'synth', synthType:'Snap',    tune:0, decay:0.15,tone:0.5, drive:0.1, fileName:'', startPoint:0, reverse:false, volume:0.7, sendReverb:0, sendDelay:0 },
   ];
 
   demo.tracks = [
@@ -10330,7 +10330,7 @@ function createDemoProject() {
 
 document.addEventListener('DOMContentLoaded', () => {
   // Créer le projet Demo par défaut s'il n'existe pas ou est obsolète
-  const DEMO_VER = 11;
+  const DEMO_VER = 12;
   try {
     const raw = localStorage.getItem(PROJECT_KEY(0));
     const d = raw ? JSON.parse(raw) : null;
