@@ -2671,6 +2671,15 @@ function createFreeverb() {
     setWidth(v) {
       wetOut.gain.value = v;
     },
+    flush() {
+      // Coupe le feedback de tous les combs → vide les boucles instantanément
+      // Restaure les valeurs correctes 100ms après (le temps que les buffers se vident)
+      const savedFB = combs.map(c => c.fb.gain.value);
+      combs.forEach(c => { c.fb.gain.value = 0; });
+      setTimeout(() => {
+        combs.forEach((c, i) => { c.fb.gain.value = savedFB[i]; });
+      }, 100);
+    },
   };
 }
 
@@ -3786,6 +3795,8 @@ function stopPlay() {
     const t0 = actx.currentTime;
     _masterNodes.reverbWet.gain.setTargetAtTime(0, t0, 0.4);   // décroît en ~1.5s
     _masterNodes.delayWet.gain.setTargetAtTime(0, t0, 0.4);
+    // Vider les boucles comb de la freeverb instantanément
+    if (_masterNodes.freeverb?.flush) _masterNodes.freeverb.flush();
     // Restaurer les gains après que la queue soit éteinte
     setTimeout(() => {
       if (_masterNodes) {
