@@ -512,12 +512,12 @@ body {
   </div>
   <div id="sf2Body" class="brBody">
     <div id="sf2FileCol" class="brLeftCol">
-      <h3>Banques</h3>
+      <h3>Catégories</h3>
       <div id="sf2FileList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Choisir un dossier…</div></div>
     </div>
     <div id="sf2PresetCol" class="brRightCol">
-      <h3>Programmes <span id="sf2PresetCount" class="brCount"></span><input id="sf2PresetSearch" class="brSearch" type="text" placeholder="Rechercher…"></h3>
-      <div id="sf2PresetList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Sélectionner une banque…</div></div>
+      <h3>Sons <span id="sf2PresetCount" class="brCount"></span><input id="sf2PresetSearch" class="brSearch" type="text" placeholder="Rechercher…"></h3>
+      <div id="sf2PresetList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Sélectionner une catégorie…</div></div>
     </div>
   </div>
 </div>
@@ -749,16 +749,8 @@ let sf2Initializing = false;
 // Accesseurs de compatibilité (track courante)
 function jsSynth_ti(ti)     { return jsSynths[ti]; }
 function jsSynthNode_ti(ti) { return jsSynthNodes[ti]; }
-// Canal MIDI : chaque track mélodique a son propre channel (0-5)
-const SF2_CHANNEL = 0; // fallback — utiliser sf2Channel(ti) partout
-var _sharedSynth = null;
-var _sharedSynthNode = null;
-
-function sf2Channel(ti) {
-  // track 0=drum(skip), 1=ch0, 2=ch1, 3=ch2, 4=ch3, 5=ch4, 6=ch5, 7=master(skip)
-  if (ti >= 1 && ti <= 6) return ti - 1;
-  return 0;
-}
+// Canal MIDI : chaque instance a son propre canal 0
+const SF2_CHANNEL = 0;
 
 // État par track : { sfontId, bank, program, presets, sfName }
 const trackSF2 = Array.from({length:8}, () => ({
@@ -1138,31 +1130,54 @@ function fxCreateNode(ti, slotIdx) {
 // Tous les nœuds FX sont dans la chaîne, bypass = inactif
 function fxRebuildChain(ti) {
   if (ti === undefined) ti = S.currentTrack;
+  // Track master : pas de chaîne SF2 à reconstruire
   if (S.tracks[ti] && S.tracks[ti].mode === 'master') return;
-  if (S.tracks[ti] && S.tracks[ti].mode === 'drum') return; // drum n'utilise pas FluidSynth
   const synthNode = jsSynthNodes[ti];
   if (!synthNode || !sf2Ready) return;
-  
-  // Instance partagée : connecter le nœud audio une seule fois au master
-  // (éviter les reconnexions multiples car toutes les tracks pointent vers le même nœud)
-  if (!window._sharedSynthConnected) {
-    try { synthNode.disconnect(); } catch(e) {}
+  ensureTuna();
+  try { synthNode.disconnect(); } catch(e) {}
+
+  const nodes = [];
+  for (let si = 0; si < FX_DEFS.length; si++) {
+    if (FX_DEFS[si].id === 'arp') continue;
+    const slot = trackFX[ti][si];
+    if (!slot.active) {
+      // Déconnecter le nœud s'il existe et n'est plus actif
+      if (slot.node) { try { slot.node.output?.disconnect(); slot.node.input?.disconnect(); } catch(e) {} }
+      continue;
+    }
+    if (!slot.node) slot.node = fxCreateNode(ti, si);
+    if (slot.node) nodes.push(slot.node);
+  }
+
+  if (nodes.length === 0) {
     synthNode.connect(getMaster());
-    window._sharedSynthConnected = true;
-    // Sends globaux pour l'instance partagée
+    return;
+  }
+
+  try {
+    let current = synthNode;
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      current.connect(n.input === n ? n : (n.input || n));
+      if (n.inputDry) current.connect(n.inputDry);
+      current = n.output === n ? n : (n.output || n);
+    }
+    current.connect(getMaster());
+    // Sends vers bus Master — toujours créés, gain mis à jour en temps réel
+    const t = S.tracks[ti];
     const dSend = actx.createGain();
     const rSend = actx.createGain();
-    dSend.gain.value = 0;
-    rSend.gain.value = 0;
-    synthNode.connect(dSend); dSend.connect(getDelayBus());
-    synthNode.connect(rSend); rSend.connect(getReverbBus());
-    // Stocker pour chaque track (on utilisera la track courante pour les sends)
-    for (let t = 0; t < 8; t++) {
-      if (jsSynthNodes[t] === synthNode) {
-        trackSendNodes[t] = { dSend, rSend };
-      }
-    }
-    console.log('[FX] Instance partagée connectée au master');
+    dSend.gain.value = t.sendDelay  || 0;
+    rSend.gain.value = t.sendReverb || 0;
+    current.connect(dSend); dSend.connect(getDelayBus());
+    current.connect(rSend); rSend.connect(getReverbBus());
+    // Stocker les refs pour mise à jour en temps réel (encodeurs enc4/enc5)
+    trackSendNodes[ti] = { dSend, rSend };
+    console.log(`[FX] Track ${ti+1} chaîne : ${nodes.length} nœuds`);
+  } catch(e) {
+    console.warn('[FX] Erreur chaîne track', ti, e);
+    try { synthNode.connect(getMaster()); } catch(e2) {}
   }
 }
 
@@ -2235,30 +2250,31 @@ async function initSF2() {
   ensureAudio();
   try {
     await JSSynth.Synthesizer.waitForWasmInitialized();
-    // Une seule instance FluidSynth partagée par toutes les tracks mélodiques
-    const synth = new JSSynth.Synthesizer();
-    await synth.init(actx.sampleRate, [
-      ['synth.sample-rate', actx.sampleRate],
-      ['synth.gain', 0.8],
-      ['synth.polyphony', 128],
-    ]);
-    const node = synth.createAudioNode(actx, 2048);
-    _sharedSynth = synth;
-    _sharedSynthNode = node;
+    // Créer des instances FluidSynth uniquement pour les tracks mélodiques (pas drum ni master)
+    let instanceCount = 0;
     for (let ti = 0; ti < 8; ti++) {
       if (TRACK_MODES[ti] === 'drum' || TRACK_MODES[ti] === 'master') {
         jsSynths[ti] = null;
         jsSynthNodes[ti] = null;
-        console.log(`[SF2] Track ${ti+1} (${TRACK_MODES[ti]}) — skip`);
-      } else {
-        jsSynths[ti] = synth;
-        jsSynthNodes[ti] = node;
-        console.log(`[SF2] Track ${ti+1} → ch ${sf2Channel(ti)}`);
+        console.log(`[SF2] Track ${ti+1} (${TRACK_MODES[ti]}) — pas de FluidSynth`);
+        continue;
       }
+      const synth = new JSSynth.Synthesizer();
+      await synth.init(actx.sampleRate, [
+        ['synth.sample-rate', actx.sampleRate],
+        ['synth.gain', 0.8],
+        ['synth.polyphony', 32],
+      ]);
+      const node = synth.createAudioNode(actx, 4096);
+      jsSynths[ti]     = synth;
+      jsSynthNodes[ti] = node;
+      instanceCount++;
+      console.log(`[SF2] Instance T${ti+1} prête`);
     }
     sf2Ready = true;
     sf2Initializing = false;
-    console.log('[SF2] FluidSynth WASM prêt — 1 instance, 6 channels');
+    console.log(`[SF2] FluidSynth WASM prêt — ${instanceCount} instances`);
+    // Construire les chaînes FX (une par track)
     setTimeout(() => { for (let ti = 0; ti < 8; ti++) fxRebuildChain(ti); }, 100);
   } catch(e) {
     sf2Initializing = false;
@@ -2311,7 +2327,7 @@ async function sf2LoadBank(ti, arrayBuffer, fileName) {
   if (ts.presets.length > 0) {
     ts.bank    = ts.presets[0].bank;
     ts.program = ts.presets[0].program;
-    jsSynths[ti].midiProgramSelect(sf2Channel(ti), ts.sfontId, ts.bank, ts.program);
+    jsSynths[ti].midiProgramSelect(SF2_CHANNEL, ts.sfontId, ts.bank, ts.program);
   }
 
   if (oldName && oldName !== fileName) sf2MaybeUnload(ti, oldName);
@@ -2346,34 +2362,34 @@ function sf2SelectPreset(ti, presetIdx) {
   const preset = ts.presets[Math.max(0, Math.min(presetIdx, ts.presets.length - 1))];
   ts.bank    = preset.bank;
   ts.program = preset.program;
-  jsSynths[ti].midiProgramSelect(sf2Channel(ti), ts.sfontId, preset.bank, preset.program);
+  jsSynths[ti].midiProgramSelect(SF2_CHANNEL, ts.sfontId, preset.bank, preset.program);
   sf2PreviewNote(ti);
   return preset;
 }
 
 function sf2PreviewNote(ti) {
   if (!sf2Ready || !jsSynths[ti]) return;
-  jsSynths[ti].midiNoteOff(sf2Channel(ti), PREVIEW_NOTE);
+  jsSynths[ti].midiNoteOff(SF2_CHANNEL, PREVIEW_NOTE);
   clearTimeout(previewTimer);
-  jsSynths[ti].midiNoteOn(sf2Channel(ti), PREVIEW_NOTE, 100);
-  previewTimer = setTimeout(() => { if (jsSynths[ti]) jsSynths[ti].midiNoteOff(sf2Channel(ti), PREVIEW_NOTE); }, 1000);
+  jsSynths[ti].midiNoteOn(SF2_CHANNEL, PREVIEW_NOTE, 100);
+  previewTimer = setTimeout(() => { if (jsSynths[ti]) jsSynths[ti].midiNoteOff(SF2_CHANNEL, PREVIEW_NOTE); }, 1000);
 }
 
 function sf2NoteOn(trackIdx, midi, velocity) {
   if (!sf2Ready || !jsSynths[trackIdx]) return;
   ensureAudio();
   const vel = Math.max(1, Math.min(127, Math.round(velocity * 127)));
-  jsSynths[trackIdx].midiNoteOn(sf2Channel(trackIdx), midi, vel);
+  jsSynths[trackIdx].midiNoteOn(SF2_CHANNEL, midi, vel);
 }
 
 function sf2NoteOff(trackIdx, midi) {
   if (!sf2Ready || !jsSynths[trackIdx]) return;
-  jsSynths[trackIdx].midiNoteOff(sf2Channel(trackIdx), midi);
+  jsSynths[trackIdx].midiNoteOff(SF2_CHANNEL, midi);
 }
 
 function sf2AllNotesOff(trackIdx) {
   if (!sf2Ready || !jsSynths[trackIdx]) return;
-  jsSynths[trackIdx].midiAllNotesOff(sf2Channel(trackIdx));
+  jsSynths[trackIdx].midiAllNotesOff(SF2_CHANNEL);
 }
 
 // ── MIDI CTRL — envoyer des CC FluidSynth ──
@@ -2386,27 +2402,27 @@ function midiCtrlSendCC(ti, cc, value) {
       // Generator 8 est additif → offset négatif pour fermer le filtre
       // 127 = offset 0 (pas de changement), 0 = offset -9000 cents (très sombre)
       const offset = -((127 - value) / 127) * 9000;
-      synth.setGenerator(sf2Channel(ti), 8, offset);
+      synth.setGenerator(SF2_CHANNEL, 8, offset);
       return;
     } else if (cc === 71) {
       // Resonance : value 0-127, 0=flat, 127=max resonance
       // Generator 9 est additif → offset positif pour ajouter de la résonance
       // Limiter à 200cB max pour éviter la coupure du son
       const offset = (value / 127) * 200;
-      synth.setGenerator(sf2Channel(ti), 9, offset);
+      synth.setGenerator(SF2_CHANNEL, 9, offset);
       return;
     } else if (cc === 72) {
       // Release : value 0-127, 0=original SF2, 127=très long
       // Generator 38 est additif en timecents
       // 0 = offset 0 (pas de changement), 127 = +8000 (très long)
       const offset = (value / 127) * 8000;
-      synth.setGenerator(sf2Channel(ti), 38, offset);
+      synth.setGenerator(SF2_CHANNEL, 38, offset);
       return;
     }
   } catch(e) {
     // setGenerator non disponible → fallback CC MIDI
   }
-  synth.midiControl(sf2Channel(ti), cc, Math.max(0, Math.min(127, Math.round(value))));
+  synth.midiControl(SF2_CHANNEL, cc, Math.max(0, Math.min(127, Math.round(value))));
 }
 
 function midiCtrlApply(ti) {
@@ -2423,13 +2439,13 @@ function midiCtrlReset(ti) {
   if (!sf2Ready || !jsSynths[ti]) return;
   const synth = jsSynths[ti];
   try {
-    synth.setGenerator(sf2Channel(ti), 8, 0);   // Cutoff → original SF2
-    synth.setGenerator(sf2Channel(ti), 9, 0);   // Resonance → original SF2
-    synth.setGenerator(sf2Channel(ti), 38, 0);  // Release → original SF2
+    synth.setGenerator(SF2_CHANNEL, 8, 0);   // Cutoff → original SF2
+    synth.setGenerator(SF2_CHANNEL, 9, 0);   // Resonance → original SF2
+    synth.setGenerator(SF2_CHANNEL, 38, 0);  // Release → original SF2
   } catch(e) {
-    synth.midiControl(sf2Channel(ti), 74, 127);
-    synth.midiControl(sf2Channel(ti), 71, 0);
-    synth.midiControl(sf2Channel(ti), 72, 64);
+    synth.midiControl(SF2_CHANNEL, 74, 127);
+    synth.midiControl(SF2_CHANNEL, 71, 0);
+    synth.midiControl(SF2_CHANNEL, 72, 64);
   }
 }
 
@@ -3765,7 +3781,7 @@ function stopPlay() {
     if (t.outputMode === 'midi') midiAllNotesOff(ti);
     if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
       // allSoundOff (CC120) coupe immédiatement sans release → pas de clic traînant
-      jsSynths[ti].midiControl(sf2Channel(ti), 120, 0);
+      jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0);
     }
   });
   if (projectModeActive) {
@@ -8528,7 +8544,7 @@ function midiCC(cc, value) {
         out.send([0xb0 | mch, 1, value & 0x7f]);
       }
     } else if (tMod.outputMode === 'sf2' && sf2Ready && jsSynths[tiMod]) {
-      jsSynths[tiMod].midiControl(sf2Channel(tiMod), 1, value & 0x7f);
+      jsSynths[tiMod].midiControl(SF2_CHANNEL, 1, value & 0x7f);
     }
     return;
   }
@@ -8730,7 +8746,7 @@ function midiPitchBend(lsb, msb) {
   } else if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
     // FluidSynth attend 0..16383 (0x0000=min, 0x2000=centre, 0x3FFF=max)
     const raw = (msb << 7) | lsb;  // valeur 14 bits brute, déjà dans la bonne plage
-    jsSynths[ti].midiPitchBend(sf2Channel(ti), raw);
+    jsSynths[ti].midiPitchBend(SF2_CHANNEL, raw);
   }
 }
 
@@ -9737,291 +9753,376 @@ function loopDeleteBar(barIdx) {
 // ══════════════════════════════════════════════════════════════
 // SF2 BROWSER
 // ══════════════════════════════════════════════════════════════
+// ── État du browser catalogue ──────────────────────────────────────────────
 const sf2Browser = {
-  trackIdx: 0,
-  dirHandle: null,
+  trackIdx:       0,
+  dirHandle:      null,       // FileSystemDirectoryHandle (File System Access API)
+  fileHandles:    {},         // { fileName: FileSystemFileHandle }
+  fallbackFiles:  {},         // { fileName: File }  — mode webkitdirectory
   useFileHandles: false,
-  files: [],
-  activeFile: null,
-  allPresets: [],
-  currentFiltered: [],
-  previewTimer: null,
+  // Catalogue chargé depuis library.json
+  catalogue:      [],         // liste brute des entrées JSON
+  categories:     [],         // liste ordonnée des catégories uniques
+  activeCategory: null,       // catégorie sélectionnée
+  allSounds:      [],         // entrées de la catégorie active (ou recherche globale)
+  currentFiltered:[],         // liste affichée après filtre texte
+  activeSoundIdx: null,       // index dans currentFiltered du son en preview/actif
+  // Debounce preview
+  previewDebounce: null,      // setTimeout handle
+  PREVIEW_DELAY:  300,        // ms avant de lancer le chargement SF2 + preview
+  previewTimer:   null,       // noteOff timer
 };
+
+// ── Ouvrir / fermer ────────────────────────────────────────────────────────
 
 function openSF2Browser(ti) {
   sf2Browser.trackIdx = ti;
   document.getElementById('sf2TrackLabel').textContent = `TRACK ${ti+1}`;
   const ts = trackSF2[ti];
-  const cur = ts.presets.find(p => p.bank === ts.bank && p.program === ts.program);
+  // Afficher le son actif dans le header
   document.getElementById('sf2CurrentPreset').textContent =
-    cur ? `${ts.sfName.replace(/\.sf2$/i,'')} › ${cur.name}` : 'Aucun son chargé';
+    ts.sfName ? ts.sfName.replace(/\.sf2$/i,'') : 'Aucun son chargé';
   document.getElementById('sf2PresetSearch').value = '';
   document.getElementById('sf2Browser').classList.add('open');
-  // Surligner la banque active de cette track
-  if (ts.sfName) sf2Browser.activeFile = ts.sfName;
-  // Rafraîchir la liste de fichiers
-  if (sf2Browser.dirHandle) loadSF2Directory(false);
-  else if (sf2Browser.files.length) renderSF2FileList();
-  // Afficher d'office les presets si la banque est en cache
-  if (ts.sfName && sf2BankCache[ti][ts.sfName]) {
-    sf2Browser.allPresets = sf2BankCache[ti][ts.sfName].presets;
-    sf2Browser.currentFiltered = sf2Browser.allPresets;
-    renderSF2PresetList(sf2Browser.allPresets, ti);
-  } else {
-    document.getElementById('sf2PresetList').innerHTML =
-      '<div style="padding:12px;font-size:9px;color:#333;text-align:center">Cliquez sur une banque<br>pour voir ses programmes</div>';
+
+  if (sf2Browser.catalogue.length) {
+    // Catalogue déjà chargé → afficher directement
+    renderSF2CategoryList();
+    // Rouvrir sur la catégorie du son actif si possible
+    if (ts.sfName && !sf2Browser.activeCategory) {
+      const entry = sf2Browser.catalogue.find(e => e.file === ts.sfName);
+      if (entry) sf2SelectCategory(entry.category, false);
+    } else if (sf2Browser.activeCategory) {
+      sf2SelectCategory(sf2Browser.activeCategory, false);
+    }
+  } else if (sf2Browser.dirHandle) {
+    // Handle dispo mais catalogue pas encore chargé
+    loadSF2Catalogue(sf2Browser.dirHandle);
   }
+  // else : attendre que l'utilisateur choisisse un dossier
 }
 
 function closeSF2Browser() {
   document.getElementById('sf2Browser').classList.remove('open');
-  clearTimeout(sf2Browser.previewTimer);
-  if (sf2Ready && jsSynths[sf2Browser.trackIdx]) jsSynths[sf2Browser.trackIdx].midiAllNotesOff(sf2Channel(sf2Browser.trackIdx));
-  // Décharger la banque temporaire si non confirmée sur aucune track
-  const _ti = sf2Browser.trackIdx;
-  if (sf2TempBank[_ti] && !sf2BankCache[_ti][sf2TempBank[_ti].name]) {
-    try { jsSynths[_ti].unloadSFont(sf2TempBank[_ti].sfontId); } catch(e) {}
-    console.log(`[SF2] Track ${_ti+1} temp déchargé : ${sf2TempBank[_ti].name}`);
-    sf2TempBank[_ti] = null;
-  }
-}
-
-// Choisir dossier (File System Access API) ou fallback input file
-document.getElementById('sf2FolderBtn').addEventListener('click', async () => {
-  // File System Access API — Chrome non-Brave sur localhost/https
-  if (window.showDirectoryPicker && window.isSecureContext) {
-    try {
-      const handle = await window.showDirectoryPicker({ mode: 'read' });
-      sf2Browser.dirHandle = handle;
-      sf2Browser.useFileHandles = true;
-      try { const db = await openIDB(); await idbSet(db, 'sf2DirHandle', handle); } catch(e) {}
-      await loadSF2Directory(true);
-      return;
-    } catch(e) {
-      if (e.name !== 'AbortError') console.warn('SF2 dir error:', e);
-      // Si ça échoue, tomber sur le fallback
-    }
-  }
-  // Fallback universel : sélection de dossier via webkitdirectory
-  const input = document.createElement('input');
-  input.type = 'file';
-  input.webkitdirectory = true;
-  input.onchange = () => {
-    const files = [...input.files].filter(f => f.name.toLowerCase().endsWith('.sf2'));
-    if (!files.length) return;
-    sf2Browser.useFileHandles = false;
-    sf2Browser.files = files.map(f => ({ name: f.name, file: f, size: f.size }));
-    sf2Browser.files.sort((a,b) => a.name.localeCompare(b.name));
-    renderSF2FileList();
-  };
-  input.click();
-});
-
-async function loadSF2Directory(showLoading) {
-  const handle = sf2Browser.dirHandle;
-  if (!handle) return;
-  if (showLoading) sf2ShowLoading('Scan du dossier…');
-  sf2Browser.files = [];
-  for await (const entry of handle.values()) {
-    if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.sf2')) {
-      // Lire juste la taille — pas de chargement en RAM
-      const file = await entry.getFile();
-      sf2Browser.files.push({ name: entry.name, handle: entry, size: file.size });
-    }
-  }
-  sf2Browser.files.sort((a,b) => a.name.localeCompare(b.name));
-  sf2HideLoading();
-  renderSF2FileList();
-}
-
-function renderSF2FileList() {
-  const list = document.getElementById('sf2FileList');
-  if (!sf2Browser.files.length) {
-    list.innerHTML = '<div style="padding:12px 14px;font-size:13px;color:#333">Aucun .sf2 trouvé</div>';
-    return;
-  }
-  list.innerHTML = sf2Browser.files.map(f => {
-    const mb = (f.size/1024/1024).toFixed(1);
-    const active = f.name === sf2Browser.activeFile ? ' active-sf2' : '';
-    const shortName = f.name.replace(/\.sf2$/i,'');
-    return `<div class="brItem${active}" data-name="${f.name}">
-      <span class="brName">${shortName}</span><span class="brSub">${mb}M</span>
-    </div>`;
-  }).join('');
-  list.querySelectorAll('.brItem').forEach(el =>
-    el.addEventListener('click', () => loadSF2FilePresets(el.dataset.name))
-  );
-  const active = list.querySelector('.active-sf2');
-  if (active) active.scrollIntoView({ block: 'nearest' });
-}
-
-// Clic sur une banque → charger (ou depuis cache) et afficher les presets
-async function loadSF2FilePresets(name) {
-  const ti = sf2Browser.trackIdx;
-  sf2Browser.activeFile = name;
-  renderSF2FileList();
-
-  // Cache persistant de cette track
-  if (sf2BankCache[ti][name]) {
-    sf2Browser.allPresets = sf2BankCache[ti][name].presets;
-    document.getElementById('sf2PresetSearch').value = '';
-    renderSF2PresetList(sf2Browser.allPresets, ti);
-    return;
-  }
-  // Cache temporaire de cette track
-  if (sf2TempBank[ti] && sf2TempBank[ti].name === name) {
-    sf2Browser.allPresets = sf2TempBank[ti].presets;
-    document.getElementById('sf2PresetSearch').value = '';
-    renderSF2PresetList(sf2Browser.allPresets, ti);
-    return;
-  }
-
-  // Stopper toute note en cours de preview avant de changer de banque
+  // Annuler le debounce preview en cours
+  clearTimeout(sf2Browser.previewDebounce);
+  sf2Browser.previewDebounce = null;
   clearTimeout(sf2Browser.previewTimer);
   sf2Browser.previewTimer = null;
-  try {
-    if (jsSynths[ti]) {
-      for (let ch = 0; ch < 16; ch++) jsSynths[ti].midiNoteOff(ch, 60);
-      jsSynths[ti].midiAllSoundOff?.(0);
-    }
-  } catch(e) {}
-
-  // Décharger l'ancienne banque temporaire de cette track
+  if (sf2Ready) {
+    try { jsSynths[sf2Browser.trackIdx].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
+  }
+  // Décharger le SF2 temporaire de cette track si non confirmé
+  const ti = sf2Browser.trackIdx;
   if (sf2TempBank[ti] && !sf2BankCache[ti][sf2TempBank[ti].name]) {
     try { jsSynths[ti].unloadSFont(sf2TempBank[ti].sfontId); } catch(e) {}
     console.log(`[SF2] Track ${ti+1} temp déchargé : ${sf2TempBank[ti].name}`);
     sf2TempBank[ti] = null;
   }
+}
 
-  sf2ShowLoading(`Chargement ${name}…`);
-  document.getElementById('sf2PresetList').innerHTML =
-    '<div style="padding:10px;font-size:9px;color:#444">Chargement…</div>';
+// ── Sélection du dossier ───────────────────────────────────────────────────
+
+document.getElementById('sf2FolderBtn').addEventListener('click', async () => {
+  if (window.showDirectoryPicker && window.isSecureContext) {
+    try {
+      const handle = await window.showDirectoryPicker({ mode: 'read' });
+      sf2Browser.dirHandle      = handle;
+      sf2Browser.useFileHandles = true;
+      try { const db = await openIDB(); await idbSet(db, 'sf2DirHandle', handle); } catch(e) {}
+      await loadSF2Catalogue(handle);
+      return;
+    } catch(e) {
+      if (e.name !== 'AbortError') console.warn('SF2 dir error:', e);
+    }
+  }
+  // Fallback webkitdirectory
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.webkitdirectory = true;
+  input.onchange = async () => {
+    const files = [...input.files];
+    sf2Browser.useFileHandles = false;
+    sf2Browser.fallbackFiles  = {};
+    files.forEach(f => { sf2Browser.fallbackFiles[f.name] = f; });
+    // Chercher library.json dans les fichiers uploadés
+    const jsonFile = files.find(f => f.name === 'library.json');
+    if (!jsonFile) {
+      alert('library.json introuvable dans ce dossier.');
+      return;
+    }
+    try {
+      const text = await jsonFile.text();
+      sf2BrowserLoadCatalogue(JSON.parse(text));
+    } catch(e) {
+      console.error('Erreur lecture library.json :', e);
+    }
+  };
+  input.click();
+});
+
+// ── Chargement du catalogue depuis le dossier ──────────────────────────────
+
+async function loadSF2Catalogue(dirHandle) {
+  sf2ShowLoading('Chargement du catalogue…');
   try {
-    const fileEntry = sf2Browser.files.find(f => f.name === name);
-    const file = fileEntry.handle ? await fileEntry.handle.getFile() : fileEntry.file;
-    const buf  = await file.arrayBuffer();
-    const sfontId = await jsSynths[ti].loadSFont(buf);
-    const presets = sf2GetPresets(ti, sfontId);
-    sf2TempBank[ti] = { name, sfontId, presets };
-    sf2Browser.allPresets = presets;
+    // Indexer tous les FileHandles SF2 du dossier
+    sf2Browser.fileHandles = {};
+    for await (const entry of dirHandle.values()) {
+      if (entry.kind !== 'file') continue;
+      if (entry.name.toLowerCase().endsWith('.sf2')) {
+        sf2Browser.fileHandles[entry.name] = entry;
+      } else if (entry.name === 'library.json') {
+        // Lire library.json
+        const file = await entry.getFile();
+        const text = await file.text();
+        try {
+          sf2BrowserLoadCatalogue(JSON.parse(text));
+        } catch(e) {
+          console.error('Erreur parsing library.json :', e);
+          sf2HideLoading();
+          return;
+        }
+      }
+    }
     sf2HideLoading();
-    document.getElementById('sf2PresetSearch').value = '';
-    renderSF2PresetList(presets, ti);
+    if (!sf2Browser.catalogue.length) {
+      document.getElementById('sf2FileList').innerHTML =
+        '<div style="padding:12px 14px;font-size:12px;color:#555">library.json introuvable dans ce dossier</div>';
+    }
   } catch(e) {
     sf2HideLoading();
-    console.error('SF2 load error:', e);
+    console.error('loadSF2Catalogue error:', e);
   }
 }
 
-async function selectSF2File(name) {
-  // Appelé uniquement à la confirmation (double-clic preset)
-  // La banque est forcément déjà en cache à ce stade
-  const ti = sf2Browser.trackIdx;
-  const ts = trackSF2[ti];
-  if (!sf2BankCache[name]) return;
-  const cache = sf2BankCache[name];
-  ts.sfName  = name;
-  ts.sfontId = cache.sfontId;
-  ts.presets = cache.presets;
+function sf2BrowserLoadCatalogue(entries) {
+  sf2Browser.catalogue = entries;
+  // Extraire les catégories uniques en conservant leur ordre d'apparition
+  const seen = new Set();
+  sf2Browser.categories = [];
+  for (const e of entries) {
+    if (e.category && !seen.has(e.category)) {
+      seen.add(e.category);
+      sf2Browser.categories.push(e.category);
+    }
+  }
+  sf2Browser.categories.sort((a,b) => a.localeCompare(b));
+  sf2Browser.activeCategory = null;
+  console.log(`[SF2] Catalogue : ${entries.length} sons, ${sf2Browser.categories.length} catégories`);
+  sf2HideLoading();
+  renderSF2CategoryList();
 }
 
-function renderSF2PresetList(presets, ti) {
-  const ts = trackSF2[ti];
-  document.getElementById('sf2PresetCount').textContent = `(${presets.length})`;
-  const list = document.getElementById('sf2PresetList');
-  if (!presets.length) {
-    list.innerHTML = '<div style="padding:10px;font-size:9px;color:#333">Aucun preset</div>';
+// ── Rendu colonne gauche : catégories ─────────────────────────────────────
+
+function renderSF2CategoryList() {
+  const list = document.getElementById('sf2FileList');
+  if (!sf2Browser.categories.length) {
+    list.innerHTML = '<div style="padding:12px 14px;font-size:12px;color:#555">Catalogue vide</div>';
     return;
   }
-  // Stocker les presets filtrés courants pour le dblclick
-  sf2Browser.currentFiltered = presets;
-  list.innerHTML = presets.map((p, i) => {
-    const active = (p.bank === ts.bank && p.program === ts.program) ? ' active-preset' : '';
+  list.innerHTML = sf2Browser.categories.map(cat => {
+    const count  = sf2Browser.catalogue.filter(e => e.category === cat).length;
+    const active = cat === sf2Browser.activeCategory ? ' active-sf2' : '';
+    return `<div class="brItem${active}" data-cat="${cat}">
+      <span class="brName">${cat}</span><span class="brSub">${count}</span>
+    </div>`;
+  }).join('');
+  list.querySelectorAll('.brItem').forEach(el =>
+    el.addEventListener('click', () => sf2SelectCategory(el.dataset.cat, true))
+  );
+  const active = list.querySelector('.active-sf2');
+  if (active) active.scrollIntoView({ block: 'nearest' });
+}
+
+function sf2SelectCategory(cat, resetSearch) {
+  sf2Browser.activeCategory = cat;
+  sf2Browser.allSounds = sf2Browser.catalogue.filter(e => e.category === cat);
+  if (resetSearch) document.getElementById('sf2PresetSearch').value = '';
+  renderSF2CategoryList();
+  renderSF2SoundList(sf2Browser.allSounds);
+}
+
+// ── Rendu colonne droite : sons ────────────────────────────────────────────
+
+function renderSF2SoundList(sounds) {
+  const ti   = sf2Browser.trackIdx;
+  const ts   = trackSF2[ti];
+  sf2Browser.currentFiltered = sounds;
+  document.getElementById('sf2PresetCount').textContent = `(${sounds.length})`;
+  const list = document.getElementById('sf2PresetList');
+  if (!sounds.length) {
+    list.innerHTML = '<div style="padding:10px;font-size:12px;color:#333">Aucun son</div>';
+    return;
+  }
+  list.innerHTML = sounds.map((s, i) => {
+    const active = s.file === ts.sfName ? ' active-preset' : '';
     return `<div class="brItem${active}" data-idx="${i}">
-      <span class="brSub">${p.bank}:${String(p.program).padStart(3,'0')}</span>
-      <span class="brName">${p.name}</span>
+      <span class="brName">${s.name}</span>
     </div>`;
   }).join('');
   list.querySelectorAll('.brItem').forEach(el => {
     const idx = parseInt(el.dataset.idx);
-    el.addEventListener('click',    () => previewSF2Preset(idx));
-    el.addEventListener('dblclick', () => confirmSF2Preset(idx));
+    el.addEventListener('click',    () => sf2SoundClick(idx));
+    el.addEventListener('dblclick', () => sf2SoundConfirm(idx));
   });
   const active = list.querySelector('.active-preset');
   if (active) active.scrollIntoView({ block: 'center' });
 }
 
-function previewSF2Preset(idx) {
-  const ti = sf2Browser.trackIdx;
-  const preset = sf2Browser.currentFiltered?.[idx];
-  if (!preset) return;
-  const bankName = sf2Browser.activeFile;
-  const bank = sf2BankCache[ti][bankName] || sf2TempBank[ti];
-  if (!bank) return;
-  const sfontId = bank.sfontId || -1;
-  if (sfontId < 0) return;
+// ── Clic sur un son : debounce 300ms avant preview ────────────────────────
 
-  // Stopper proprement la note précédente
+function sf2SoundClick(idx) {
+  // Mettre en évidence immédiatement (feedback visuel instantané)
+  document.querySelectorAll('#sf2PresetList .brItem').forEach((el, i) =>
+    el.classList.toggle('active', i === idx)
+  );
+  const sound = sf2Browser.currentFiltered[idx];
+  if (sound) {
+    document.getElementById('sf2CurrentPreset').textContent = sound.name;
+  }
+  sf2Browser.activeSoundIdx = idx;
+
+  // Annuler le chargement précédent en attente
+  clearTimeout(sf2Browser.previewDebounce);
+  sf2Browser.previewDebounce = setTimeout(() => {
+    sf2Browser.previewDebounce = null;
+    sf2LoadAndPreview(idx);
+  }, sf2Browser.PREVIEW_DELAY);
+}
+
+// ── Charger le SF2 et jouer la preview ────────────────────────────────────
+
+async function sf2LoadAndPreview(idx) {
+  const ti    = sf2Browser.trackIdx;
+  const sound = sf2Browser.currentFiltered[idx];
+  if (!sound) return;
+
+  const name = sound.file; // ex: "GrandPiano.sf2"
+
+  // Stopper la note précédente
   clearTimeout(sf2Browser.previewTimer);
   sf2Browser.previewTimer = null;
-  try { jsSynths[ti].midiNoteOff(sf2Channel(ti), 60); } catch(e) {}
+  try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
 
-  jsSynths[ti].midiProgramSelect(sf2Channel(ti), sfontId, preset.bank, preset.program);
-  // Petit délai pour laisser le noteOff s'appliquer avant de rejouer
+  // Si déjà en cache → preview directe
+  if (sf2BankCache[ti][name]) {
+    const { sfontId } = sf2BankCache[ti][name];
+    sf2DoPreview(ti, sfontId, 0, 0);
+    return;
+  }
+  // Si déjà en temp pour cette track → preview directe
+  if (sf2TempBank[ti]?.name === name) {
+    sf2DoPreview(ti, sf2TempBank[ti].sfontId, 0, 0);
+    return;
+  }
+
+  // Décharger l'ancien temp de cette track
+  if (sf2TempBank[ti] && !sf2BankCache[ti][sf2TempBank[ti].name]) {
+    try { jsSynths[ti].unloadSFont(sf2TempBank[ti].sfontId); } catch(e) {}
+    sf2TempBank[ti] = null;
+  }
+
+  // Charger le SF2 depuis le dossier
+  try {
+    let file;
+    if (sf2Browser.useFileHandles) {
+      const handle = sf2Browser.fileHandles[name];
+      if (!handle) { console.warn('[SF2] Handle introuvable :', name); return; }
+      file = await handle.getFile();
+    } else {
+      file = sf2Browser.fallbackFiles[name];
+      if (!file) { console.warn('[SF2] Fichier introuvable :', name); return; }
+    }
+    const buf     = await file.arrayBuffer();
+    const sfontId = await jsSynths[ti].loadSFont(buf);
+    const presets = sf2GetPresets(ti, sfontId);
+    sf2TempBank[ti] = { name, sfontId, presets };
+    sf2DoPreview(ti, sfontId, 0, 0);
+  } catch(e) {
+    console.error('[SF2] Erreur chargement preview :', e);
+  }
+}
+
+function sf2DoPreview(ti, sfontId, bank, program) {
+  try {
+    jsSynths[ti].midiProgramSelect(SF2_CHANNEL, sfontId, bank, program);
+  } catch(e) { return; }
   sf2Browser.previewTimer = setTimeout(() => {
     try {
-      jsSynths[ti].midiNoteOn(sf2Channel(ti), 60, 100);
+      jsSynths[ti].midiNoteOn(SF2_CHANNEL, 60, 100);
       sf2Browser.previewTimer = setTimeout(() => {
-        try { jsSynths[ti].midiNoteOff(sf2Channel(ti), 60); } catch(e) {}
+        try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
       }, 1000);
     } catch(e) {}
   }, 30);
-
-  document.querySelectorAll('#sf2PresetList .brItem').forEach((el,i) =>
-    el.classList.toggle('active', i === idx)
-  );
-  document.getElementById('sf2CurrentPreset').textContent =
-    `${bankName.replace(/\.sf2$/i,'')} › ${preset.name}`;
 }
 
-function confirmSF2Preset(idx) {
-  const ti = sf2Browser.trackIdx;
-  const preset = sf2Browser.currentFiltered?.[idx];
-  if (!preset) return;
+// ── Double-clic : confirmer le son ────────────────────────────────────────
 
-  const bankName = sf2Browser.activeFile;
-  let bankData = sf2BankCache[ti][bankName];
-  if (!bankData && sf2TempBank[ti]?.name === bankName) {
-    bankData = sf2TempBank[ti];
-    sf2BankCache[ti][bankName] = { sfontId: sf2TempBank[ti].sfontId, presets: sf2TempBank[ti].presets };
+function sf2SoundConfirm(idx) {
+  const ti    = sf2Browser.trackIdx;
+  const sound = sf2Browser.currentFiltered[idx];
+  if (!sound) return;
+
+  const name = sound.file;
+
+  // Annuler le debounce et les notes en cours
+  clearTimeout(sf2Browser.previewDebounce);
+  sf2Browser.previewDebounce = null;
+  clearTimeout(sf2Browser.previewTimer);
+  sf2Browser.previewTimer = null;
+  try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
+
+  // Récupérer les données du SF2 (cache ou temp)
+  let bankData = sf2BankCache[ti][name];
+  if (!bankData && sf2TempBank[ti]?.name === name) {
+    // Promouvoir le temp en cache
+    bankData = { sfontId: sf2TempBank[ti].sfontId, presets: sf2TempBank[ti].presets };
+    sf2BankCache[ti][name] = bankData;
     sf2TempBank[ti] = null;
-    console.log(`[SF2] Track ${ti+1} promu : ${bankName}`);
+    console.log(`[SF2] Track ${ti+1} promu : ${name}`);
   }
-  if (!bankData) return;
 
-  const ts = trackSF2[ti];
+  if (!bankData) {
+    // SF2 pas encore chargé (confirm très rapide avant la fin du debounce)
+    // On charge de façon synchrone-async puis on confirme
+    sf2LoadAndPreview(idx).then(() => sf2SoundConfirm(idx));
+    return;
+  }
+
+  const ts      = trackSF2[ti];
   const oldName = ts.sfName;
-  ts.sfName  = bankName;
+  const preset  = bankData.presets?.[0] ?? { bank: 0, program: 0 };
+
+  ts.sfName  = name;
   ts.sfontId = bankData.sfontId;
   ts.presets = bankData.presets;
   ts.bank    = preset.bank;
   ts.program = preset.program;
-  jsSynths[ti].midiProgramSelect(sf2Channel(ti), ts.sfontId, preset.bank, preset.program);
-  clearTimeout(sf2Browser.previewTimer);
-  jsSynths[ti].midiNoteOff(sf2Channel(ti), 60);
+  jsSynths[ti].midiProgramSelect(SF2_CHANNEL, ts.sfontId, preset.bank, preset.program);
   S.tracks[ti].outputMode = 'sf2';
-  if (oldName && oldName !== bankName) sf2MaybeUnload(ti, oldName);
-  oledForce(`T${ti+1}`, preset.name.slice(0,12), bankName.replace(/\.sf2$/i,'').slice(0,12));
+  if (oldName && oldName !== name) sf2MaybeUnload(ti, oldName);
+
+  oledForce(`T${ti+1}`, sound.name.slice(0,12), (sound.category || '').slice(0,12));
   setTimeout(() => { S._oledLocked = false; }, 1500);
   renderTrackButtons();
   setTimeout(closeSF2Browser, 100);
 }
 
-// Recherche
+// ── Recherche (filtre sur toutes les catégories) ───────────────────────────
+
 document.getElementById('sf2PresetSearch').addEventListener('input', e => {
-  const q = e.target.value.toLowerCase();
-  const filtered = q ? sf2Browser.allPresets.filter(p => p.name.toLowerCase().includes(q)) : sf2Browser.allPresets;
-  renderSF2PresetList(filtered, sf2Browser.trackIdx);
+  const q = e.target.value.toLowerCase().trim();
+  if (q) {
+    // Recherche globale sur tout le catalogue
+    const filtered = sf2Browser.catalogue.filter(s => s.name.toLowerCase().includes(q));
+    renderSF2SoundList(filtered);
+  } else {
+    // Retour à la catégorie active
+    renderSF2SoundList(sf2Browser.allSounds);
+  }
 });
 
 document.getElementById('sf2CloseBtn').addEventListener('click', closeSF2Browser);
@@ -10058,8 +10159,9 @@ async function restoreSF2Dir() {
     if (handle) {
       const perm = await handle.queryPermission({ mode: 'read' });
       if (perm === 'granted') {
-        sf2Browser.dirHandle = handle;
-        await loadSF2Directory(false);
+        sf2Browser.dirHandle      = handle;
+        sf2Browser.useFileHandles = true;
+        await loadSF2Catalogue(handle);
       }
     }
   } catch(e) {}
