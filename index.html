@@ -9897,19 +9897,39 @@ async function loadSF2Catalogue(dirHandle) {
 }
 
 function sf2BrowserLoadCatalogue(entries) {
-  sf2Browser.catalogue = entries;
-  // Extraire les catégories uniques en conservant leur ordre d'apparition
-  const seen = new Set();
-  sf2Browser.categories = [];
+  // ── 1. Déduplication des noms au sein de chaque catégorie ──────────────
+  // On regroupe par catégorie, puis on numérote les doublons : "Piano 1", "Piano 2"…
+  const byCategory = {};
   for (const e of entries) {
-    if (e.category && !seen.has(e.category)) {
-      seen.add(e.category);
-      sf2Browser.categories.push(e.category);
-    }
+    const cat = e.category || '';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(e);
   }
-  sf2Browser.categories.sort((a,b) => a.localeCompare(b));
+  for (const cat of Object.keys(byCategory)) {
+    const nameCounts = {};
+    for (const e of byCategory[cat]) {
+      nameCounts[e.name] = (nameCounts[e.name] || 0) + 1;
+    }
+    // Deuxième passe : numéroter seulement les noms qui apparaissent plusieurs fois
+    const nameIdx = {};
+    for (const e of byCategory[cat]) {
+      if (nameCounts[e.name] > 1) {
+        nameIdx[e.name] = (nameIdx[e.name] || 0) + 1;
+        e.displayName = `${e.name} ${nameIdx[e.name]}`;
+      } else {
+        e.displayName = e.name;
+      }
+    }
+    // Tri alphabétique par displayName
+    byCategory[cat].sort((a, b) => a.displayName.localeCompare(b.displayName));
+  }
+
+  // Reconstruire la liste aplatie
+  sf2Browser.catalogue = Object.keys(byCategory).sort().flatMap(cat => byCategory[cat]);
+  // Catégories triées alphabétiquement
+  sf2Browser.categories = Object.keys(byCategory).sort((a,b) => a.localeCompare(b));
   sf2Browser.activeCategory = null;
-  console.log(`[SF2] Catalogue : ${entries.length} sons, ${sf2Browser.categories.length} catégories`);
+  console.log(`[SF2] Catalogue : ${sf2Browser.catalogue.length} sons, ${sf2Browser.categories.length} catégories`);
   sf2HideLoading();
   renderSF2CategoryList();
 }
@@ -9959,7 +9979,7 @@ function renderSF2SoundList(sounds) {
   list.innerHTML = sounds.map((s, i) => {
     const active = s.file === ts.sfName ? ' active-preset' : '';
     return `<div class="brItem${active}" data-idx="${i}">
-      <span class="brName">${s.name}</span>
+      <span class="brName">${s.displayName || s.name}</span>
     </div>`;
   }).join('');
   list.querySelectorAll('.brItem').forEach(el => {
@@ -9980,7 +10000,7 @@ function sf2SoundClick(idx) {
   );
   const sound = sf2Browser.currentFiltered[idx];
   if (sound) {
-    document.getElementById('sf2CurrentPreset').textContent = sound.name;
+    document.getElementById('sf2CurrentPreset').textContent = sound.displayName || sound.name;
   }
   sf2Browser.activeSoundIdx = idx;
 
@@ -10105,7 +10125,7 @@ function sf2SoundConfirm(idx) {
   S.tracks[ti].outputMode = 'sf2';
   if (oldName && oldName !== name) sf2MaybeUnload(ti, oldName);
 
-  oledForce(`T${ti+1}`, sound.name.slice(0,12), (sound.category || '').slice(0,12));
+  oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0,12), (sound.category || '').slice(0,12));
   setTimeout(() => { S._oledLocked = false; }, 1500);
   renderTrackButtons();
   setTimeout(closeSF2Browser, 100);
