@@ -507,6 +507,10 @@ body {
   <div id="sf2Header" class="brHeader">
     <span id="sf2TrackLabel" class="brTrackLabel" style="color:#ff6b00">TRACK 1</span>
     <button id="sf2FolderBtn" class="brFolderBtn">📁 Dossier SF2</button>
+    <label id="sf2PrevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
+      <input type="checkbox" id="sf2PreviewChk" checked style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
+      Preview
+    </label>
     <span id="sf2CurrentPreset" class="brCurrentLabel">—</span>
     <button id="sf2CloseBtn" class="brCloseBtn">✕</button>
   </div>
@@ -8682,13 +8686,11 @@ function midiCC(cc, value) {
     // (on laisse passer pour les autres CC éventuels)
   }
   if (cc === 74) {
-    const d = relDelta(value, 1);
-
-    // ── Mode sélection son drum ──
+    // ── Mode sélection son drum : reste relatif ──
     if (drumSoundSelectMode) {
+      const d = relDelta(value, 1);
       const nSounds = DRUM_SYNTH_TYPES.length;
       drumSoundSelectIdx = Math.max(0, Math.min(nSounds - 1, drumSoundSelectIdx - d));
-      // Preview du son
       const ti = S.currentTrack;
       const t = S.tracks[ti];
       if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
@@ -8699,8 +8701,9 @@ function midiCC(cc, value) {
       return;
     }
 
-    // ── Comportement normal ──
+    // ── Step tenu : longueur de note (relatif) ──
     if (anyStepHeld()) {
+      const d = relDelta(value, 1);
       const res = getHeldSt();
       if (res && res.st.on) {
         const clip = activeClip();
@@ -8715,18 +8718,40 @@ function midiCC(cc, value) {
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
         updateEncArcs();
       }
-    } else if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      loopBarVelocityDelta(d * 4);
-    } else {
-      setBpm(S.bpm + d);
-      oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
+      return;
     }
+
+    // ── Loop mode + bar held : vélocité (relatif) ──
+    if (S.mode === 'loop' && S._loopBarHeld >= 0) {
+      const d = relDelta(value, 1);
+      loopBarVelocityDelta(d * 4);
+      return;
+    }
+
+    // ── BPM : support double mode (absolu ET relatif) ──
+    // Détection absolu : valeur = 0, 127, ou loin de 64 ET pas un micro-delta relatif
+    // Un encodeur relatif type MPK envoie 1-5 (CW) ou 123-127 (CCW) près de 64
+    // Un fader absolu envoie 0-127 linéaire
+    if (!midiState._bpmMode) midiState._bpmMode = 'auto';
+    const isRelativeLooking = (value >= 1 && value <= 10) || (value >= 118 && value <= 127);
+    if (isRelativeLooking && midiState._bpmMode !== 'absolute') {
+      // Mode relatif
+      midiState._bpmMode = 'relative';
+      const d = relDelta(value, 1);
+      setBpm(S.bpm + d);
+    } else {
+      // Mode absolu : 0-127 → BPM 40-240
+      midiState._bpmMode = 'absolute';
+      const newBpm = Math.round(40 + (value / 127) * 200);
+      setBpm(newBpm);
+    }
+    oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
     return;
   }
 
   // ── CC77 → Encodeur Volume master (ou vélocité step si tenu) ──
   if (cc === 77) {
-    const d = relDelta(value, 1 / 20);
+    const d = relDelta(value, 1 / 60); // 60 incréments pour traverser 0-100% → pas de 1.67%
     if (anyStepHeld()) {
       const res = getHeldSt();
       if (res && res.st.on) {
@@ -9919,6 +9944,7 @@ const sf2Browser = {
   previewDebounce: null,      // setTimeout handle
   PREVIEW_DELAY:  300,        // ms avant de lancer le chargement SF2 + preview
   previewTimer:   null,       // noteOff timer
+  previewEnabled: true,       // true = joue une note de preview, false = charge seulement le preset
 };
 
 // ── Ouvrir / fermer ────────────────────────────────────────────────────────
@@ -10189,6 +10215,9 @@ async function sf2LoadAndPreview(idx, list) {
 
   // Décharger l'ancien temp de cette track
   if (sf2TempBank[ti] && !sf2BankCache[ti][sf2TempBank[ti].name]) {
+    // Couper toutes les notes en cours (évite notes bloquées lors du switch)
+    try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
+    try { jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0); } catch(e) {}
     try { jsSynths[ti].unloadSFont(sf2TempBank[ti].sfontId); } catch(e) {}
     sf2TempBank[ti] = null;
   }
@@ -10218,6 +10247,8 @@ function sf2DoPreview(ti, sfontId, bank, program) {
   try {
     jsSynths[ti].midiProgramSelect(SF2_CHANNEL, sfontId, bank, program);
   } catch(e) { return; }
+  // Ne pas jouer de note si preview désactivée — le preset est chargé, l'user peut jouer au clavier
+  if (!sf2Browser.previewEnabled) return;
   sf2Browser.previewTimer = setTimeout(() => {
     try {
       jsSynths[ti].midiNoteOn(SF2_CHANNEL, 60, 100);
@@ -10295,6 +10326,21 @@ document.getElementById('sf2PresetSearch').addEventListener('input', e => {
 });
 
 document.getElementById('sf2CloseBtn').addEventListener('click', closeSF2Browser);
+
+// Checkbox Preview : désactiver coupe immédiatement toute note en cours
+document.getElementById('sf2PreviewChk').addEventListener('change', (e) => {
+  sf2Browser.previewEnabled = e.target.checked;
+  if (!sf2Browser.previewEnabled) {
+    // Couper immédiatement toute note de preview en cours
+    clearTimeout(sf2Browser.previewTimer);
+    sf2Browser.previewTimer = null;
+    const ti = sf2Browser.trackIdx;
+    if (jsSynths[ti]) {
+      try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
+      try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
+    }
+  }
+});
 
 // IndexedDB
 function openIDB() {
