@@ -2823,9 +2823,10 @@ function applyToneFilter(inputNode, tone, dest) {
   // Fréquence : courbe exponentielle 200Hz → 18000Hz
   const freq = 200 * Math.pow(90, Math.max(0, Math.min(1, tone)));
   f.frequency.setValueAtTime(freq, t);
-  // Résonance : nulle jusqu'à 50%, puis monte jusqu'à Q=12 à 100%
-  const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
-  f.Q.setValueAtTime(q, t);
+  // Résonance : plafonnée à Q=4 pour éviter la résonance persistante
+  // (Q élevé = le filtre "sonne" longtemps après l'arrêt → craquements)
+  const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 4 : 0.1;
+  f.Q.setValueAtTime(Math.min(4, q), t);
   inputNode.connect(f);
   f.connect(dest);
   return f;
@@ -2851,13 +2852,16 @@ function drumSynth(pad, vel, dest) {
     let node = g;
     if (drv > 0.02) {
       const ws = actx.createWaveShaper();
-      const k  = drv * 80, n = 256, c = new Float32Array(n);
+      const k  = drv * 50, n = 256, c = new Float32Array(n); // k réduit de 80 à 50
       for (let i = 0; i < n; i++) {
         const x = (i * 2) / n - 1;
         c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
       }
       ws.curve = c; ws.oversample = '2x';
-      node.connect(ws); node = ws;
+      // Gain de compensation : le drive booste le niveau, on ramène
+      const driveComp = actx.createGain();
+      driveComp.gain.value = 1 / (1 + drv * 0.5);
+      node.connect(ws); ws.connect(driveComp); node = driveComp;
     }
     applyToneFilter(node, tone, masterOut);
   }
@@ -5736,6 +5740,7 @@ function transposeHeldSteps(octaveDelta) {
     heldSteps.get(idx).didAction = true;
   }
   S.octave = newOctave;
+  S.tracks[S.currentTrack].octave = newOctave;
   renderPads();
   renderSteps();
   illuminateHeldStepNotes();
@@ -7168,6 +7173,8 @@ function projectSave(slot) {
 }
 
 function serializeProject() {
+  // S'assurer que l'octave de la track courante est bien à jour avant sérialisation
+  S.tracks[S.currentTrack].octave = S.octave;
   return {
     version: 2,
     bpm: S.bpm,
@@ -7952,6 +7959,18 @@ function getHeldSt() {
 
 var encDrags = [null, null, null, null];
 
+// ── Calcul d'accélération pour les encodeurs tactiles ─────────
+// Vitesse en px/ms → facteur multiplicateur exponentiel
+// Lent (<0.5px/ms) → ×0.15  (très précis)
+// Moyen (2px/ms)   → ×1.0   (normal)
+// Rapide (>8px/ms) → ×4.0   (scroll rapide)
+function encAccelFactor(pxPerMs) {
+  const v = Math.abs(pxPerMs);
+  if (v < 0.1) return 0.08;
+  // Courbe exponentielle douce : factor = 0.08 * (v/0.1)^1.4, plafonnée à 5
+  return Math.min(5, 0.08 * Math.pow(v / 0.1, 1.4));
+}
+
 // Définitions des encodeurs en mode drum (indices 0..3 visibles, mais on gère 0..7 via les 4 premiers)
 const DRUM_ENC_KEYS = ['tune','decay','tone','drive']; // enc 0..3
 const DRUM_ENC_RANGES = [
@@ -7972,7 +7991,7 @@ ENC_DEFS.forEach((def, i) => {
     // Priorité 1 : step tenu → Length/Vel/Offset/Prob
     const res = getHeldSt();
     if (res && res.st.on) {
-      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, lastT: Date.now(), startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       S._oledLocked = true;
       e.preventDefault();
@@ -7986,7 +8005,7 @@ ENC_DEFS.forEach((def, i) => {
       const dr = DRUM_ENC_RANGES[i];
       if (!dr) return;
       const key = DRUM_ENC_KEYS[i];
-      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: pad[key] ?? 0, drumMode: true, key, dr };
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, lastT: Date.now(), startVal: pad[key] ?? 0, drumMode: true, key, dr };
       S._oledLocked = true;
       e.preventDefault();
       return;
@@ -8020,7 +8039,7 @@ SEND_ENCS.forEach((def, si) => {
     } else {
       startVal = t[def.key] ?? 0;
     }
-    encSendDrags[si] = { y: e.clientY, x: e.clientX, startVal };
+    encSendDrags[si] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, lastT: Date.now(), startVal };
     S._oledLocked = true;
     e.preventDefault();
   });
@@ -8030,12 +8049,24 @@ document.addEventListener('mousemove', e => {
   SEND_ENCS.forEach((def, si) => {
     const drag = encSendDrags[si];
     if (!drag) return;
-    const dy = drag.y - e.clientY;
-    const dx = e.clientX - (drag.x || e.clientX);
-    const delta = dy + dx;
-    if (Math.abs(delta) < 2) return;
+    const now  = Date.now();
+    const dt   = Math.max(1, now - drag.lastT);
+    const ddy  = drag.lastY - e.clientY;
+    const ddx  = e.clientX - drag.lastX;
+    const incr = ddy + ddx;
+    if (Math.abs(incr) < 0.5) return;
+
+    const speed  = Math.abs(incr) / dt;
+    const accel  = encAccelFactor(speed);
+    drag.lastY = e.clientY;
+    drag.lastX = e.clientX;
+    drag.lastT = now;
+
     const t = S.tracks[S.currentTrack];
-    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 150));
+    const step   = (incr / 150) * accel;
+    const curVal = drag.startVal;
+    const newVal = Math.max(0, Math.min(1, curVal + step));
+    drag.startVal = newVal;
     if (t.mode === 'drum') {
       if (!t.drumPads) return;
       t.drumPads[S.selectedDrumPad][def.key] = newVal;
@@ -8095,33 +8126,49 @@ function updateSendArcs() {
 document.addEventListener('mousemove', e => {
   ENC_DEFS.forEach((def, i) => {
     if (!encDrags[i]) return;
-    const dy = encDrags[i].y - e.clientY;
-    const dx = e.clientX - (encDrags[i].x || e.clientX);
-    const delta = dy + dx; // up+right = increase, down+left = decrease
+    const now  = Date.now();
+    const dt   = Math.max(1, now - encDrags[i].lastT);  // ms depuis dernier event
+    const ddy  = encDrags[i].lastY - e.clientY;
+    const ddx  = e.clientX - encDrags[i].lastX;
+    const incr = ddy + ddx;  // déplacement depuis le dernier event (px)
+    if (Math.abs(incr) < 0.5) return;  // filtre micro-tremblements
+
+    // Vélocité instantanée en px/ms → facteur d'accélération
+    const speed  = Math.abs(incr) / dt;
+    const accel  = encAccelFactor(speed);
+
+    // Mettre à jour la position de référence pour le prochain event
+    encDrags[i].lastY = e.clientY;
+    encDrags[i].lastX = e.clientX;
+    encDrags[i].lastT = now;
 
     // Mode drum
     if (encDrags[i].drumMode) {
-      if (Math.abs(delta) < 2) return;
       const t = S.tracks[S.currentTrack];
       if (!t.drumPads) return;
       const pad = t.drumPads[S.selectedDrumPad];
       const { key, dr } = encDrags[i];
       const range = dr.max - dr.min;
-      const newVal = Math.max(dr.min, Math.min(dr.max, encDrags[i].startVal + delta / 120 * range));
+      const step  = (incr / 80) * range * accel;
+      const cur   = pad[key] ?? dr.min;
+      const newVal = Math.max(dr.min, Math.min(dr.max, cur + step));
       pad[key] = newVal;
+      encDrags[i].startVal = newVal; // sync pour cohérence
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
       updateEncArcs();
       return;
     }
 
-    if (Math.abs(delta) < 2) return;
     encDrags[i].moved = true;
-    const eMax = getEncMax(def);
+    const eMax  = getEncMax(def);
     const range = eMax - def.min;
-    const newVal = Math.max(def.min, Math.min(eMax, encDrags[i].startVal + delta / 80 * range));
-    const res = getHeldSt();
+    const step  = (incr / 80) * range * accel;
+    const res   = getHeldSt();
     if (!res) return;
+    const cur    = def.get(res.st);
+    const newVal = Math.max(def.min, Math.min(eMax, cur + step));
     def.set(res.st, newVal);
+    encDrags[i].startVal = newVal;
     if (i === 0 && res.st.on) {
       showNoteLengthFeedback(res.idx, true, Math.round(newVal));
     }
@@ -8622,10 +8669,9 @@ function midiCC(cc, value) {
       return;
     }
 
-    return;
+    // Track SF2 ou master sans step tenu : pas d'action sur CC70-73
+    // (on laisse passer pour les autres CC éventuels)
   }
-
-  // ── CC74 → Molette (BPM ou longueur note selon contexte) ──
   if (cc === 74) {
     const d = relDelta(value, 1);
 
@@ -8737,9 +8783,74 @@ function midiCC(cc, value) {
     setTimeout(() => setModeButtonLit(false), 150);
     return;
   }
-  if (cc === 116) {
-    // Clic molette via MIDI — afficher BPM
-    oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
+  if (cc === 115 || cc === 116) {
+    const delta = (cc === 115) ? -1 : 1;
+    const ti = sf2Browser.trackIdx !== undefined ? sf2Browser.trackIdx : S.currentTrack;
+    const browserOpen = document.getElementById('sf2Browser').classList.contains('open');
+
+    if (!sf2Browser.catalogue.length) {
+      oledForce('SF2', 'Pas de catalogue', 'charger un dossier');
+      return;
+    }
+
+    // Liste de navigation : currentFiltered si browser ouvert,
+    // sinon les sons de la même catégorie que le son actif sur la track
+    const ts = trackSF2[ti];
+    let list;
+    if (browserOpen) {
+      list = sf2Browser.currentFiltered;
+    } else {
+      // Trouver la catégorie du son actif sur cette track
+      const activeEntry = sf2Browser.catalogue.find(s => s.file === ts.sfName);
+      const activeCat = activeEntry?.category || sf2Browser.categories[0];
+      list = sf2Browser.catalogue.filter(s => s.category === activeCat);
+    }
+    if (!list.length) return;
+    let curIdx = list.findIndex(s => s.file === ts.sfName);
+    if (curIdx < 0) curIdx = delta > 0 ? -1 : 0;
+    const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
+    if (newIdx === curIdx && curIdx >= 0) return; // déjà au bout
+
+    const sound = list[newIdx];
+    if (!sound) return;
+
+    if (browserOpen) {
+      // Browser ouvert : simuler un clic sur le son
+      sf2SoundClick(newIdx);
+      // Scroll vers l'item dans la liste
+      const items = document.querySelectorAll('#sf2PresetList .brItem');
+      if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+    } else {
+      // Browser fermé : feedback OLED immédiat + chargement debounced
+      oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0, 12),
+                (sound.category || '').slice(0, 12));
+      // Debounce identique à sf2SoundClick
+      clearTimeout(sf2Browser.previewDebounce);
+      sf2Browser.previewDebounce = setTimeout(async () => {
+        sf2Browser.previewDebounce = null;
+        sf2Browser.trackIdx = ti;
+        // Charger et confirmer directement (pas juste preview)
+        await sf2LoadAndPreview(newIdx, list);
+        // Auto-confirmer après chargement
+        const bankData = sf2BankCache[ti][sound.file] || sf2TempBank[ti];
+        if (bankData) {
+          const preset = bankData.presets?.[0] ?? { bank: 0, program: 0 };
+          const oldName = trackSF2[ti].sfName;
+          trackSF2[ti].sfName  = sound.file;
+          trackSF2[ti].sfontId = bankData.sfontId;
+          trackSF2[ti].presets = bankData.presets;
+          trackSF2[ti].bank    = preset.bank;
+          trackSF2[ti].program = preset.program;
+          S.tracks[ti].outputMode = 'sf2';
+          if (oldName && oldName !== sound.file) sf2MaybeUnload(ti, oldName);
+          if (sf2TempBank[ti]?.name === sound.file) {
+            sf2BankCache[ti][sound.file] = { sfontId: sf2TempBank[ti].sfontId, presets: sf2TempBank[ti].presets };
+            sf2TempBank[ti] = null;
+          }
+          renderTrackButtons();
+        }
+      }, sf2Browser.PREVIEW_DELAY);
+    }
     return;
   }
 }
@@ -9341,6 +9452,7 @@ function illuminateLoopBarNotes(barIdx) {
   const targetOct = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE, Math.round(avgMidi / 12) - 3));
   if (targetOct !== S.octave) {
     S.octave = targetOct;
+    S.tracks[S.currentTrack].octave = targetOct;
     // renderPads en mode loop pour mettre à jour la couleur des pads
     // SANS rappeler illuminateLoopBarNotes (éviter la boucle)
     for (let r = 0; r < 4; r++)
@@ -10037,9 +10149,10 @@ function sf2SoundClick(idx) {
 
 // ── Charger le SF2 et jouer la preview ────────────────────────────────────
 
-async function sf2LoadAndPreview(idx) {
+async function sf2LoadAndPreview(idx, list) {
   const ti    = sf2Browser.trackIdx;
-  const sound = sf2Browser.currentFiltered[idx];
+  const sounds = list || sf2Browser.currentFiltered;
+  const sound = sounds[idx];
   if (!sound) return;
 
   const name = sound.file; // ex: "GrandPiano.sf2"
