@@ -8002,7 +8002,15 @@ ENC_DEFS.forEach((def, i) => {
     // Priorité 1 : step tenu → Length/Vel/Offset/Prob
     const res = getHeldSt();
     if (res && res.st.on) {
-      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, lastT: Date.now(), startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
+      encDrags[i] = {
+        y: e.clientY, x: e.clientX,
+        lastY: e.clientY, lastX: e.clientX,
+        lastT: Date.now(),
+        startVal: def.get(res.st),
+        idx: res.idx,
+        eMax: getEncMax(def),  // stocker au démarrage pour éviter recalcul pendant drag
+        moved: false, drumMode: false
+      };
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       S._oledLocked = true;
       e.preventDefault();
@@ -8171,10 +8179,10 @@ document.addEventListener('mousemove', e => {
     }
 
     encDrags[i].moved = true;
-    const eMax  = getEncMax(def);
+    const eMax  = encDrags[i].eMax !== undefined ? encDrags[i].eMax : getEncMax(def);
     const range = eMax - def.min;
     const step  = (incr / 80) * range * accel;
-    // Utiliser le step stocké au mousedown (pas getHeldSt qui peut changer si user relache/prend un autre)
+    // Utiliser le step stocké au mousedown
     const storedIdx = encDrags[i].idx;
     if (storedIdx === undefined) return;
     const tSt = S.tracks[S.currentTrack];
@@ -8182,8 +8190,10 @@ document.addEventListener('mousemove', e => {
       ? activeClip().drumBars[S.selectedDrumPad][S.currentBar][storedIdx]
       : activeClip().bars[S.currentBar][storedIdx];
     if (!st || !st.on) return;
-    const cur    = def.get(st);
-    const newVal = Math.max(def.min, Math.min(eMax, cur + step));
+    // Accumulateur float pour éviter rounding-to-zero sur les petits deltas
+    if (encDrags[i].floatVal === undefined) encDrags[i].floatVal = def.get(st);
+    encDrags[i].floatVal = Math.max(def.min, Math.min(eMax, encDrags[i].floatVal + step));
+    const newVal = encDrags[i].floatVal;
     def.set(st, newVal);
     encDrags[i].startVal = newVal;
     if (i === 0 && st.on) {
@@ -8583,10 +8593,6 @@ function midiOnMessage(e) {
 }
 
 function midiCC(cc, value) {
-  // DIAG : tracer TOUS les CC entrants (temporaire pour debug)
-  if (cc !== 1 && cc !== 2) { // ignorer mod wheel et joystick Y
-    oledForce('CC', `${cc}`, `v=${value}`);
-  }
   // ── CC0 → joystick X-axis — ignoré ──
   if (cc === 0) return;
 
@@ -8691,8 +8697,12 @@ function midiCC(cc, value) {
     }
   }
   if (cc === 74) {
+    // DIAG temporaire : voir quelle branche est prise
+    let _dbg = 'bpm';
     // Mode sélection son drum : reste relatif (step-by-step)
     if (drumSoundSelectMode) {
+      _dbg = 'drumSelect';
+      oledForce('CC74 DBG', _dbg, `v=${value}`);
       // Utiliser un seuil : si valeur augmente → suivant, si baisse → précédent
       if (!midiState._cc74LastAbs) midiState._cc74LastAbs = value;
       const prevV = midiState._cc74LastAbs;
@@ -8713,6 +8723,7 @@ function midiCC(cc, value) {
 
     // Step tenu : longueur de note (mode absolu)
     if (anyStepHeld()) {
+      oledForce('CC74 DBG', 'stepHeld', `v=${value}`);
       const res = getHeldSt();
       if (res && res.st.on) {
         const clip = activeClip();
@@ -8732,8 +8743,7 @@ function midiCC(cc, value) {
 
     // Loop mode + bar held : vélocité (mode relatif conservé car delta)
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      // En mode absolu, on peut mapper directement la vélocité
-      // mais loopBarVelocityDelta attend un delta... on applique un delta proportionnel
+      oledForce('CC74 DBG', 'loopBar', `v=${value}`);
       if (!midiState._cc74LastBpm) midiState._cc74LastBpm = value;
       const diff = value - midiState._cc74LastBpm;
       midiState._cc74LastBpm = value;
@@ -8744,7 +8754,7 @@ function midiCC(cc, value) {
     // BPM : mode absolu 0-127 → 40-240 BPM
     const newBpm = Math.round(absMap(value, 40, 240));
     setBpm(newBpm);
-    oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
+    oledForce('BPM', `${S.bpm}`, `CC74 v=${value}`);
     return;
   }
 
