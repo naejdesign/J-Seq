@@ -507,10 +507,6 @@ body {
   <div id="sf2Header" class="brHeader">
     <span id="sf2TrackLabel" class="brTrackLabel" style="color:#ff6b00">TRACK 1</span>
     <button id="sf2FolderBtn" class="brFolderBtn">📁 Dossier SF2</button>
-    <label id="sf2PrevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
-      <input type="checkbox" id="sf2PreviewChk" checked style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
-      Preview
-    </label>
     <span id="sf2CurrentPreset" class="brCurrentLabel">—</span>
     <button id="sf2CloseBtn" class="brCloseBtn">✕</button>
   </div>
@@ -2827,10 +2823,9 @@ function applyToneFilter(inputNode, tone, dest) {
   // Fréquence : courbe exponentielle 200Hz → 18000Hz
   const freq = 200 * Math.pow(90, Math.max(0, Math.min(1, tone)));
   f.frequency.setValueAtTime(freq, t);
-  // Résonance : plafonnée à Q=4 pour éviter la résonance persistante
-  // (Q élevé = le filtre "sonne" longtemps après l'arrêt → craquements)
-  const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 4 : 0.1;
-  f.Q.setValueAtTime(Math.min(4, q), t);
+  // Résonance : nulle jusqu'à 50%, puis monte jusqu'à Q=12 à 100%
+  const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+  f.Q.setValueAtTime(q, t);
   inputNode.connect(f);
   f.connect(dest);
   return f;
@@ -2856,16 +2851,13 @@ function drumSynth(pad, vel, dest) {
     let node = g;
     if (drv > 0.02) {
       const ws = actx.createWaveShaper();
-      const k  = drv * 50, n = 256, c = new Float32Array(n); // k réduit de 80 à 50
+      const k  = drv * 80, n = 256, c = new Float32Array(n);
       for (let i = 0; i < n; i++) {
         const x = (i * 2) / n - 1;
         c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
       }
       ws.curve = c; ws.oversample = '2x';
-      // Gain de compensation : le drive booste le niveau, on ramène
-      const driveComp = actx.createGain();
-      driveComp.gain.value = 1 / (1 + drv * 0.5);
-      node.connect(ws); ws.connect(driveComp); node = driveComp;
+      node.connect(ws); node = ws;
     }
     applyToneFilter(node, tone, masterOut);
   }
@@ -4421,8 +4413,7 @@ function selectTrack(ti) {
   const prevTi = S.currentTrack;
   const prev   = S.tracks[prevTi];
   // Sauvegarder l'octave courante dans la track précédente
-  prev.octave      = S.octave;
-  prev.pianoOctave = S.pianoOctave;
+  prev.octave = S.octave;
   if (ti !== prevTi) {
     if (prev.outputMode === 'midi') midiAllNotesOff(prevTi);
     if (prev.outputMode === 'sf2')  sf2AllNotesOff(prevTi);
@@ -4434,9 +4425,7 @@ function selectTrack(ti) {
   S.page = Math.floor(ti / 4);
 
   // Restaurer l'octave de la nouvelle track
-  S.octave      = S.tracks[ti].octave      ?? 3;
-  S.pianoOctave = S.tracks[ti].pianoOctave ?? 0;
-  if (S.pianoOpen) buildPiano(); // reconstruire le piano avec le bon registre
+  S.octave = S.tracks[ti].octave ?? 3;
 
   for (let r = 0; r < 4; r++)
     for (let c = 0; c < 8; c++)
@@ -5747,7 +5736,6 @@ function transposeHeldSteps(octaveDelta) {
     heldSteps.get(idx).didAction = true;
   }
   S.octave = newOctave;
-  S.tracks[S.currentTrack].octave = newOctave;
   renderPads();
   renderSteps();
   illuminateHeldStepNotes();
@@ -7099,7 +7087,6 @@ function resetStateToEmpty() {
   S.bpm = 120;
   S.masterVolume = 0.65;
   S.octave = 3;
-  S.pianoOctave = 0;
   S.playing = false;
   S.recording = false;
   S.currentTrack = 0;
@@ -7181,9 +7168,6 @@ function projectSave(slot) {
 }
 
 function serializeProject() {
-  // S'assurer que les octaves de la track courante sont bien à jour avant sérialisation
-  S.tracks[S.currentTrack].octave      = S.octave;
-  S.tracks[S.currentTrack].pianoOctave = S.pianoOctave;
   return {
     version: 2,
     bpm: S.bpm,
@@ -7195,8 +7179,7 @@ function serializeProject() {
       muted: t.muted,
       soloed: t.soloed,
       volume: t.volume,
-      octave:      t.octave      ?? 3,
-      pianoOctave: t.pianoOctave ?? 0,
+      octave: t.octave ?? 3,
       sendDelay:  t.sendDelay  || 0,
       sendReverb: t.sendReverb || 0,
       soundIndex: t.soundIndex,
@@ -7284,7 +7267,6 @@ function deserializeProject(data, slot) {
     t.soloed      = td.soloed      ?? false;
     t.volume      = td.volume      ?? 0.8;
     t.octave      = td.octave      ?? 3;
-    t.pianoOctave = td.pianoOctave ?? 0;
     t.sendDelay   = td.sendDelay   ?? 0;
     t.sendReverb  = td.sendReverb  ?? 0;
     t.soundIndex  = td.soundIndex  ?? 0;
@@ -7970,18 +7952,6 @@ function getHeldSt() {
 
 var encDrags = [null, null, null, null];
 
-// ── Calcul d'accélération pour les encodeurs tactiles ─────────
-// Vitesse en px/ms → facteur multiplicateur exponentiel
-// Lent (<0.5px/ms) → ×0.15  (très précis)
-// Moyen (2px/ms)   → ×1.0   (normal)
-// Rapide (>8px/ms) → ×4.0   (scroll rapide)
-function encAccelFactor(pxPerMs) {
-  const v = Math.abs(pxPerMs);
-  if (v < 0.1) return 0.08;
-  // Courbe exponentielle douce : factor = 0.08 * (v/0.1)^1.4, plafonnée à 5
-  return Math.min(5, 0.08 * Math.pow(v / 0.1, 1.4));
-}
-
 // Définitions des encodeurs en mode drum (indices 0..3 visibles, mais on gère 0..7 via les 4 premiers)
 const DRUM_ENC_KEYS = ['tune','decay','tone','drive']; // enc 0..3
 const DRUM_ENC_RANGES = [
@@ -8002,15 +7972,7 @@ ENC_DEFS.forEach((def, i) => {
     // Priorité 1 : step tenu → Length/Vel/Offset/Prob
     const res = getHeldSt();
     if (res && res.st.on) {
-      encDrags[i] = {
-        y: e.clientY, x: e.clientX,
-        lastY: e.clientY, lastX: e.clientX,
-        lastT: Date.now(),
-        startVal: def.get(res.st),
-        idx: res.idx,
-        eMax: getEncMax(def),  // stocker au démarrage pour éviter recalcul pendant drag
-        moved: false, drumMode: false
-      };
+      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       S._oledLocked = true;
       e.preventDefault();
@@ -8024,7 +7986,7 @@ ENC_DEFS.forEach((def, i) => {
       const dr = DRUM_ENC_RANGES[i];
       if (!dr) return;
       const key = DRUM_ENC_KEYS[i];
-      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, lastT: Date.now(), startVal: pad[key] ?? 0, drumMode: true, key, dr };
+      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: pad[key] ?? 0, drumMode: true, key, dr };
       S._oledLocked = true;
       e.preventDefault();
       return;
@@ -8058,7 +8020,7 @@ SEND_ENCS.forEach((def, si) => {
     } else {
       startVal = t[def.key] ?? 0;
     }
-    encSendDrags[si] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, lastT: Date.now(), startVal };
+    encSendDrags[si] = { y: e.clientY, x: e.clientX, startVal };
     S._oledLocked = true;
     e.preventDefault();
   });
@@ -8068,24 +8030,12 @@ document.addEventListener('mousemove', e => {
   SEND_ENCS.forEach((def, si) => {
     const drag = encSendDrags[si];
     if (!drag) return;
-    const now  = Date.now();
-    const dt   = Math.max(1, now - drag.lastT);
-    const ddy  = drag.lastY - e.clientY;
-    const ddx  = e.clientX - drag.lastX;
-    const incr = ddy + ddx;
-    if (Math.abs(incr) < 0.5) return;
-
-    const speed  = Math.abs(incr) / dt;
-    const accel  = encAccelFactor(speed);
-    drag.lastY = e.clientY;
-    drag.lastX = e.clientX;
-    drag.lastT = now;
-
+    const dy = drag.y - e.clientY;
+    const dx = e.clientX - (drag.x || e.clientX);
+    const delta = dy + dx;
+    if (Math.abs(delta) < 2) return;
     const t = S.tracks[S.currentTrack];
-    const step   = (incr / 150) * accel;
-    const curVal = drag.startVal;
-    const newVal = Math.max(0, Math.min(1, curVal + step));
-    drag.startVal = newVal;
+    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 150));
     if (t.mode === 'drum') {
       if (!t.drumPads) return;
       t.drumPads[S.selectedDrumPad][def.key] = newVal;
@@ -8145,61 +8095,37 @@ function updateSendArcs() {
 document.addEventListener('mousemove', e => {
   ENC_DEFS.forEach((def, i) => {
     if (!encDrags[i]) return;
-    const now  = Date.now();
-    const dt   = Math.max(1, now - encDrags[i].lastT);  // ms depuis dernier event
-    const ddy  = encDrags[i].lastY - e.clientY;
-    const ddx  = e.clientX - encDrags[i].lastX;
-    const incr = ddy + ddx;  // déplacement depuis le dernier event (px)
-    if (Math.abs(incr) < 0.5) return;  // filtre micro-tremblements
-
-    // Vélocité instantanée en px/ms → facteur d'accélération
-    const speed  = Math.abs(incr) / dt;
-    const accel  = encAccelFactor(speed);
-
-    // Mettre à jour la position de référence pour le prochain event
-    encDrags[i].lastY = e.clientY;
-    encDrags[i].lastX = e.clientX;
-    encDrags[i].lastT = now;
+    const dy = encDrags[i].y - e.clientY;
+    const dx = e.clientX - (encDrags[i].x || e.clientX);
+    const delta = dy + dx; // up+right = increase, down+left = decrease
 
     // Mode drum
     if (encDrags[i].drumMode) {
+      if (Math.abs(delta) < 2) return;
       const t = S.tracks[S.currentTrack];
       if (!t.drumPads) return;
       const pad = t.drumPads[S.selectedDrumPad];
       const { key, dr } = encDrags[i];
       const range = dr.max - dr.min;
-      const step  = (incr / 80) * range * accel;
-      const cur   = pad[key] ?? dr.min;
-      const newVal = Math.max(dr.min, Math.min(dr.max, cur + step));
+      const newVal = Math.max(dr.min, Math.min(dr.max, encDrags[i].startVal + delta / 120 * range));
       pad[key] = newVal;
-      encDrags[i].startVal = newVal; // sync pour cohérence
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
       updateEncArcs();
       return;
     }
 
+    if (Math.abs(delta) < 2) return;
     encDrags[i].moved = true;
-    const eMax  = encDrags[i].eMax !== undefined ? encDrags[i].eMax : getEncMax(def);
+    const eMax = getEncMax(def);
     const range = eMax - def.min;
-    const step  = (incr / 80) * range * accel;
-    // Utiliser le step stocké au mousedown
-    const storedIdx = encDrags[i].idx;
-    if (storedIdx === undefined) return;
-    const tSt = S.tracks[S.currentTrack];
-    const st = tSt.mode === 'drum'
-      ? activeClip().drumBars[S.selectedDrumPad][S.currentBar][storedIdx]
-      : activeClip().bars[S.currentBar][storedIdx];
-    if (!st || !st.on) return;
-    // Accumulateur float pour éviter rounding-to-zero sur les petits deltas
-    if (encDrags[i].floatVal === undefined) encDrags[i].floatVal = def.get(st);
-    encDrags[i].floatVal = Math.max(def.min, Math.min(eMax, encDrags[i].floatVal + step));
-    const newVal = encDrags[i].floatVal;
-    def.set(st, newVal);
-    encDrags[i].startVal = newVal;
-    if (i === 0 && st.on) {
-      showNoteLengthFeedback(storedIdx, true, Math.round(newVal));
+    const newVal = Math.max(def.min, Math.min(eMax, encDrags[i].startVal + delta / 80 * range));
+    const res = getHeldSt();
+    if (!res) return;
+    def.set(res.st, newVal);
+    if (i === 0 && res.st.on) {
+      showNoteLengthFeedback(res.idx, true, Math.round(newVal));
     }
-    oledForce(def.label, def.fmt(newVal), `Step ${storedIdx + 1}`);
+    oledForce(def.label, def.fmt(newVal), `Step ${encDrags[i].idx + 1}`);
     updateEncArcs();
   });
 });
@@ -8583,8 +8509,6 @@ function midiOnMessage(e) {
           out.send([0xb0 | mch, data1, data2]);
         }
       }
-      // Appeler quand même midiCC pour les CC globaux (BPM, transport...)
-      midiCC(data1, data2);
     } else {
       midiCC(data1, data2);
     }
@@ -8648,20 +8572,17 @@ function midiCC(cc, value) {
     return;
   }
 
-  // ── Encodeurs absolus (mode standard MIDI 0-127) ──
-  // Mappe une valeur MIDI 0-127 à une plage [min, max]
-  function absMap(v, min, max) {
-    return min + (Math.max(0, Math.min(127, v)) / 127) * (max - min);
-  }
-  // Gardé pour compatibilité si certains encodeurs restent en mode relatif
+  // ── Encodeurs infinis relatifs (MPK mini Plus style) ──
+  // Valeur 1-63 = sens horaire (+), 65-127 = sens antihoraire (-)
+  // On normalise en delta : +1 par incrément, -1 par décrément
   function relDelta(v, sensitivity) {
     const s = sensitivity || 1;
-    if (v >= 1  && v <= 63)  return  s * (v);
-    if (v >= 65 && v <= 127) return -s * (128 - v);
+    if (v >= 1  && v <= 63)  return  s * (v);        // horaire
+    if (v >= 65 && v <= 127) return -s * (128 - v);  // antihoraire
     return 0;
   }
 
-  // ── CC70-73 → 4 encodeurs contextuels (MODE ABSOLU) ──
+  // ── CC70-73 → 4 encodeurs contextuels ──
   // Step tenu → Length/Velocity/Offset/Probability
   // Mode drum sans step tenu → Tune/Decay/Tone/Drive
   if (cc >= 70 && cc <= 73) {
@@ -8669,10 +8590,13 @@ function midiCC(cc, value) {
     const res = getHeldSt();
 
     if (res && res.st.on) {
-      // Step tenu : paramètres de step (mode absolu)
+      // Step tenu : paramètres de step
       const def = ENC_DEFS[encIdx];
+      const sensMap = [1, 2, 0.02, 2]; // Length:1step, Vel:2, Offset:0.02, Prob:2%
+      const d = relDelta(value, sensMap[encIdx]);
       const eMax  = getEncMax(def);
-      const newVal = absMap(value, def.min, eMax);
+      const cur   = def.get(res.st);
+      const newVal = Math.max(def.min, Math.min(eMax, cur + d));
       def.set(res.st, newVal);
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       if (encIdx === 0) showNoteLengthFeedback(res.idx, true, Math.round(newVal));
@@ -8683,34 +8607,33 @@ function midiCC(cc, value) {
 
     const tEnc = S.tracks[S.currentTrack];
     if (tEnc.mode === 'drum') {
-      // Mode drum sans step tenu : paramètres du pad (mode absolu)
+      // Mode drum sans step tenu : paramètres du pad
       if (!tEnc.drumPads) tEnc.drumPads = makeDefaultDrumPads();
       const pad = tEnc.drumPads[S.selectedDrumPad];
       const dr  = DRUM_ENC_RANGES[encIdx];
       const key = DRUM_ENC_KEYS[encIdx];
       if (!dr) return;
-      const newVal = absMap(value, dr.min, dr.max);
+      const sens = (dr.max - dr.min) / 60; // ~60 incréments pour traverser la plage
+      const d2 = relDelta(value, sens);
+      const newVal = Math.max(dr.min, Math.min(dr.max, (pad[key] ?? dr.min) + d2));
       pad[key] = newVal;
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
       updateEncArcs();
       return;
     }
+
+    return;
   }
+
+  // ── CC74 → Molette (BPM ou longueur note selon contexte) ──
   if (cc === 74) {
-    // DIAG temporaire : voir quelle branche est prise
-    let _dbg = 'bpm';
-    // Mode sélection son drum : reste relatif (step-by-step)
+    const d = relDelta(value, 1);
+
+    // ── Mode sélection son drum ──
     if (drumSoundSelectMode) {
-      _dbg = 'drumSelect';
-      oledForce('CC74 DBG', _dbg, `v=${value}`);
-      // Utiliser un seuil : si valeur augmente → suivant, si baisse → précédent
-      if (!midiState._cc74LastAbs) midiState._cc74LastAbs = value;
-      const prevV = midiState._cc74LastAbs;
-      const d = value > prevV + 2 ? 1 : (value < prevV - 2 ? -1 : 0);
-      midiState._cc74LastAbs = value;
-      if (d === 0) return;
       const nSounds = DRUM_SYNTH_TYPES.length;
       drumSoundSelectIdx = Math.max(0, Math.min(nSounds - 1, drumSoundSelectIdx - d));
+      // Preview du son
       const ti = S.currentTrack;
       const t = S.tracks[ti];
       if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
@@ -8721,80 +8644,69 @@ function midiCC(cc, value) {
       return;
     }
 
-    // Step tenu : longueur de note (mode absolu)
+    // ── Comportement normal ──
     if (anyStepHeld()) {
-      oledForce('CC74 DBG', 'stepHeld', `v=${value}`);
       const res = getHeldSt();
       if (res && res.st.on) {
         const clip = activeClip();
         const totalSteps = clip.numBars * 16;
         const absPos = S.currentBar * 16 + res.idx;
         const maxLen = totalSteps - absPos;
-        const newLen = Math.max(1, Math.min(maxLen, Math.round(absMap(value, 1, Math.min(32, maxLen)))));
-        res.st.len = newLen;
-        showNoteLengthFeedback(res.idx, true, newLen);
-        oledForce(`STEP ${res.idx+1}`, `${newLen} step${newLen>1?'s':''}`,
-                  `= ${(newLen * stepDur()).toFixed(2)}s`);
+        const cur    = res.st.len || 1;
+        res.st.len   = Math.max(1, Math.min(maxLen, cur + d));
+        showNoteLengthFeedback(res.idx, true, res.st.len);
+        oledForce(`STEP ${res.idx+1}`, `${res.st.len} step${res.st.len>1?'s':''}`,
+                  `= ${(res.st.len * stepDur()).toFixed(2)}s`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
         updateEncArcs();
       }
-      return;
+    } else if (S.mode === 'loop' && S._loopBarHeld >= 0) {
+      loopBarVelocityDelta(d * 4);
+    } else {
+      setBpm(S.bpm + d);
+      oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
     }
-
-    // Loop mode + bar held : vélocité (mode relatif conservé car delta)
-    if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      oledForce('CC74 DBG', 'loopBar', `v=${value}`);
-      if (!midiState._cc74LastBpm) midiState._cc74LastBpm = value;
-      const diff = value - midiState._cc74LastBpm;
-      midiState._cc74LastBpm = value;
-      if (diff !== 0) loopBarVelocityDelta(diff);
-      return;
-    }
-
-    // BPM : mode absolu 0-127 → 40-240 BPM
-    const newBpm = Math.round(absMap(value, 40, 240));
-    setBpm(newBpm);
-    oledForce('BPM', `${S.bpm}`, `CC74 v=${value}`);
     return;
   }
 
   // ── CC77 → Encodeur Volume master (ou vélocité step si tenu) ──
   if (cc === 77) {
-    // Volume master (ou vélocité step si tenu) - MODE ABSOLU
+    const d = relDelta(value, 1 / 20);
     if (anyStepHeld()) {
       const res = getHeldSt();
       if (res && res.st.on) {
-        res.st.vel = absMap(value, 0, 1);
+        const cur = res.st.vel ?? 0.8;
+        res.st.vel = Math.max(0, Math.min(1, cur + d));
         oledForce(`STEP ${res.idx+1}`, `VÉL: ${Math.round(res.st.vel*127)}`,
                   `(${Math.round(res.st.vel*100)}%)`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
-        updateEncArcs();
+        updateEncArcs(); // synchroniser l'arc enc1 (Velocity)
       }
     } else if (S._heldTrack >= 0) {
       const t = S.tracks[S._heldTrack];
-      t.volume = absMap(value, 0, 1);
+      t.volume = Math.max(0, Math.min(1, t.volume + d));
       oledForce(`VOL T${S._heldTrack+1}`, `${Math.round(t.volume*100)}%`, '');
     } else {
-      setMasterVolume(absMap(value, 0, 1));
+      setMasterVolume(S.masterVolume + d);
     }
     return;
   }
 
-  // ── CC75 → Delay Send, CC76 → Reverb Send (MODE ABSOLU) ──
+  // ── CC75 → Enc5 Delay Send, CC76 → Enc4 Reverb Send ──────────
   if (cc === 75 || cc === 76) {
     const isDelay = (cc === 75);
     const key  = isDelay ? 'sendDelay' : 'sendReverb';
     const lbl  = isDelay ? 'DELAY SEND' : 'REVERB SEND';
-    const newVal = absMap(value, 0, 1);
+    const d    = relDelta(value, 1 / 60);
     const t    = S.tracks[S.currentTrack];
     if (t.mode === 'master') return;
     if (t.mode === 'drum') {
       if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
       const pad = t.drumPads[S.selectedDrumPad];
-      pad[key] = newVal;
+      pad[key] = Math.max(0, Math.min(1, (pad[key] ?? 0) + d));
       oledForce(lbl, Math.round(pad[key] * 100) + '%', `Pad ${S.selectedDrumPad + 1}`);
     } else {
-      t[key] = newVal;
+      t[key] = Math.max(0, Math.min(1, (t[key] ?? 0) + d));
       const nodes = trackSendNodes[S.currentTrack];
       if (nodes) {
         if (key === 'sendDelay')  nodes.dSend.gain.value = t[key];
@@ -8825,78 +8737,9 @@ function midiCC(cc, value) {
     setTimeout(() => setModeButtonLit(false), 150);
     return;
   }
-  if (cc === 115 || cc === 116) {
-    const ti = S.currentTrack;
-    const t  = S.tracks[ti];
-    // Ignorer sur drum track et master
-    if (t.mode === 'drum' || t.mode === 'master') return;
-
-    const delta = (cc === 115) ? -1 : 1;
-    const browserOpen = document.getElementById('sf2Browser').classList.contains('open');
-
-    if (!sf2Browser.catalogue.length) {
-      oledForce('SF2', 'Pas de catalogue', 'charger un dossier');
-      return;
-    }
-
-    // Liste de navigation : currentFiltered si browser ouvert,
-    // sinon les sons de la même catégorie que le son actif sur la track
-    const ts = trackSF2[ti];
-    let list;
-    if (browserOpen) {
-      list = sf2Browser.currentFiltered;
-    } else {
-      // Trouver la catégorie du son actif sur cette track
-      const activeEntry = sf2Browser.catalogue.find(s => s.file === ts.sfName);
-      const activeCat = activeEntry?.category || sf2Browser.categories[0];
-      list = sf2Browser.catalogue.filter(s => s.category === activeCat);
-    }
-    if (!list.length) return;
-    let curIdx = list.findIndex(s => s.file === ts.sfName);
-    if (curIdx < 0) curIdx = delta > 0 ? -1 : 0;
-    const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
-    if (newIdx === curIdx && curIdx >= 0) return; // déjà au bout
-
-    const sound = list[newIdx];
-    if (!sound) return;
-
-    if (browserOpen) {
-      // Browser ouvert : simuler un clic sur le son
-      sf2SoundClick(newIdx);
-      // Scroll vers l'item dans la liste
-      const items = document.querySelectorAll('#sf2PresetList .brItem');
-      if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
-    } else {
-      // Browser fermé : feedback OLED immédiat + chargement debounced
-      oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0, 12),
-                (sound.category || '').slice(0, 12));
-      // Debounce identique à sf2SoundClick
-      clearTimeout(sf2Browser.previewDebounce);
-      sf2Browser.previewDebounce = setTimeout(async () => {
-        sf2Browser.previewDebounce = null;
-        sf2Browser.trackIdx = ti;
-        // Charger et confirmer directement (pas juste preview)
-        await sf2LoadAndPreview(newIdx, list);
-        // Auto-confirmer après chargement
-        const bankData = sf2BankCache[ti][sound.file] || sf2TempBank[ti];
-        if (bankData) {
-          const preset = bankData.presets?.[0] ?? { bank: 0, program: 0 };
-          const oldName = trackSF2[ti].sfName;
-          trackSF2[ti].sfName  = sound.file;
-          trackSF2[ti].sfontId = bankData.sfontId;
-          trackSF2[ti].presets = bankData.presets;
-          trackSF2[ti].bank    = preset.bank;
-          trackSF2[ti].program = preset.program;
-          S.tracks[ti].outputMode = 'sf2';
-          if (oldName && oldName !== sound.file) sf2MaybeUnload(ti, oldName);
-          if (sf2TempBank[ti]?.name === sound.file) {
-            sf2BankCache[ti][sound.file] = { sfontId: sf2TempBank[ti].sfontId, presets: sf2TempBank[ti].presets };
-            sf2TempBank[ti] = null;
-          }
-          renderTrackButtons();
-        }
-      }, sf2Browser.PREVIEW_DELAY);
-    }
+  if (cc === 116) {
+    // Clic molette via MIDI — afficher BPM
+    oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
     return;
   }
 }
@@ -9187,8 +9030,6 @@ function recDrumNoteOn(padIdx, vel, trackIdx) {
 
 function midiNoteOn(midi, velocity, ch) {
   if (velocity === 0) { midiNoteOff(midi, ch); return; }
-  // Bloquer les notes pendant un switch de SFont (évite freeze)
-  if (sf2Browser._sfontBusy && sf2Browser._sfontBusy.has(S.currentTrack)) return;
   ensureAudio();
   const vel = velocity / 127;
 
@@ -9500,7 +9341,6 @@ function illuminateLoopBarNotes(barIdx) {
   const targetOct = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE, Math.round(avgMidi / 12) - 3));
   if (targetOct !== S.octave) {
     S.octave = targetOct;
-    S.tracks[S.currentTrack].octave = targetOct;
     // renderPads en mode loop pour mettre à jour la couleur des pads
     // SANS rappeler illuminateLoopBarNotes (éviter la boucle)
     for (let r = 0; r < 4; r++)
@@ -9954,7 +9794,6 @@ const sf2Browser = {
   previewDebounce: null,      // setTimeout handle
   PREVIEW_DELAY:  300,        // ms avant de lancer le chargement SF2 + preview
   previewTimer:   null,       // noteOff timer
-  previewEnabled: true,       // true = joue une note de preview, false = charge seulement le preset
 };
 
 // ── Ouvrir / fermer ────────────────────────────────────────────────────────
@@ -10198,39 +10037,27 @@ function sf2SoundClick(idx) {
 
 // ── Charger le SF2 et jouer la preview ────────────────────────────────────
 
-async function sf2LoadAndPreview(idx, list) {
+async function sf2LoadAndPreview(idx) {
   const ti    = sf2Browser.trackIdx;
-  const sounds = list || sf2Browser.currentFiltered;
-  const sound = sounds[idx];
+  const sound = sf2Browser.currentFiltered[idx];
   if (!sound) return;
 
   const name = sound.file; // ex: "GrandPiano.sf2"
 
-  // LOCK : empêcher les note-on pendant le chargement SFont
-  // (évite les crashs/freezes quand l'user joue au clavier pendant un switch)
-  sf2Browser._sfontBusy = sf2Browser._sfontBusy || new Set();
-  sf2Browser._sfontBusy.add(ti);
-
-  // SILENCE TOTAL : couper toutes les notes en cours sur cette instance
+  // Stopper la note précédente
   clearTimeout(sf2Browser.previewTimer);
   sf2Browser.previewTimer = null;
-  if (jsSynths[ti]) {
-    try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
-    try { jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0); } catch(e) {} // All Sound Off
-    try { jsSynths[ti].midiControl(SF2_CHANNEL, 123, 0); } catch(e) {} // All Notes Off
-  }
+  try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
 
   // Si déjà en cache → preview directe
   if (sf2BankCache[ti][name]) {
     const { sfontId } = sf2BankCache[ti][name];
     sf2DoPreview(ti, sfontId, 0, 0);
-    sf2Browser._sfontBusy.delete(ti);
     return;
   }
   // Si déjà en temp pour cette track → preview directe
   if (sf2TempBank[ti]?.name === name) {
     sf2DoPreview(ti, sf2TempBank[ti].sfontId, 0, 0);
-    sf2Browser._sfontBusy.delete(ti);
     return;
   }
 
@@ -10258,8 +10085,6 @@ async function sf2LoadAndPreview(idx, list) {
     sf2DoPreview(ti, sfontId, 0, 0);
   } catch(e) {
     console.error('[SF2] Erreur chargement preview :', e);
-  } finally {
-    sf2Browser._sfontBusy.delete(ti);
   }
 }
 
@@ -10267,8 +10092,6 @@ function sf2DoPreview(ti, sfontId, bank, program) {
   try {
     jsSynths[ti].midiProgramSelect(SF2_CHANNEL, sfontId, bank, program);
   } catch(e) { return; }
-  // Ne pas jouer de note si preview désactivée — le preset est chargé, l'user peut jouer au clavier
-  if (!sf2Browser.previewEnabled) return;
   sf2Browser.previewTimer = setTimeout(() => {
     try {
       jsSynths[ti].midiNoteOn(SF2_CHANNEL, 60, 100);
@@ -10346,21 +10169,6 @@ document.getElementById('sf2PresetSearch').addEventListener('input', e => {
 });
 
 document.getElementById('sf2CloseBtn').addEventListener('click', closeSF2Browser);
-
-// Checkbox Preview : désactiver coupe immédiatement toute note en cours
-document.getElementById('sf2PreviewChk').addEventListener('change', (e) => {
-  sf2Browser.previewEnabled = e.target.checked;
-  if (!sf2Browser.previewEnabled) {
-    // Couper immédiatement toute note de preview en cours
-    clearTimeout(sf2Browser.previewTimer);
-    sf2Browser.previewTimer = null;
-    const ti = sf2Browser.trackIdx;
-    if (jsSynths[ti]) {
-      try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
-      try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
-    }
-  }
-});
 
 // IndexedDB
 function openIDB() {
