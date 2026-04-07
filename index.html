@@ -8686,9 +8686,14 @@ function midiCC(cc, value) {
     // (on laisse passer pour les autres CC éventuels)
   }
   if (cc === 74) {
-    // ── Mode sélection son drum : reste relatif ──
+    const d = relDelta(value, 1);
+    // DIAG : si le handler est bien atteint, afficher brièvement
+    if (d === 0) {
+      oledForce('CC74', `v=${value}`, 'relative? d=0');
+    }
+
+    // ── Mode sélection son drum ──
     if (drumSoundSelectMode) {
-      const d = relDelta(value, 1);
       const nSounds = DRUM_SYNTH_TYPES.length;
       drumSoundSelectIdx = Math.max(0, Math.min(nSounds - 1, drumSoundSelectIdx - d));
       const ti = S.currentTrack;
@@ -8701,9 +8706,8 @@ function midiCC(cc, value) {
       return;
     }
 
-    // ── Step tenu : longueur de note (relatif) ──
+    // ── Step tenu : longueur de note ──
     if (anyStepHeld()) {
-      const d = relDelta(value, 1);
       const res = getHeldSt();
       if (res && res.st.on) {
         const clip = activeClip();
@@ -8721,38 +8725,22 @@ function midiCC(cc, value) {
       return;
     }
 
-    // ── Loop mode + bar held : vélocité (relatif) ──
+    // ── Loop mode + bar held : vélocité ──
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      const d = relDelta(value, 1);
       loopBarVelocityDelta(d * 4);
       return;
     }
 
-    // ── BPM : support double mode (absolu ET relatif) ──
-    // Détection absolu : valeur = 0, 127, ou loin de 64 ET pas un micro-delta relatif
-    // Un encodeur relatif type MPK envoie 1-5 (CW) ou 123-127 (CCW) près de 64
-    // Un fader absolu envoie 0-127 linéaire
-    if (!midiState._bpmMode) midiState._bpmMode = 'auto';
-    const isRelativeLooking = (value >= 1 && value <= 10) || (value >= 118 && value <= 127);
-    if (isRelativeLooking && midiState._bpmMode !== 'absolute') {
-      // Mode relatif
-      midiState._bpmMode = 'relative';
-      const d = relDelta(value, 1);
-      setBpm(S.bpm + d);
-    } else {
-      // Mode absolu : 0-127 → BPM 40-240
-      midiState._bpmMode = 'absolute';
-      const newBpm = Math.round(40 + (value / 127) * 200);
-      setBpm(newBpm);
-    }
+    // ── BPM ──
+    setBpm(S.bpm + d);
     oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
     return;
   }
 
   // ── CC77 → Encodeur Volume master (ou vélocité step si tenu) ──
   if (cc === 77) {
-    const d = relDelta(value, 1 / 60); // 60 incréments pour traverser 0-100% → pas de 1.67%
     if (anyStepHeld()) {
+      const d = relDelta(value, 1 / 60); // vélocité step : 60 incréments
       const res = getHeldSt();
       if (res && res.st.on) {
         const cur = res.st.vel ?? 0.8;
@@ -8760,13 +8748,15 @@ function midiCC(cc, value) {
         oledForce(`STEP ${res.idx+1}`, `VÉL: ${Math.round(res.st.vel*127)}`,
                   `(${Math.round(res.st.vel*100)}%)`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
-        updateEncArcs(); // synchroniser l'arc enc1 (Velocity)
+        updateEncArcs();
       }
     } else if (S._heldTrack >= 0) {
+      const d = relDelta(value, 1 / 150); // volume track : très fin
       const t = S.tracks[S._heldTrack];
       t.volume = Math.max(0, Math.min(1, t.volume + d));
       oledForce(`VOL T${S._heldTrack+1}`, `${Math.round(t.volume*100)}%`, '');
     } else {
+      const d = relDelta(value, 1 / 150); // volume master : très fin
       setMasterVolume(S.masterVolume + d);
     }
     return;
@@ -9179,6 +9169,8 @@ function recDrumNoteOn(padIdx, vel, trackIdx) {
 
 function midiNoteOn(midi, velocity, ch) {
   if (velocity === 0) { midiNoteOff(midi, ch); return; }
+  // Bloquer les notes pendant un switch de SFont (évite freeze)
+  if (sf2Browser._sfontBusy && sf2Browser._sfontBusy.has(S.currentTrack)) return;
   ensureAudio();
   const vel = velocity / 127;
 
@@ -10196,28 +10188,36 @@ async function sf2LoadAndPreview(idx, list) {
 
   const name = sound.file; // ex: "GrandPiano.sf2"
 
-  // Stopper la note précédente
+  // LOCK : empêcher les note-on pendant le chargement SFont
+  // (évite les crashs/freezes quand l'user joue au clavier pendant un switch)
+  sf2Browser._sfontBusy = sf2Browser._sfontBusy || new Set();
+  sf2Browser._sfontBusy.add(ti);
+
+  // SILENCE TOTAL : couper toutes les notes en cours sur cette instance
   clearTimeout(sf2Browser.previewTimer);
   sf2Browser.previewTimer = null;
-  try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
+  if (jsSynths[ti]) {
+    try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
+    try { jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0); } catch(e) {} // All Sound Off
+    try { jsSynths[ti].midiControl(SF2_CHANNEL, 123, 0); } catch(e) {} // All Notes Off
+  }
 
   // Si déjà en cache → preview directe
   if (sf2BankCache[ti][name]) {
     const { sfontId } = sf2BankCache[ti][name];
     sf2DoPreview(ti, sfontId, 0, 0);
+    sf2Browser._sfontBusy.delete(ti);
     return;
   }
   // Si déjà en temp pour cette track → preview directe
   if (sf2TempBank[ti]?.name === name) {
     sf2DoPreview(ti, sf2TempBank[ti].sfontId, 0, 0);
+    sf2Browser._sfontBusy.delete(ti);
     return;
   }
 
   // Décharger l'ancien temp de cette track
   if (sf2TempBank[ti] && !sf2BankCache[ti][sf2TempBank[ti].name]) {
-    // Couper toutes les notes en cours (évite notes bloquées lors du switch)
-    try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
-    try { jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0); } catch(e) {}
     try { jsSynths[ti].unloadSFont(sf2TempBank[ti].sfontId); } catch(e) {}
     sf2TempBank[ti] = null;
   }
@@ -10240,6 +10240,8 @@ async function sf2LoadAndPreview(idx, list) {
     sf2DoPreview(ti, sfontId, 0, 0);
   } catch(e) {
     console.error('[SF2] Erreur chargement preview :', e);
+  } finally {
+    sf2Browser._sfontBusy.delete(ti);
   }
 }
 
