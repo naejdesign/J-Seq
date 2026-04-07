@@ -8174,16 +8174,22 @@ document.addEventListener('mousemove', e => {
     const eMax  = getEncMax(def);
     const range = eMax - def.min;
     const step  = (incr / 80) * range * accel;
-    const res   = getHeldSt();
-    if (!res) return;
-    const cur    = def.get(res.st);
+    // Utiliser le step stocké au mousedown (pas getHeldSt qui peut changer si user relache/prend un autre)
+    const storedIdx = encDrags[i].idx;
+    if (storedIdx === undefined) return;
+    const tSt = S.tracks[S.currentTrack];
+    const st = tSt.mode === 'drum'
+      ? activeClip().drumBars[S.selectedDrumPad][S.currentBar][storedIdx]
+      : activeClip().bars[S.currentBar][storedIdx];
+    if (!st || !st.on) return;
+    const cur    = def.get(st);
     const newVal = Math.max(def.min, Math.min(eMax, cur + step));
-    def.set(res.st, newVal);
+    def.set(st, newVal);
     encDrags[i].startVal = newVal;
-    if (i === 0 && res.st.on) {
-      showNoteLengthFeedback(res.idx, true, Math.round(newVal));
+    if (i === 0 && st.on) {
+      showNoteLengthFeedback(storedIdx, true, Math.round(newVal));
     }
-    oledForce(def.label, def.fmt(newVal), `Step ${encDrags[i].idx + 1}`);
+    oledForce(def.label, def.fmt(newVal), `Step ${storedIdx + 1}`);
     updateEncArcs();
   });
 });
@@ -8577,6 +8583,10 @@ function midiOnMessage(e) {
 }
 
 function midiCC(cc, value) {
+  // DIAG : tracer TOUS les CC entrants (temporaire pour debug)
+  if (cc !== 1 && cc !== 2) { // ignorer mod wheel et joystick Y
+    oledForce('CC', `${cc}`, `v=${value}`);
+  }
   // ── CC0 → joystick X-axis — ignoré ──
   if (cc === 0) return;
 
@@ -8632,17 +8642,20 @@ function midiCC(cc, value) {
     return;
   }
 
-  // ── Encodeurs infinis relatifs (MPK mini Plus style) ──
-  // Valeur 1-63 = sens horaire (+), 65-127 = sens antihoraire (-)
-  // On normalise en delta : +1 par incrément, -1 par décrément
+  // ── Encodeurs absolus (mode standard MIDI 0-127) ──
+  // Mappe une valeur MIDI 0-127 à une plage [min, max]
+  function absMap(v, min, max) {
+    return min + (Math.max(0, Math.min(127, v)) / 127) * (max - min);
+  }
+  // Gardé pour compatibilité si certains encodeurs restent en mode relatif
   function relDelta(v, sensitivity) {
     const s = sensitivity || 1;
-    if (v >= 1  && v <= 63)  return  s * (v);        // horaire
-    if (v >= 65 && v <= 127) return -s * (128 - v);  // antihoraire
+    if (v >= 1  && v <= 63)  return  s * (v);
+    if (v >= 65 && v <= 127) return -s * (128 - v);
     return 0;
   }
 
-  // ── CC70-73 → 4 encodeurs contextuels ──
+  // ── CC70-73 → 4 encodeurs contextuels (MODE ABSOLU) ──
   // Step tenu → Length/Velocity/Offset/Probability
   // Mode drum sans step tenu → Tune/Decay/Tone/Drive
   if (cc >= 70 && cc <= 73) {
@@ -8650,13 +8663,10 @@ function midiCC(cc, value) {
     const res = getHeldSt();
 
     if (res && res.st.on) {
-      // Step tenu : paramètres de step
+      // Step tenu : paramètres de step (mode absolu)
       const def = ENC_DEFS[encIdx];
-      const sensMap = [1, 2, 0.02, 2]; // Length:1step, Vel:2, Offset:0.02, Prob:2%
-      const d = relDelta(value, sensMap[encIdx]);
       const eMax  = getEncMax(def);
-      const cur   = def.get(res.st);
-      const newVal = Math.max(def.min, Math.min(eMax, cur + d));
+      const newVal = absMap(value, def.min, eMax);
       def.set(res.st, newVal);
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       if (encIdx === 0) showNoteLengthFeedback(res.idx, true, Math.round(newVal));
@@ -8667,33 +8677,28 @@ function midiCC(cc, value) {
 
     const tEnc = S.tracks[S.currentTrack];
     if (tEnc.mode === 'drum') {
-      // Mode drum sans step tenu : paramètres du pad
+      // Mode drum sans step tenu : paramètres du pad (mode absolu)
       if (!tEnc.drumPads) tEnc.drumPads = makeDefaultDrumPads();
       const pad = tEnc.drumPads[S.selectedDrumPad];
       const dr  = DRUM_ENC_RANGES[encIdx];
       const key = DRUM_ENC_KEYS[encIdx];
       if (!dr) return;
-      const sens = (dr.max - dr.min) / 60; // ~60 incréments pour traverser la plage
-      const d2 = relDelta(value, sens);
-      const newVal = Math.max(dr.min, Math.min(dr.max, (pad[key] ?? dr.min) + d2));
+      const newVal = absMap(value, dr.min, dr.max);
       pad[key] = newVal;
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
       updateEncArcs();
       return;
     }
-
-    // Track SF2 ou master sans step tenu : pas d'action sur CC70-73
-    // (on laisse passer pour les autres CC éventuels)
   }
   if (cc === 74) {
-    const d = relDelta(value, 1);
-    // DIAG : si le handler est bien atteint, afficher brièvement
-    if (d === 0) {
-      oledForce('CC74', `v=${value}`, 'relative? d=0');
-    }
-
-    // ── Mode sélection son drum ──
+    // Mode sélection son drum : reste relatif (step-by-step)
     if (drumSoundSelectMode) {
+      // Utiliser un seuil : si valeur augmente → suivant, si baisse → précédent
+      if (!midiState._cc74LastAbs) midiState._cc74LastAbs = value;
+      const prevV = midiState._cc74LastAbs;
+      const d = value > prevV + 2 ? 1 : (value < prevV - 2 ? -1 : 0);
+      midiState._cc74LastAbs = value;
+      if (d === 0) return;
       const nSounds = DRUM_SYNTH_TYPES.length;
       drumSoundSelectIdx = Math.max(0, Math.min(nSounds - 1, drumSoundSelectIdx - d));
       const ti = S.currentTrack;
@@ -8706,7 +8711,7 @@ function midiCC(cc, value) {
       return;
     }
 
-    // ── Step tenu : longueur de note ──
+    // Step tenu : longueur de note (mode absolu)
     if (anyStepHeld()) {
       const res = getHeldSt();
       if (res && res.st.on) {
@@ -8714,69 +8719,72 @@ function midiCC(cc, value) {
         const totalSteps = clip.numBars * 16;
         const absPos = S.currentBar * 16 + res.idx;
         const maxLen = totalSteps - absPos;
-        const cur    = res.st.len || 1;
-        res.st.len   = Math.max(1, Math.min(maxLen, cur + d));
-        showNoteLengthFeedback(res.idx, true, res.st.len);
-        oledForce(`STEP ${res.idx+1}`, `${res.st.len} step${res.st.len>1?'s':''}`,
-                  `= ${(res.st.len * stepDur()).toFixed(2)}s`);
+        const newLen = Math.max(1, Math.min(maxLen, Math.round(absMap(value, 1, Math.min(32, maxLen)))));
+        res.st.len = newLen;
+        showNoteLengthFeedback(res.idx, true, newLen);
+        oledForce(`STEP ${res.idx+1}`, `${newLen} step${newLen>1?'s':''}`,
+                  `= ${(newLen * stepDur()).toFixed(2)}s`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
         updateEncArcs();
       }
       return;
     }
 
-    // ── Loop mode + bar held : vélocité ──
+    // Loop mode + bar held : vélocité (mode relatif conservé car delta)
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      loopBarVelocityDelta(d * 4);
+      // En mode absolu, on peut mapper directement la vélocité
+      // mais loopBarVelocityDelta attend un delta... on applique un delta proportionnel
+      if (!midiState._cc74LastBpm) midiState._cc74LastBpm = value;
+      const diff = value - midiState._cc74LastBpm;
+      midiState._cc74LastBpm = value;
+      if (diff !== 0) loopBarVelocityDelta(diff);
       return;
     }
 
-    // ── BPM ──
-    setBpm(S.bpm + d);
+    // BPM : mode absolu 0-127 → 40-240 BPM
+    const newBpm = Math.round(absMap(value, 40, 240));
+    setBpm(newBpm);
     oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
     return;
   }
 
   // ── CC77 → Encodeur Volume master (ou vélocité step si tenu) ──
   if (cc === 77) {
+    // Volume master (ou vélocité step si tenu) - MODE ABSOLU
     if (anyStepHeld()) {
-      const d = relDelta(value, 1 / 60); // vélocité step : 60 incréments
       const res = getHeldSt();
       if (res && res.st.on) {
-        const cur = res.st.vel ?? 0.8;
-        res.st.vel = Math.max(0, Math.min(1, cur + d));
+        res.st.vel = absMap(value, 0, 1);
         oledForce(`STEP ${res.idx+1}`, `VÉL: ${Math.round(res.st.vel*127)}`,
                   `(${Math.round(res.st.vel*100)}%)`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
         updateEncArcs();
       }
     } else if (S._heldTrack >= 0) {
-      const d = relDelta(value, 1 / 150); // volume track : très fin
       const t = S.tracks[S._heldTrack];
-      t.volume = Math.max(0, Math.min(1, t.volume + d));
+      t.volume = absMap(value, 0, 1);
       oledForce(`VOL T${S._heldTrack+1}`, `${Math.round(t.volume*100)}%`, '');
     } else {
-      const d = relDelta(value, 1 / 150); // volume master : très fin
-      setMasterVolume(S.masterVolume + d);
+      setMasterVolume(absMap(value, 0, 1));
     }
     return;
   }
 
-  // ── CC75 → Enc5 Delay Send, CC76 → Enc4 Reverb Send ──────────
+  // ── CC75 → Delay Send, CC76 → Reverb Send (MODE ABSOLU) ──
   if (cc === 75 || cc === 76) {
     const isDelay = (cc === 75);
     const key  = isDelay ? 'sendDelay' : 'sendReverb';
     const lbl  = isDelay ? 'DELAY SEND' : 'REVERB SEND';
-    const d    = relDelta(value, 1 / 60);
+    const newVal = absMap(value, 0, 1);
     const t    = S.tracks[S.currentTrack];
     if (t.mode === 'master') return;
     if (t.mode === 'drum') {
       if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
       const pad = t.drumPads[S.selectedDrumPad];
-      pad[key] = Math.max(0, Math.min(1, (pad[key] ?? 0) + d));
+      pad[key] = newVal;
       oledForce(lbl, Math.round(pad[key] * 100) + '%', `Pad ${S.selectedDrumPad + 1}`);
     } else {
-      t[key] = Math.max(0, Math.min(1, (t[key] ?? 0) + d));
+      t[key] = newVal;
       const nodes = trackSendNodes[S.currentTrack];
       if (nodes) {
         if (key === 'sendDelay')  nodes.dSend.gain.value = t[key];
