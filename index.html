@@ -4417,7 +4417,8 @@ function selectTrack(ti) {
   const prevTi = S.currentTrack;
   const prev   = S.tracks[prevTi];
   // Sauvegarder l'octave courante dans la track précédente
-  prev.octave = S.octave;
+  prev.octave      = S.octave;
+  prev.pianoOctave = S.pianoOctave;
   if (ti !== prevTi) {
     if (prev.outputMode === 'midi') midiAllNotesOff(prevTi);
     if (prev.outputMode === 'sf2')  sf2AllNotesOff(prevTi);
@@ -4429,7 +4430,9 @@ function selectTrack(ti) {
   S.page = Math.floor(ti / 4);
 
   // Restaurer l'octave de la nouvelle track
-  S.octave = S.tracks[ti].octave ?? 3;
+  S.octave      = S.tracks[ti].octave      ?? 3;
+  S.pianoOctave = S.tracks[ti].pianoOctave ?? 0;
+  if (S.pianoOpen) buildPiano(); // reconstruire le piano avec le bon registre
 
   for (let r = 0; r < 4; r++)
     for (let c = 0; c < 8; c++)
@@ -7092,6 +7095,7 @@ function resetStateToEmpty() {
   S.bpm = 120;
   S.masterVolume = 0.65;
   S.octave = 3;
+  S.pianoOctave = 0;
   S.playing = false;
   S.recording = false;
   S.currentTrack = 0;
@@ -7173,8 +7177,9 @@ function projectSave(slot) {
 }
 
 function serializeProject() {
-  // S'assurer que l'octave de la track courante est bien à jour avant sérialisation
-  S.tracks[S.currentTrack].octave = S.octave;
+  // S'assurer que les octaves de la track courante sont bien à jour avant sérialisation
+  S.tracks[S.currentTrack].octave      = S.octave;
+  S.tracks[S.currentTrack].pianoOctave = S.pianoOctave;
   return {
     version: 2,
     bpm: S.bpm,
@@ -7186,7 +7191,8 @@ function serializeProject() {
       muted: t.muted,
       soloed: t.soloed,
       volume: t.volume,
-      octave: t.octave ?? 3,
+      octave:      t.octave      ?? 3,
+      pianoOctave: t.pianoOctave ?? 0,
       sendDelay:  t.sendDelay  || 0,
       sendReverb: t.sendReverb || 0,
       soundIndex: t.soundIndex,
@@ -7274,6 +7280,7 @@ function deserializeProject(data, slot) {
     t.soloed      = td.soloed      ?? false;
     t.volume      = td.volume      ?? 0.8;
     t.octave      = td.octave      ?? 3;
+    t.pianoOctave = td.pianoOctave ?? 0;
     t.sendDelay   = td.sendDelay   ?? 0;
     t.sendReverb  = td.sendReverb  ?? 0;
     t.soundIndex  = td.soundIndex  ?? 0;
@@ -8556,6 +8563,8 @@ function midiOnMessage(e) {
           out.send([0xb0 | mch, data1, data2]);
         }
       }
+      // Appeler quand même midiCC pour les CC globaux (BPM, transport...)
+      midiCC(data1, data2);
     } else {
       midiCC(data1, data2);
     }
@@ -8784,8 +8793,12 @@ function midiCC(cc, value) {
     return;
   }
   if (cc === 115 || cc === 116) {
+    const ti = S.currentTrack;
+    const t  = S.tracks[ti];
+    // Ignorer sur drum track et master
+    if (t.mode === 'drum' || t.mode === 'master') return;
+
     const delta = (cc === 115) ? -1 : 1;
-    const ti = sf2Browser.trackIdx !== undefined ? sf2Browser.trackIdx : S.currentTrack;
     const browserOpen = document.getElementById('sf2Browser').classList.contains('open');
 
     if (!sf2Browser.catalogue.length) {
