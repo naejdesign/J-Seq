@@ -1553,12 +1553,10 @@ function renderMasterPanel() {
         sg.appendChild(ttxt);
 
       } else if (p.type === 'typesel') {
-        // Grand bouton tactile — cycle entre les types au tap
         const curIdx = REVERB_TYPES.indexOf(val || 'hall');
-        // Dimensions fixes qui tiennent dans le slot (h=94, yBase=y+28, margin=4)
-        const availH = h - 28 - margin - 6; // ~56px disponibles
+        // Même hauteur que encodeur + label : encR*2 (22) + 20 = 42px
+        const btnH2 = encR * 2 + 20;
         const btnW2 = colW - 4;
-        const btnH2 = availH;
         const btnX2 = px - btnW2/2;
         const btnY2 = yBase;
 
