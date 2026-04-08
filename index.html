@@ -8640,30 +8640,13 @@ function midiCC(cc, value) {
     return;
   }
 
-  // ── CC74 → Molette (BPM ou longueur note selon contexte) ──
+  // ── CC74 → Molette BPM (encodeur relatif, identique aux autres encodeurs) ──
   if (cc === 74) {
-    // CC74 peut venir d'un encodeur relatif (valeurs 1-63/65-127)
-    // OU d'un potentiomètre/molette absolu(e) (valeurs 0-127).
-    // On détecte le mode : si la valeur est exactement 64, c'est la position
-    // centrale d'un ctrl absolu — on ignore (pas de changement).
-    // Pour un ctrl absolu, on stocke la dernière valeur et calcule le delta.
-    let d;
-    const relD = relDelta(value, 1);
-    if (relD !== 0) {
-      // Mode relatif confirmé (valeur dans 1-63 ou 65-127)
-      d = relD;
-      midiCC._cc74LastAbs = null; // reset du mode absolu
-    } else {
-      // Valeur 0, 64 ou 128 → probablement un ctrl absolu
-      if (midiCC._cc74LastAbs === null || midiCC._cc74LastAbs === undefined) {
-        // Première valeur absolue reçue : mémoriser sans bouger
-        midiCC._cc74LastAbs = value;
-        return;
-      }
-      d = value - midiCC._cc74LastAbs;
-      midiCC._cc74LastAbs = value;
-      if (d === 0) return;
-    }
+    // Encodeur relatif : 1-63 = horaire (+), 65-127 = anti-horaire (-)
+    // On limite le delta à ±5 par tick pour éviter les sauts accidentels
+    const rawD = relDelta(value, 1);
+    const d = rawD > 0 ? Math.min(rawD, 5) : Math.max(rawD, -5);
+    if (d === 0) return;
 
     // ── Mode sélection son drum ──
     if (drumSoundSelectMode) {
@@ -10196,7 +10179,7 @@ async function sf2LoadAndPreview(idx) {
   sf2Browser.previewTimer = null;
   try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
 
-  // Si déjà en cache → preview directe
+  // Si déjà en cache → preview directe (pas de chargement, pas de mutex)
   if (sf2BankCache[ti][name]) {
     const { sfontId } = sf2BankCache[ti][name];
     sf2DoPreview(ti, sfontId, 0, 0);
@@ -10207,6 +10190,11 @@ async function sf2LoadAndPreview(idx) {
     sf2DoPreview(ti, sf2TempBank[ti].sfontId, 0, 0);
     return;
   }
+
+  // ── Mutex : bloquer noteOn et obtenir un token unique ──
+  const myToken = ++_sf2LoadToken[ti];
+  _sf2LoadingTrack[ti] = true;
+  sf2AllNotesOff(ti);
 
   // Décharger l'ancien temp de cette track
   if (sf2TempBank[ti] && !sf2BankCache[ti][sf2TempBank[ti].name]) {
@@ -10219,19 +10207,24 @@ async function sf2LoadAndPreview(idx) {
     let file;
     if (sf2Browser.useFileHandles) {
       const handle = sf2Browser.fileHandles[name];
-      if (!handle) { console.warn('[SF2] Handle introuvable :', name); return; }
+      if (!handle) { console.warn('[SF2] Handle introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
       file = await handle.getFile();
     } else {
       file = sf2Browser.fallbackFiles[name];
-      if (!file) { console.warn('[SF2] Fichier introuvable :', name); return; }
+      if (!file) { console.warn('[SF2] Fichier introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
     }
+    if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; } // supplanté
     const buf     = await file.arrayBuffer();
+    if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
     const sfontId = await jsSynths[ti].loadSFont(buf);
+    if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
     const presets = sf2GetPresets(ti, sfontId);
     sf2TempBank[ti] = { name, sfontId, presets };
+    _sf2LoadingTrack[ti] = false; // ── libérer le mutex avant la preview ──
     sf2DoPreview(ti, sfontId, 0, 0);
   } catch(e) {
     console.error('[SF2] Erreur chargement preview :', e);
+    _sf2LoadingTrack[ti] = false;
   }
 }
 
