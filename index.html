@@ -8460,11 +8460,13 @@ document.addEventListener('mousemove', e => {
     if (Math.abs(delta) < 0.5) return;
     encDrags[i].moved = true;
     const eMax = getEncMax(def);
-    const range = eMax - def.min;
     const res = getHeldSt();
     if (!res) return;
     const cur = def.get(res.st);
-    const newVal = Math.max(def.min, Math.min(eMax, cur + delta / 80 * range));
+    // Sensibilité fixe en pixels par unité selon l'encodeur :
+    // length : 2px/step, velocity : 1px/unité, offset : 150px/plage, prob : 1px/%
+    const pxPerUnit = i === 0 ? 2 : (i === 2 ? 150 : 1);
+    const newVal = Math.max(def.min, Math.min(eMax, cur + delta / pxPerUnit));
     def.set(res.st, newVal);
     if (i === 0 && res.st.on) {
       showNoteLengthFeedback(res.idx, true, Math.round(newVal));
