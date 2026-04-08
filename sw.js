@@ -1,9 +1,11 @@
-const CACHE = 'jseq-v23';
+const CACHE = 'jseq-v24';
 const ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
-  './icon-512.png'
+  './icon-512.png',
+  './reverb_hall.wav',
+  './reverb_plate.wav'
 ];
 
 self.addEventListener('install', e => {
