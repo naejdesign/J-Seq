@@ -8515,6 +8515,7 @@ function midiOnMessage(e) {
   else if (cmd === 0x80) midiNoteOff(data1, ch);
   else if (cmd === 0xb0) {
     // CC sur ch10 → forwarder vers drum track si elle est en MIDI out
+    // MAIS les CC globaux (encodeurs, BPM, navigation) passent toujours dans midiCC
     if (ch === 10) {
       const drumTi = S.tracks.findIndex(t => t.mode === 'drum');
       if (drumTi >= 0 && S.tracks[drumTi].outputMode === 'midi') {
@@ -8524,6 +8525,9 @@ function midiOnMessage(e) {
           out.send([0xb0 | mch, data1, data2]);
         }
       }
+      // Les CC globaux (encodeurs/nav) passent quand même dans midiCC
+      const GLOBAL_CC = [1, 2, 70, 71, 72, 73, 74, 77, 115, 116];
+      if (GLOBAL_CC.includes(data1)) midiCC(data1, data2);
     } else {
       midiCC(data1, data2);
     }
@@ -8642,11 +8646,10 @@ function midiCC(cc, value) {
 
   // ── CC74 → Molette BPM (encodeur relatif, identique aux autres encodeurs) ──
   if (cc === 74) {
-    // Encodeur relatif : 1-63 = horaire (+), 65-127 = anti-horaire (-)
-    // On limite le delta à ±5 par tick pour éviter les sauts accidentels
+    // DEBUG temporaire — affiche la valeur brute reçue sur l'OLED
     const rawD = relDelta(value, 1);
-    const d = rawD > 0 ? Math.min(rawD, 5) : Math.max(rawD, -5);
-    if (d === 0) return;
+    oledForce('CC74 DBG', `val=${value}`, `relD=${rawD}`);
+    return; // TEMPORAIRE — désactiver le BPM pour voir les valeurs brutes
 
     // ── Mode sélection son drum ──
     if (drumSoundSelectMode) {
