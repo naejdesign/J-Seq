@@ -2685,9 +2685,11 @@ function getMasterNodes() {
   const reverbPre    = actx.createDelay(0.5);   // predelay
   reverbPre.delayTime.value = masterFX.reverb.predelay;
   const convReverb = createConvReverb();
+  const reverbWet  = actx.createGain();
+  reverbWet.gain.value = 0.5; // niveau de sortie global reverb — réduit l'intensité perçue
   reverbBusIn.connect(reverbPre);
   reverbPre.connect(convReverb.input);
-  // convReverb.output sera connecté à mixBus après sa déclaration ci-dessous
+  // convReverb.output → reverbWet → mixBus (connecté après déclaration mixBus)
 
   // ── COMPRESSEUR insert (toujours actif) ───────────────────
   const comp = actx.createDynamicsCompressor();
@@ -2716,7 +2718,8 @@ function getMasterNodes() {
   input.connect(masterGain);
   masterGain.connect(mixBus);
   delayWet.connect(mixBus);
-  convReverb.output.connect(mixBus); // connexion reverb ici, après déclaration mixBus
+  convReverb.output.connect(reverbWet);
+  reverbWet.connect(mixBus); // connexion reverb après déclaration mixBus
   mixBus.connect(comp);
   comp.connect(lim);
   lim.connect(limGain);
@@ -2725,7 +2728,7 @@ function getMasterNodes() {
   _masterNodes = {
     input, masterGain, mixBus,
     delayBusIn, delayNode, delayFB, delayFilter, delayWet,
-    reverbBusIn, reverbPre, convReverb,
+    reverbBusIn, reverbPre, convReverb, reverbWet,
     comp, lim, limGain,
   };
   return _masterNodes;
@@ -4733,6 +4736,9 @@ function toggleStep(i) {
     } else {
       st.note = 60;
       playTrackNote(S.currentTrack, st.note, 0.65);
+      // noteOff après 300ms pour SF2 (MIDI gère déjà son propre noteOff)
+      const t2 = S.tracks[S.currentTrack];
+      if (t2.outputMode === 'sf2') setTimeout(() => sf2NoteOff(S.currentTrack, 60), 300);
       oled(`STEP ${i+1}`, `ON · ${noteName(st.note)}`, trackInfo());
     }
     // Si c'était la première note d'un clip vide → démarrer en sync
