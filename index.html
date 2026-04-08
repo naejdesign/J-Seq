@@ -1472,9 +1472,9 @@ function renderMasterPanel() {
     {
       id:'reverb', name:'REVERB', slots:[2,3], col:'#58f',
       params: [
-        { key:'size',       label:'Size',   fmt: v => v.toFixed(1)+'s',      min:0.3, max:4.0 },
-        { key:'decay',      label:'Decay',  fmt: v => Math.round(v*100)+'%', min:0.1, max:1.0 },
-        { key:'brightness', label:'Bright', fmt: v => Math.round(v*100)+'%', min:0,   max:1   },
+        { key:'type',       label:'Type',   type:'typesel', fmt: v => (v||'hall').toUpperCase() },
+        { key:'decay',      label:'Decay',  fmt: v => v.toFixed(1)+'s', min:0.3, max:6.0 },
+        { key:'brightness', label:'Bright', fmt: v => Math.round(v*100)+'%', min:0, max:1 },
         { key:'predelay',   label:'PreDly', fmt: v => Math.round(v*1000)+'ms', min:0, max:0.1 },
       ],
     },
@@ -1523,32 +1523,7 @@ function renderMasterPanel() {
     nameEl.textContent = def.name;
     sg.appendChild(nameEl);
 
-    // Pour la reverb : afficher le type actuel + clic sur le nom pour cycler
-    if (def.id === 'reverb') {
-      const REVERB_TYPES = ['plate','room','hall','large','shimmer'];
-      const typeEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      typeEl.setAttribute('x', x+14); typeEl.setAttribute('y', y+27);
-      typeEl.setAttribute('font-family', "'DM Mono',monospace");
-      typeEl.setAttribute('font-size', '7');
-      typeEl.setAttribute('fill', col+'aa'); typeEl.setAttribute('pointer-events', 'none');
-      typeEl.textContent = (masterFX.reverb.type || 'hall').toUpperCase();
-      sg.appendChild(typeEl);
-      // Zone de clic sur le label pour cycler le type
-      const typeHit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      typeHit.setAttribute('x', x+margin); typeHit.setAttribute('y', y+margin);
-      typeHit.setAttribute('width', 50); typeHit.setAttribute('height', 22);
-      typeHit.setAttribute('fill', 'transparent'); typeHit.setAttribute('cursor', 'pointer');
-      typeHit.addEventListener('click', e => {
-        const cur = REVERB_TYPES.indexOf(masterFX.reverb.type || 'hall');
-        masterFX.reverb.type = REVERB_TYPES[(cur + 1) % REVERB_TYPES.length];
-        if (_masterNodes?.convReverb) _masterNodes.convReverb.setType(masterFX.reverb.type);
-        oledForce('REVERB TYPE', (masterFX.reverb.type).toUpperCase(), 'clic=suivant');
-        renderMasterPanel();
-        e.stopPropagation();
-      });
-      sg.appendChild(typeHit);
-    }
-
+    const REVERB_TYPES = ['plate','room','hall','large','shimmer'];
     const nP = def.params.length;
     const colW = (w - margin*2) / nP;
     const yBase = y + 28;
@@ -1576,6 +1551,40 @@ function renderMasterPanel() {
         ttxt.setAttribute('pointer-events','none');
         ttxt.textContent = p.fmt(val);
         sg.appendChild(ttxt);
+
+      } else if (p.type === 'typesel') {
+        // Sélecteur de type reverb : 5 boutons empilés
+        const btnH = 9, btnW = colW - 4, btnX = px - btnW/2;
+        REVERB_TYPES.forEach((rtype, ri) => {
+          const isActive = (val === rtype);
+          const by = yBase + ri * (btnH + 2);
+          const rbg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rbg.setAttribute('x', btnX); rbg.setAttribute('y', by);
+          rbg.setAttribute('width', btnW); rbg.setAttribute('height', btnH);
+          rbg.setAttribute('rx', 2);
+          rbg.setAttribute('fill', isActive ? col+'44' : '#1a1a1e');
+          rbg.setAttribute('stroke', isActive ? col : '#333');
+          rbg.setAttribute('stroke-width', isActive ? '1' : '0.5');
+          rbg.setAttribute('cursor', 'pointer');
+          rbg.addEventListener('click', e => {
+            masterFX.reverb.type = rtype;
+            if (_masterNodes?.convReverb) _masterNodes.convReverb.setType(rtype);
+            oledForce('REVERB', rtype.toUpperCase(), '');
+            renderMasterPanel();
+            e.stopPropagation();
+          });
+          sg.appendChild(rbg);
+          const rtxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          rtxt.setAttribute('x', px); rtxt.setAttribute('y', by + btnH - 2);
+          rtxt.setAttribute('text-anchor', 'middle');
+          rtxt.setAttribute('font-family', "'DM Mono',monospace");
+          rtxt.setAttribute('font-size', '6');
+          rtxt.setAttribute('fill', isActive ? col : '#666');
+          rtxt.setAttribute('pointer-events', 'none');
+          rtxt.textContent = rtype.toUpperCase();
+          sg.appendChild(rtxt);
+        });
+
       } else {
         const CIRC = 2 * Math.PI * encR;
         let pct;
@@ -1609,34 +1618,38 @@ function renderMasterPanel() {
         sg.appendChild(va);
       }
 
-      const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-      lbl.setAttribute('x', px);
-      lbl.setAttribute('y', p.type==='toggle' ? yBase+32 : yBase+encR*2+10);
-      lbl.setAttribute('text-anchor','middle');
-      lbl.setAttribute('font-family',"'DM Mono',monospace");
-      lbl.setAttribute('font-size','10');
-      lbl.setAttribute('fill','#888'); lbl.setAttribute('pointer-events','none');
-      lbl.textContent = p.label;
-      sg.appendChild(lbl);
+      if (p.type !== 'typesel') {
+        const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        lbl.setAttribute('x', px);
+        lbl.setAttribute('y', p.type==='toggle' ? yBase+32 : yBase+encR*2+10);
+        lbl.setAttribute('text-anchor','middle');
+        lbl.setAttribute('font-family',"'DM Mono',monospace");
+        lbl.setAttribute('font-size','10');
+        lbl.setAttribute('fill','#888'); lbl.setAttribute('pointer-events','none');
+        lbl.textContent = p.label;
+        sg.appendChild(lbl);
 
-      const valEl = document.createElementNS('http://www.w3.org/2000/svg','text');
-      valEl.setAttribute('id', `mfx_val_${def.id}_${pi}`);
-      valEl.setAttribute('x', px);
-      valEl.setAttribute('y', p.type==='toggle' ? yBase+42 : yBase+encR*2+20);
-      valEl.setAttribute('text-anchor','middle');
-      valEl.setAttribute('font-family',"'DM Mono',monospace");
-      valEl.setAttribute('font-size','10');
-      valEl.setAttribute('fill', col); valEl.setAttribute('pointer-events','none');
-      valEl.textContent = p.fmt(val);
-      sg.appendChild(valEl);
+        const valEl = document.createElementNS('http://www.w3.org/2000/svg','text');
+        valEl.setAttribute('id', `mfx_val_${def.id}_${pi}`);
+        valEl.setAttribute('x', px);
+        valEl.setAttribute('y', p.type==='toggle' ? yBase+42 : yBase+encR*2+20);
+        valEl.setAttribute('text-anchor','middle');
+        valEl.setAttribute('font-family',"'DM Mono',monospace");
+        valEl.setAttribute('font-size','10');
+        valEl.setAttribute('fill', col); valEl.setAttribute('pointer-events','none');
+        valEl.textContent = p.fmt(val);
+        sg.appendChild(valEl);
+      }
 
       const hit = document.createElementNS('http://www.w3.org/2000/svg','rect');
       hit.setAttribute('x', px-colW/2+1); hit.setAttribute('y', y+margin+24);
       hit.setAttribute('width', colW-2); hit.setAttribute('height', h-margin-26);
       hit.setAttribute('fill','transparent');
-      hit.setAttribute('cursor', p.type==='toggle' ? 'pointer' : 'ns-resize');
-      hit.setAttribute('data-mfx', def.id);
-      hit.setAttribute('data-mfxp', pi);
+      hit.setAttribute('cursor', (p.type==='toggle' || p.type==='typesel') ? 'pointer' : 'ns-resize');
+      if (p.type !== 'typesel') {
+        hit.setAttribute('data-mfx', def.id);
+        hit.setAttribute('data-mfxp', pi);
+      }
       sg.appendChild(hit);
     });
   });
@@ -1927,7 +1940,7 @@ function fxHandleDown(e) {
       const pi    = parseInt(n.getAttribute('data-mfxp'));
       const DEFS_MAP = {
         delay:  [ {key:'syncDiv',min:0,max:6,step:1,log:false,def:4}, {key:'sync',type:'toggle',def:true}, {key:'feedback',min:0,max:0.95,log:false,def:0.35}, {key:'filter',min:200,max:16000,log:true,def:4000} ],
-        reverb: [ {key:'size',min:0.3,max:4.0,log:false,def:2.2}, {key:'decay',min:0.1,max:1.0,log:false,def:0.6}, {key:'brightness',min:0,max:1,log:false,def:0.6}, {key:'predelay',min:0,max:0.1,log:false,def:0.028} ],
+        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.3,max:6.0,log:false,def:2.2}, {key:'brightness',min:0,max:1,log:false,def:0.6}, {key:'predelay',min:0,max:0.1,log:false,def:0.028} ],
         comp:   [ {key:'threshold',min:-60,max:0,log:false,def:-18}, {key:'ratio',min:1,max:20,log:false,def:3}, {key:'attack',min:0.0005,max:1,log:true,def:0.010}, {key:'release',min:0.01,max:1,log:true,def:0.15} ],
         lim:    [ {key:'threshold',min:-20,max:0,log:false,def:-1}, {key:'release',min:0.005,max:1,log:true,def:0.05}, {key:'knee',min:0,max:10,log:false,def:2}, {key:'gain',min:-6,max:12,log:false,def:0} ],
       };
@@ -2128,7 +2141,7 @@ function fxHandleMove(e) {
     masterFX[fxId][pDef.key] = newVal;
     if (fxId === 'delay') updateDelayTime();
 
-    // Pour la reverb : brightness est instantané, size/decay sont debounced
+    // Pour la reverb : brightness est instantané, decay est debounced
     if (fxId === 'reverb' && _masterNodes?.convReverb) {
       if (pDef.key === 'brightness') {
         _masterNodes.convReverb.setBrightness(newVal);
@@ -2153,7 +2166,7 @@ function fxHandleMove(e) {
         v => Math.round(v*100)+'%',
         v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'Hz'
       ],
-      reverb: [ v => v.toFixed(1)+'s', v => Math.round(v*100)+'%', v => Math.round(v*100)+'%', v => Math.round(v*1000)+'ms' ],
+      reverb: [ null, v => v.toFixed(1)+'s', v => Math.round(v*100)+'%', v => Math.round(v*1000)+'ms' ],
       comp:   [ v => Math.round(v)+'dB', v => Math.round(v)+':1', v => v<0.01?(v*1000).toFixed(1)+'ms':(v*1000).toFixed(0)+'ms', v => (v*1000).toFixed(0)+'ms' ],
       lim:    [ v => Math.round(v)+'dB', v => (v*1000).toFixed(0)+'ms', v => Math.round(v)+'dB', v => (v>=0?'+':'')+Math.round(v)+'dB' ],
     };
@@ -2279,7 +2292,7 @@ document.addEventListener('dblclick', e => {
       const pi   = parseInt(n.getAttribute('data-mfxp'));
       const MASTER_DEFS = {
         delay:  [ {key:'syncDiv',def:4}, {key:'sync'}, {key:'feedback',def:0.35}, {key:'filter',def:4000} ],
-        reverb: [ {key:'size',def:2.2}, {key:'decay',def:0.6}, {key:'brightness',def:0.6}, {key:'predelay',def:0.028} ],
+        reverb: [ {key:'decay',def:2.2}, {key:'brightness',def:0.6}, {key:'predelay',def:0.028} ],
         comp:   [ {key:'threshold',def:-18}, {key:'ratio',def:3}, {key:'attack',def:0.010}, {key:'release',def:0.15} ],
         lim:    [ {key:'threshold',def:-1}, {key:'release',def:0.05}, {key:'knee',def:2}, {key:'gain',def:0} ],
       };
@@ -2554,8 +2567,7 @@ const masterFX = {
     syncDiv:  4,       // 1/8d — dotted eighth
   },
   reverb: {
-    size:       2.2,    // durée de l'impulse en secondes (0.3 → 4.0)
-    decay:      0.6,    // vitesse d'atténuation (0=rapide, 1=lent)
+    decay:      2.2,    // RT60 en secondes (0.3 → 6.0) — contrôle longueur + atténuation
     brightness: 0.6,    // filtre haute fréquence sur le wet (0=sombre, 1=brillant)
     predelay:   0.028,  // 28ms
     type:       'hall', // plate | room | hall | large | shimmer
@@ -2688,39 +2700,38 @@ function createConvReverb() {
 
   // Génère l'impulse response selon les paramètres courants
   function buildIR() {
-    const fx   = masterFX.reverb;
-    const sr   = actx.sampleRate;
-    const len  = Math.max(0.3, Math.min(4.0, fx.size));
-    const nSamples = Math.floor(sr * len);
-    const decay = Math.max(0.1, Math.min(1.0, fx.decay));
-    const type  = fx.type || 'hall';
-    const buf   = actx.createBuffer(2, nSamples, sr);
+    const fx      = masterFX.reverb;
+    const sr      = actx.sampleRate;
+    // decay en secondes = RT60 = longueur de l'IR
+    const rt60    = Math.max(0.3, Math.min(6.0, fx.decay));
+    const nSamples = Math.floor(sr * rt60);
+    const type    = fx.type || 'hall';
+    const buf     = actx.createBuffer(2, nSamples, sr);
+
+    // Courbe d'enveloppe RT60 standard : -60dB en rt60 secondes
+    // exp(-6.908 * t / rt60) = pow(10, -3 * t / rt60)
+    // On utilise une valeur de k dérivée du RT60 réel
+    const logFactor = Math.log(0.001) / rt60; // ln(0.001) / rt60 ≈ -6.908/rt60
 
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
 
-      // Courbe d'enveloppe : exponentielle inverse
-      // decay=0 → très court (exp rapide), decay=1 → très long (exp lente)
-      const expK = 3 + (1 - decay) * 9; // 3 (lent) → 12 (rapide)
-
       for (let i = 0; i < nSamples; i++) {
-        const t   = i / nSamples;           // 0→1
-        const env = Math.pow(1 - t, expK);  // déclin exponentiel
+        const tSec = i / sr;                         // temps en secondes
+        const env  = Math.exp(logFactor * tSec);     // déclin RT60 physique
 
         let sample;
         switch (type) {
 
           case 'plate':
-            // Dense dès le départ, peu de réflexions précoces, déclin régulier
+            // Dense dès le départ, déclin régulier, légère modulation métallique
             sample = (Math.random() * 2 - 1) * env;
-            // Légère modulation pour le "métal vibrant"
             sample *= 1 + 0.08 * Math.sin(i * 0.003 + ch * 1.2);
             break;
 
           case 'room':
-            // Réflexions précoces distinctes puis déclin rapide
-            if (t < 0.05) {
-              // Premières réflexions : quelques pics
+            // Réflexions précoces distinctes puis queue courte
+            if (tSec < rt60 * 0.05) {
               sample = (Math.random() > 0.97 ? (Math.random() * 2 - 1) * 0.8 : 0) * env;
             } else {
               sample = (Math.random() * 2 - 1) * env * 0.5;
@@ -2728,30 +2739,31 @@ function createConvReverb() {
             break;
 
           case 'hall':
-            // Montée progressive (build-up), puis longue queue dense
+            // Montée progressive (build-up 80ms), longue queue dense
             {
-              const attack = Math.min(1, t / 0.08); // montée sur 8% de la durée
+              const attackSec = Math.min(0.08, rt60 * 0.06);
+              const attack = Math.min(1, tSec / attackSec);
               sample = (Math.random() * 2 - 1) * env * attack;
-              // Un peu de réflexions tardives sur le canal droit
-              if (ch === 1 && t > 0.1 && t < 0.15) sample *= 1.3;
+              if (ch === 1 && tSec > rt60*0.1 && tSec < rt60*0.15) sample *= 1.3;
             }
             break;
 
           case 'large':
-            // Hall très large : montée lente, queue très longue et diffuse
+            // Montée lente (150ms), queue très diffuse
             {
-              const attack = Math.min(1, t / 0.15); // montée sur 15%
+              const attackSec = Math.min(0.15, rt60 * 0.08);
+              const attack = Math.min(1, tSec / attackSec);
               const diffusion = 1 + 0.15 * Math.sin(i * 0.0007 + ch * 2.3);
               sample = (Math.random() * 2 - 1) * env * attack * diffusion;
             }
             break;
 
           case 'shimmer':
-            // Base hall + composante harmonique (octave au-dessus simulée par modulation)
+            // Hall + composante harmonique planante
             {
-              const attack = Math.min(1, t / 0.1);
-              const base   = (Math.random() * 2 - 1) * env * attack;
-              // Shimmer : modulation à fréquence élevée pour simuler le pitch-shift
+              const attackSec = Math.min(0.1, rt60 * 0.06);
+              const attack = Math.min(1, tSec / attackSec);
+              const base  = (Math.random() * 2 - 1) * env * attack;
               const shimFreq = 0.0023 + ch * 0.0003;
               const shim = Math.sin(i * shimFreq * Math.PI) * env * attack * 0.4;
               sample = base * 0.7 + shim;
@@ -2762,7 +2774,7 @@ function createConvReverb() {
             sample = (Math.random() * 2 - 1) * env;
         }
 
-        // Stéréo spread : léger décalage de phase entre L et R
+        // Stéréo spread
         if (ch === 1) {
           const spread = type === 'large' ? 0.12 : 0.06;
           sample *= 1 + spread * Math.sin(i * 0.0011);
@@ -2772,7 +2784,7 @@ function createConvReverb() {
       }
     }
 
-    // Normaliser pour éviter le clipping
+    // Normaliser
     let peak = 0;
     for (let ch = 0; ch < 2; ch++) {
       const d = buf.getChannelData(ch);
@@ -2796,12 +2808,8 @@ function createConvReverb() {
     input,
     output: brightFilter,
     rebuild() { buildIR(); },
-    setSize(v) {
-      masterFX.reverb.size = Math.max(0.3, Math.min(4.0, v));
-      buildIR();
-    },
     setDecay(v) {
-      masterFX.reverb.decay = Math.max(0.1, Math.min(1.0, v));
+      masterFX.reverb.decay = Math.max(0.3, Math.min(6.0, v));
       buildIR();
     },
     setBrightness(v) {
