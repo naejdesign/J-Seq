@@ -1146,29 +1146,41 @@ function fxRebuildChain(ti) {
     if (FX_DEFS[si].id === 'arp') continue;
     const slot = trackFX[ti][si];
     if (!slot.active) {
-      // Déconnecter le nœud s'il existe et n'est plus actif
-      if (slot.node) { try { slot.node.output?.disconnect(); slot.node.input?.disconnect(); } catch(e) {} }
+      // Slot inactif : détruire le nœud pour forcer une recréation propre à la réactivation
+      if (slot.node) {
+        try { slot.node.output?.disconnect(); } catch(e) {}
+        try { slot.node.input?.disconnect(); } catch(e) {}
+        slot.node = null;
+      }
       continue;
     }
-    if (!slot.node) slot.node = fxCreateNode(ti, si);
+    // Slot actif : toujours recréer le nœud (l'ancien a pu être déconnecté)
+    slot.node = fxCreateNode(ti, si);
     if (slot.node) nodes.push(slot.node);
   }
 
-  if (nodes.length === 0) {
-    synthNode.connect(getMaster());
-    return;
-  }
-
+  // Câblage : synthNode → [FX chain] → master + sends
+  // Les sends sont TOUJOURS créés, même sans FX actifs
+  let current = synthNode;
   try {
-    let current = synthNode;
     for (let i = 0; i < nodes.length; i++) {
       const n = nodes[i];
       current.connect(n.input === n ? n : (n.input || n));
       if (n.inputDry) current.connect(n.inputDry);
       current = n.output === n ? n : (n.output || n);
     }
-    current.connect(getMaster());
-    // Sends vers bus Master — toujours créés, gain mis à jour en temps réel
+  } catch(e) {
+    console.warn('[FX] Erreur chaîne FX track', ti, e);
+    current = synthNode;
+  }
+
+  // Connexion master
+  try { current.connect(getMaster()); } catch(e) {
+    try { synthNode.connect(getMaster()); } catch(e2) {}
+  }
+
+  // Sends delay/reverb — TOUJOURS créés, même sans aucun FX actif
+  try {
     const t = S.tracks[ti];
     const dSend = actx.createGain();
     const rSend = actx.createGain();
@@ -1176,13 +1188,11 @@ function fxRebuildChain(ti) {
     rSend.gain.value = t.sendReverb || 0;
     current.connect(dSend); dSend.connect(getDelayBus());
     current.connect(rSend); rSend.connect(getReverbBus());
-    // Stocker les refs pour mise à jour en temps réel (encodeurs enc4/enc5)
     trackSendNodes[ti] = { dSend, rSend };
-    console.log(`[FX] Track ${ti+1} chaîne : ${nodes.length} nœuds`);
   } catch(e) {
-    console.warn('[FX] Erreur chaîne track', ti, e);
-    try { synthNode.connect(getMaster()); } catch(e2) {}
+    console.warn('[FX] Erreur sends track', ti, e);
   }
+  if (nodes.length > 0) console.log(`[FX] Track ${ti+1} chaîne : ${nodes.length} nœuds`);
 }
 
 // Activer/désactiver un slot FX
@@ -2852,15 +2862,28 @@ function drumSynth(pad, vel, dest) {
 
   const masterOut = dest || getMaster();
 
-  // Nœud intermédiaire : sourceNode → preGain → [saturation douce] → tone filter → gOut → masterOut
-  // Le drive est implémenté via un preGain élevé + compression douce, SANS WaveShaper.
-  // Aucune allocation dynamique de WaveShaper = aucun clic, aucun GC.
+  // Nœud intermédiaire : sourceNode → preGain → compresseur/saturateur → tone filter → gOut → masterOut
+  // Le drive est implémenté via preGain fort + DynamicsCompressor (ratio élevé = saturation douce).
+  // DynamicsCompressor est un nœud permanent de WebAudio, sans discontinuité, sans clic.
   function buildChain(sourceNode) {
-    // preGain : amplifie le signal avant le filtre (effet "drive" doux)
     const g = actx.createGain();
-    // Avec drive, on préamplifie : drv=0 → gain=1, drv=1 → gain=8
-    g.gain.value = drv > 0.02 ? 1 + drv * 7 : 1;
+    // preGain exponentiel : drv=0→1, drv=0.3→~8, drv=0.6→~32, drv=1→100
+    g.gain.value = drv > 0.02 ? Math.pow(100, drv) : 1;
     sourceNode.connect(g);
+
+    let node = g;
+
+    if (drv > 0.02) {
+      // DynamicsCompressor comme saturateur : threshold bas, ratio très élevé = écrêtage doux
+      const comp = actx.createDynamicsCompressor();
+      comp.threshold.value = -6 - drv * 30; // drv=0.3→-15dB, drv=1→-36dB
+      comp.knee.value      = 10;
+      comp.ratio.value     = 4 + drv * 16;  // drv=0.3→~9, drv=1→20
+      comp.attack.value    = 0.001;
+      comp.release.value   = 0.05;
+      g.connect(comp);
+      node = comp;
+    }
 
     // Tone filter
     const f = actx.createBiquadFilter();
@@ -2869,16 +2892,15 @@ function drumSynth(pad, vel, dest) {
     f.frequency.setValueAtTime(freq, actx.currentTime);
     const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
     f.Q.setValueAtTime(q, actx.currentTime);
-    g.connect(f);
+    node.connect(f);
 
-    // Gain de sortie final — compense le preGain pour maintenir le niveau
-    // et sert de fade-out propre avant déconnexion
+    // Gain de sortie — fade-out propre avant déconnexion
     const gOut = actx.createGain();
-    gOut.gain.value = drv > 0.02 ? 1 / (1 + drv * 4) : 1; // compensation niveau
+    gOut.gain.value = 1;
     f.connect(gOut);
     gOut.connect(masterOut);
 
-    const chainNodes = [g, f, gOut];
+    const chainNodes = drv > 0.02 ? [g, node, f, gOut] : [g, f, gOut];
 
     // Cleanup via onended : fade-out 20ms puis déconnexion propre, sans clic
     const prevOnEnded = sourceNode.onended;
@@ -3174,10 +3196,20 @@ function drumSample(pad, vel, dest) {
   g.gain.value = vel;
   s.connect(g);
 
-  // Drive : preGain élevé + compensation niveau — sans WaveShaper, sans clic
-  const preGain = drv > 0.02 ? 1 + drv * 7 : 1;
-  const postGain = drv > 0.02 ? 1 / (1 + drv * 4) : 1;
-  g.gain.value = vel * preGain;
+  // Drive : preGain fort + DynamicsCompressor comme saturateur
+  g.gain.value = vel * (drv > 0.02 ? Math.pow(100, drv) : 1);
+
+  let driveNode = g;
+  if (drv > 0.02) {
+    const comp = actx.createDynamicsCompressor();
+    comp.threshold.value = -6 - drv * 30;
+    comp.knee.value      = 10;
+    comp.ratio.value     = 4 + drv * 16;
+    comp.attack.value    = 0.001;
+    comp.release.value   = 0.05;
+    g.connect(comp);
+    driveNode = comp;
+  }
 
   // Filtre tone
   const filt = actx.createBiquadFilter();
@@ -3185,11 +3217,11 @@ function drumSample(pad, vel, dest) {
   filt.frequency.setValueAtTime(200 * Math.pow(90, tone), t);
   const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
   filt.Q.setValueAtTime(q, t);
-  g.connect(filt);
+  driveNode.connect(filt);
 
   // Gain de sortie final
   const gOut = actx.createGain();
-  gOut.gain.value = postGain;
+  gOut.gain.value = 1;
   filt.connect(gOut);
   gOut.connect(masterOut);
 
@@ -3203,6 +3235,7 @@ function drumSample(pad, vel, dest) {
     setTimeout(() => {
       try { s.disconnect(); } catch(e) {}
       try { g.disconnect(); } catch(e) {}
+      if (drv > 0.02) { try { driveNode.disconnect(); } catch(e) {} }
       try { filt.disconnect(); } catch(e) {}
       try { gOut.disconnect(); } catch(e) {}
     }, 30);
