@@ -2852,9 +2852,10 @@ function drumSynth(pad, vel, dest) {
 
   const masterOut = dest || getMaster();
 
-  // Nœud intermédiaire : synth → drive → tone filter → dest
-  // Déconnecte automatiquement tous les nœuds après durée + marge
-  function buildChain(sourceNode, durSec) {
+  // Nœud intermédiaire : synth → drive → tone filter → gainOut → dest
+  // Le gainOut est ramené à 0 juste avant la fin pour éviter tout clic à la déconnexion.
+  // La déconnexion se fait via onended sur la source, sans setTimeout.
+  function buildChain(sourceNode) {
     const g = actx.createGain();
     g.gain.value = 1;
     sourceNode.connect(g);
@@ -2871,14 +2872,41 @@ function drumSynth(pad, vel, dest) {
       node.connect(ws); node = ws;
       chainNodes.push(ws);
     }
-    const f = applyToneFilter(node, tone, masterOut);
+    // Gain de sortie final — on peut le ramener à 0 proprement avant déco
+    const gOut = actx.createGain();
+    gOut.gain.value = 1;
+    node.connect(gOut);
+    chainNodes.push(gOut);
+    gOut.connect(masterOut);
+
+    // Tone filter remplacé par un filtre branché sur gOut→masterOut
+    // (applyToneFilter connecte directement, on réorganise)
+    // On branche le filtre entre node et gOut
+    // → reconstruire : node → filter → gOut → masterOut
+    // Annuler la connexion node→gOut et refaire avec filtre
+    node.disconnect(gOut);
+    const f = actx.createBiquadFilter();
+    f.type = 'lowpass';
+    const freq = 200 * Math.pow(90, tone);
+    f.frequency.setValueAtTime(freq, actx.currentTime);
+    const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+    f.Q.setValueAtTime(q, actx.currentTime);
+    node.connect(f);
+    f.connect(gOut);
     chainNodes.push(f);
-    // Cleanup automatique : déconnecter tous les nœuds après la fin du son
-    const cleanupMs = ((durSec || decSec) + 0.15) * 1000;
-    setTimeout(() => {
-      try { sourceNode.disconnect(); } catch(e) {}
-      chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
-    }, cleanupMs);
+
+    // Cleanup via onended : fade-out 10ms puis déconnexion propre
+    const prevOnEnded = sourceNode.onended;
+    sourceNode.onended = () => {
+      if (prevOnEnded) prevOnEnded();
+      const now = actx.currentTime;
+      gOut.gain.setValueAtTime(gOut.gain.value, now);
+      gOut.gain.linearRampToValueAtTime(0, now + 0.02);
+      setTimeout(() => {
+        chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
+        try { sourceNode.disconnect(); } catch(e) {}
+      }, 30);
+    };
     return chainNodes;
   }
 
@@ -3218,17 +3246,34 @@ function drumSample(pad, vel, dest) {
     chainNodes.push(ws);
   }
 
-  // Tone filter — identique synth
-  const f = applyToneFilter(node, tone, masterOut);
-  chainNodes.push(f);
+  // Filtre tone
+  const filt = actx.createBiquadFilter();
+  filt.type = 'lowpass';
+  filt.frequency.setValueAtTime(200 * Math.pow(90, tone), t);
+  const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+  filt.Q.setValueAtTime(q, t);
+  node.connect(filt);
+  chainNodes.push(filt);
 
-  const durSec = (pad.buffer.duration / (tuneRatio || 1)) + 0.15;
+  // Gain de sortie final pour fade-out propre avant déconnexion
+  const gOut = actx.createGain();
+  gOut.gain.value = 1;
+  filt.connect(gOut);
+  gOut.connect(masterOut);
+  chainNodes.push(gOut);
+
   s.start(t, startSec);
-  // Cleanup automatique après la fin du sample
-  setTimeout(() => {
-    try { s.disconnect(); } catch(e) {}
-    chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
-  }, durSec * 1000);
+
+  // Cleanup via onended : fade-out 20ms puis déconnexion propre, sans clic
+  s.onended = () => {
+    const now = actx.currentTime;
+    gOut.gain.setValueAtTime(gOut.gain.value, now);
+    gOut.gain.linearRampToValueAtTime(0, now + 0.02);
+    setTimeout(() => {
+      chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
+      try { s.disconnect(); } catch(e) {}
+    }, 30);
+  };
 }
 
 // ── Déclencheur unifié ───────────────────────────────────────────
