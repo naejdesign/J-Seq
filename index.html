@@ -745,6 +745,10 @@ const jsSynths = [null, null, null, null, null, null, null, null]; // Synthesize
 const jsSynthNodes = [null, null, null, null, null, null, null, null]; // AudioNode par track
 let sf2Ready       = false;
 let sf2Initializing = false;
+// Mutex de chargement SF2 : true = chargement en cours, bloquer noteOn
+const _sf2LoadingTrack = [false, false, false, false, false, false, false, false];
+// Token de chargement : annule un chargement précédent si un nouveau arrive
+const _sf2LoadToken = [0, 0, 0, 0, 0, 0, 0, 0];
 
 // Accesseurs de compatibilité (track courante)
 function jsSynth_ti(ti)     { return jsSynths[ti]; }
@@ -2377,6 +2381,7 @@ function sf2PreviewNote(ti) {
 
 function sf2NoteOn(trackIdx, midi, velocity) {
   if (!sf2Ready || !jsSynths[trackIdx]) return;
+  if (_sf2LoadingTrack[trackIdx]) return; // preset en cours de chargement — ignorer
   ensureAudio();
   const vel = Math.max(1, Math.min(127, Math.round(velocity * 127)));
   jsSynths[trackIdx].midiNoteOn(SF2_CHANNEL, midi, vel);
@@ -8637,7 +8642,28 @@ function midiCC(cc, value) {
 
   // ── CC74 → Molette (BPM ou longueur note selon contexte) ──
   if (cc === 74) {
-    const d = relDelta(value, 1);
+    // CC74 peut venir d'un encodeur relatif (valeurs 1-63/65-127)
+    // OU d'un potentiomètre/molette absolu(e) (valeurs 0-127).
+    // On détecte le mode : si la valeur est exactement 64, c'est la position
+    // centrale d'un ctrl absolu — on ignore (pas de changement).
+    // Pour un ctrl absolu, on stocke la dernière valeur et calcule le delta.
+    let d;
+    const relD = relDelta(value, 1);
+    if (relD !== 0) {
+      // Mode relatif confirmé (valeur dans 1-63 ou 65-127)
+      d = relD;
+      midiCC._cc74LastAbs = null; // reset du mode absolu
+    } else {
+      // Valeur 0, 64 ou 128 → probablement un ctrl absolu
+      if (midiCC._cc74LastAbs === null || midiCC._cc74LastAbs === undefined) {
+        // Première valeur absolue reçue : mémoriser sans bouger
+        midiCC._cc74LastAbs = value;
+        return;
+      }
+      d = value - midiCC._cc74LastAbs;
+      midiCC._cc74LastAbs = value;
+      if (d === 0) return;
+    }
 
     // ── Mode sélection son drum ──
     if (drumSoundSelectMode) {
@@ -8798,6 +8824,10 @@ function midiCC(cc, value) {
       sf2Browser.previewDebounce = setTimeout(async () => {
         sf2Browser.previewDebounce = null;
         sf2Browser.trackIdx = ti;
+        // ── Mutex : incrémenter le token — tout chargement précédent sera annulé ──
+        const myToken = ++_sf2LoadToken[ti];
+        _sf2LoadingTrack[ti] = true;
+        sf2AllNotesOff(ti); // couper les notes en cours avant de changer de preset
         // Charger le SF2 si nécessaire (utilise le mécanisme interne)
         const name = sound.file;
         let bankData = sf2BankCache[ti][name];
@@ -8810,19 +8840,24 @@ function midiCC(cc, value) {
             let file;
             if (sf2Browser.useFileHandles) {
               const handle = sf2Browser.fileHandles[name];
-              if (!handle) { console.warn('[SF2] Handle introuvable :', name); return; }
+              if (!handle) { console.warn('[SF2] Handle introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
               file = await handle.getFile();
             } else {
               file = sf2Browser.fallbackFiles[name];
-              if (!file) { console.warn('[SF2] Fichier introuvable :', name); return; }
+              if (!file) { console.warn('[SF2] Fichier introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
             }
+            // Vérifier que ce chargement est toujours d'actualité
+            if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
             const buf     = await file.arrayBuffer();
+            if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
             const sfontId = await jsSynths[ti].loadSFont(buf);
+            if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
             const presets = sf2GetPresets(ti, sfontId);
             bankData = { sfontId, presets };
             sf2BankCache[ti][name] = bankData;
           } catch(e) {
             console.error('[SF2] Erreur chargement CC115/116 :', e);
+            _sf2LoadingTrack[ti] = false;
             return;
           }
         } else if (sf2TempBank[ti]?.name === name) {
@@ -8830,6 +8865,9 @@ function midiCC(cc, value) {
           sf2BankCache[ti][name] = bankData;
           sf2TempBank[ti] = null;
         }
+
+        // Vérification finale : un autre chargement a-t-il supplanté celui-ci ?
+        if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
 
         // Sélectionner le preset (premier du SF2)
         const oldName = trackSF2[ti].sfName;
@@ -8842,6 +8880,7 @@ function midiCC(cc, value) {
         try { jsSynths[ti].midiProgramSelect(SF2_CHANNEL, bankData.sfontId, preset.bank, preset.program); } catch(e) {}
         S.tracks[ti].outputMode = 'sf2';
         if (oldName && oldName !== name) sf2MaybeUnload(ti, oldName);
+        _sf2LoadingTrack[ti] = false; // ── libérer le mutex ──
         renderTrackButtons();
         oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0, 12),
                   (sound.category || '').slice(0, 12));
