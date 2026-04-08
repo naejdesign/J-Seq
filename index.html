@@ -2673,7 +2673,7 @@ function getMasterNodes() {
   delayFilter.frequency.value = masterFX.delay.filter;
   delayFB.gain.value = masterFX.delay.feedback;
   delayNode.delayTime.value = masterFX.delay.time;
-  delayWet.gain.value = 0.35;  // niveau global delay — atténué pour course encodeur plus naturelle
+  delayWet.gain.value = 0.8;   // niveau global delay
   delayBusIn.connect(delayNode);
   delayNode.connect(delayFilter);
   delayFilter.connect(delayFB);
@@ -2686,7 +2686,7 @@ function getMasterNodes() {
   reverbPre.delayTime.value = masterFX.reverb.predelay;
   const convReverb = createConvReverb();
   const reverbWet  = actx.createGain();
-  reverbWet.gain.value = 0.15; // niveau global reverb
+  reverbWet.gain.value = 0.7;  // niveau global reverb
   reverbBusIn.connect(reverbPre);
   reverbPre.connect(convReverb.input);
   // convReverb.output → reverbWet → mixBus (connecté après déclaration mixBus)
@@ -4017,9 +4017,9 @@ function stopPlay() {
     setTimeout(() => {
       if (_masterNodes) {
         _masterNodes.reverbWet.gain.cancelScheduledValues(0);
-        _masterNodes.reverbWet.gain.value = 0.15;
+        _masterNodes.reverbWet.gain.value = 0.7;
         _masterNodes.delayWet.gain.cancelScheduledValues(0);
-        _masterNodes.delayWet.gain.value  = 0.35;
+        _masterNodes.delayWet.gain.value  = 0.8;
       }
     }, 3000);
   }
@@ -8274,7 +8274,7 @@ document.addEventListener('mousemove', e => {
     if (Math.abs(delta) < 2) return;
     const t = S.tracks[S.currentTrack];
     // Course longue (400px pour 0→100%) — progression linéaire, niveau global contrôlé par reverbWet/delayWet
-    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 600));
+    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 300));
     if (t.mode === 'drum') {
       if (!t.drumPads) return;
       t.drumPads[S.selectedDrumPad][def.key] = newVal;
