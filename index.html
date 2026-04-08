@@ -7181,6 +7181,9 @@ function sessionDeleteClip(trackIdx, clipIdx) {
 let wheelDrag = null;
 let _wheelLastTap = 0;
 
+svg('wheel').addEventListener('mouseup', e => {
+  if (anyStepHeld()) { e.stopPropagation(); wheelDrag = null; }
+});
 svg('wheel').addEventListener('mousedown', e => {
   const now = Date.now();
   
@@ -7304,6 +7307,9 @@ function setMasterVolume(v) {
 }
 
 let volDrag = null;
+svg('encVol').addEventListener('mouseup', e => {
+  if (anyStepHeld()) { e.stopPropagation(); volDrag = null; }
+});
 svg('encVol').addEventListener('mousedown', e => {
   if (volDrag) return; // drag déjà actif — ignorer touch parasite
   S._oledLocked = true;
@@ -8273,6 +8279,10 @@ const DRUM_ENC_RANGES = [
 // ── Encodeurs 0-3 : drag ────────────────────────────────────
 // (le double-tap reset est géré en fin de document)
 ENC_DEFS.forEach((def, i) => {
+  // Bloquer le mouseup de l'encodeur de remonter vers document si un step est tenu
+  svg('enc' + i).addEventListener('mouseup', e => {
+    if (anyStepHeld()) { e.stopPropagation(); encDrags[i] = null; }
+  });
   svg('enc' + i).addEventListener('mousedown', e => {
     if (projectModeActive) return;
     if (S.mode === 'session') return;
@@ -8318,6 +8328,9 @@ const SEND_ENCS = [
 SEND_ENCS.forEach((def, si) => {
   const el = svg(def.id);
   if (!el) return;
+  el.addEventListener('mouseup', e => {
+    if (anyStepHeld()) { e.stopPropagation(); encSendDrags[si] = null; }
+  });
   el.addEventListener('mousedown', e => {
     if (projectModeActive) return;
     if (S.mode === 'session') return;
