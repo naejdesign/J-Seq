@@ -2946,37 +2946,27 @@ function drumSynth(pad, vel, dest) {
 
   } else if (type === 'Clap') {
     [0, 0.008, 0.018].forEach(dly => {
-      const len2 = Math.round(actx.sampleRate * Math.max(0.04, decSec * 0.5));
-      const buf2 = actx.createBuffer(1, len2, actx.sampleRate);
-      const d2   = buf2.getChannelData(0);
-      for (let i = 0; i < len2; i++) d2[i] = Math.random() * 2 - 1;
+      const durC  = Math.max(0.04, decSec * 0.5);
+      const buf2  = getNoiseBuffer(durC);
       const s2 = actx.createBufferSource(), g2 = actx.createGain();
       s2.buffer = buf2;
       g2.gain.setValueAtTime(vel * 0.55, t + dly);
       g2.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.6);
-    g2.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.6 + 0.02);
+      g2.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.6 + 0.02);
       s2.connect(g2); buildChain(g2); s2.start(t + dly);
     });
 
   } else if (type === 'HH Cl') {
-    const len3 = Math.round(actx.sampleRate * Math.max(0.02, decSec * 0.4));
-    const buf3 = actx.createBuffer(1, len3, actx.sampleRate);
-    const d3   = buf3.getChannelData(0);
-    for (let i = 0; i < len3; i++) d3[i] = Math.random() * 2 - 1;
     const s3 = actx.createBufferSource(), g3 = actx.createGain();
-    s3.buffer = buf3;
+    s3.buffer = getNoiseBuffer(Math.max(0.02, decSec * 0.4));
     g3.gain.setValueAtTime(vel * 0.5, t);
     g3.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
     g3.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
     s3.connect(g3); buildChain(g3); s3.start(t);
 
   } else if (type === 'HH Op') {
-    const len4 = Math.round(actx.sampleRate * Math.max(0.05, decSec));
-    const buf4 = actx.createBuffer(1, len4, actx.sampleRate);
-    const d4   = buf4.getChannelData(0);
-    for (let i = 0; i < len4; i++) d4[i] = Math.random() * 2 - 1;
     const s4 = actx.createBufferSource(), g4 = actx.createGain();
-    s4.buffer = buf4;
+    s4.buffer = getNoiseBuffer(Math.max(0.05, decSec));
     g4.gain.setValueAtTime(vel * 0.45, t);
     g4.gain.exponentialRampToValueAtTime(0.001, t + decSec);
     g4.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
@@ -3025,12 +3015,8 @@ function drumSynth(pad, vel, dest) {
 
   } else if (type === 'Crash') {
     // Bruit long filtré haut + composante métallique
-    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    s.buffer = getNoiseBuffer(Math.max(0.1, decSec));
     gn.gain.setValueAtTime(vel * 0.6, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
     gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
@@ -3046,12 +3032,8 @@ function drumSynth(pad, vel, dest) {
 
   } else if (type === 'Ride') {
     // Bruit medium + sinusoïde métallique haute
-    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec * 0.8));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    s.buffer = getNoiseBuffer(Math.max(0.1, decSec * 0.8));
     gn.gain.setValueAtTime(vel * 0.35, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
     gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
@@ -3065,13 +3047,8 @@ function drumSynth(pad, vel, dest) {
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Shaker') {
-    // Burst de bruit très court, filtré haut
-    const len = Math.round(actx.sampleRate * Math.max(0.01, decSec * 0.3));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    s.buffer = getNoiseBuffer(Math.max(0.01, decSec * 0.3));
     gn.gain.setValueAtTime(vel * 0.4, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.3);
     gn.gain.linearRampToValueAtTime(0, t + decSec * 0.3 + 0.02);
@@ -3080,15 +3057,11 @@ function drumSynth(pad, vel, dest) {
   } else if (type === 'Tamb') {
     // Bruit + cliquetis métalliques (multi-burst)
     [0, 0.005, 0.012].forEach(dly => {
-      const len = Math.round(actx.sampleRate * Math.max(0.03, decSec * 0.5));
-      const buf = actx.createBuffer(1, len, actx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       const s = actx.createBufferSource(), g = actx.createGain();
-      s.buffer = buf;
+      s.buffer = getNoiseBuffer(Math.max(0.03, decSec * 0.5));
       g.gain.setValueAtTime(vel * 0.35, t + dly);
       g.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.5);
-    g.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.5 + 0.02);
+      g.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.5 + 0.02);
       s.connect(g); buildChain(g); s.start(t + dly);
     });
     const o = actx.createOscillator(), og = actx.createGain();
@@ -3122,13 +3095,8 @@ function drumSynth(pad, vel, dest) {
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Maracas') {
-    // Micro-burst de bruit
-    const len = Math.round(actx.sampleRate * Math.max(0.005, decSec * 0.15));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.15));
     gn.gain.setValueAtTime(vel * 0.35, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.15);
     gn.gain.linearRampToValueAtTime(0, t + decSec * 0.15 + 0.02);
@@ -3153,13 +3121,8 @@ function drumSynth(pad, vel, dest) {
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Snap') {
-    // Burst de bruit très court
-    const len = Math.round(actx.sampleRate * Math.max(0.005, decSec * 0.12));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.12));
     gn.gain.setValueAtTime(vel * 0.6, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.12);
     gn.gain.linearRampToValueAtTime(0, t + decSec * 0.12 + 0.02);
@@ -3186,13 +3149,8 @@ function drumSynth(pad, vel, dest) {
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Noise') {
-    // Bruit blanc pur
-    const len = Math.round(actx.sampleRate * Math.max(0.05, decSec));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
+    s.buffer = getNoiseBuffer(Math.max(0.05, decSec));
     gn.gain.setValueAtTime(vel * 0.4, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
     gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
