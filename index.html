@@ -6274,6 +6274,7 @@ for (let i = 0; i < 16; i++) {
 
   svgEl.addEventListener('touchstart', function(e) {
     if (e.defaultPrevented) return;
+    window._lastTouchTime = Date.now();
     for (const t of e.changedTouches) {
       touchTargets[t.identifier] = { target: t.target, startX: t.clientX, startY: t.clientY };
       const tid = t.target.id || '';
@@ -11662,30 +11663,17 @@ requestAnimationFrame(pollGamepad);
         _tap[id] = now;
       }
     }
-    // Sur touch : touchstart seulement (le mousedown synthétisé arriverait en double)
-    // Sur desktop : mousedown seulement
+    // Double-tap : écouter touchstart pour la détection (évite le double-déclenchement touch+mouse)
+    // Le polyfill global gère le dispatch mousedown pour le drag
     el.addEventListener('touchstart', function(e) {
       handleDoubleTap(e);
-      if (e.defaultPrevented) { e.stopPropagation(); return; }
-      const touch = e.changedTouches[0];
-      if (touch) {
-        if (window._touchTargets) {
-          window._touchTargets[touch.identifier] = { target: el, startX: touch.clientX, startY: touch.clientY };
-        }
-        el.dispatchEvent(new MouseEvent('mousedown', {
-          bubbles: true, cancelable: true,
-          clientX: touch.clientX, clientY: touch.clientY,
-          button: 0, buttons: 1
-        }));
-      }
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
+      // Ne pas stopPropagation — le polyfill global doit recevoir cet event pour le drag
+    }, { passive: true });
     el.addEventListener('mousedown', function(e) {
-      // Ignorer si vient d'un touch (déjà traité par touchstart)
-      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      // Sur touch, touchstart a déjà géré la détection — ignorer le mousedown synthétique
+      if (window._lastTouchTime && Date.now() - window._lastTouchTime < 500) return;
       handleDoubleTap(e);
-    }, true);
+    });
   }
 
   // Sends enc4/enc5
@@ -11722,25 +11710,11 @@ requestAnimationFrame(pollGamepad);
     }
     el.addEventListener('touchstart', function(e) {
       handleSendDoubleTap(e);
-      if (e.defaultPrevented) { e.stopPropagation(); return; }
-      const touch = e.changedTouches[0];
-      if (touch) {
-        if (window._touchTargets) {
-          window._touchTargets[touch.identifier] = { target: el, startX: touch.clientX, startY: touch.clientY };
-        }
-        el.dispatchEvent(new MouseEvent('mousedown', {
-          bubbles: true, cancelable: true,
-          clientX: touch.clientX, clientY: touch.clientY,
-          button: 0, buttons: 1
-        }));
-      }
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
+    }, { passive: true });
     el.addEventListener('mousedown', function(e) {
-      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      if (window._lastTouchTime && Date.now() - window._lastTouchTime < 500) return;
       handleSendDoubleTap(e);
-    }, true);
+    });
   }
 
   // encVol — double-tap → reset volume master à 0.65
@@ -11759,25 +11733,11 @@ requestAnimationFrame(pollGamepad);
     }
     elVol.addEventListener('touchstart', function(e) {
       handleVolDoubleTap(e);
-      if (e.defaultPrevented) { e.stopPropagation(); return; }
-      const touch = e.changedTouches[0];
-      if (touch) {
-        if (window._touchTargets) {
-          window._touchTargets[touch.identifier] = { target: elVol, startX: touch.clientX, startY: touch.clientY };
-        }
-        elVol.dispatchEvent(new MouseEvent('mousedown', {
-          bubbles: true, cancelable: true,
-          clientX: touch.clientX, clientY: touch.clientY,
-          button: 0, buttons: 1
-        }));
-      }
-      e.preventDefault();
-      e.stopPropagation();
-    }, true);
+    }, { passive: true });
     elVol.addEventListener('mousedown', function(e) {
-      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      if (window._lastTouchTime && Date.now() - window._lastTouchTime < 500) return;
       handleVolDoubleTap(e);
-    }, true);
+    });
   }
 })();
 </script>
