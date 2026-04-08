@@ -1553,21 +1553,24 @@ function renderMasterPanel() {
         sg.appendChild(ttxt);
 
       } else if (p.type === 'typesel') {
-        // Grand bouton tactile carré — cycle entre les types au tap
+        // Grand bouton tactile — cycle entre les types au tap
         const curIdx = REVERB_TYPES.indexOf(val || 'hall');
-        const btnSize = Math.min(colW - 6, h - margin*2 - 8);
-        const btnX = px - btnSize/2;
-        const btnY = yBase;
+        // Dimensions fixes qui tiennent dans le slot (h=94, yBase=y+28, margin=4)
+        const availH = h - 28 - margin - 6; // ~56px disponibles
+        const btnW2 = colW - 4;
+        const btnH2 = availH;
+        const btnX2 = px - btnW2/2;
+        const btnY2 = yBase;
 
-        // Fond du bouton
         const rbg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rbg.setAttribute('x', btnX); rbg.setAttribute('y', btnY);
-        rbg.setAttribute('width', btnSize); rbg.setAttribute('height', btnSize);
+        rbg.setAttribute('x', btnX2); rbg.setAttribute('y', btnY2);
+        rbg.setAttribute('width', btnW2); rbg.setAttribute('height', btnH2);
         rbg.setAttribute('rx', '7');
         rbg.setAttribute('fill', col+'33'); rbg.setAttribute('stroke', col);
         rbg.setAttribute('stroke-width', '1.5'); rbg.setAttribute('cursor', 'pointer');
         rbg.addEventListener('click', e => {
-          masterFX.reverb.type = REVERB_TYPES[(curIdx + 1) % REVERB_TYPES.length];
+          const idx = REVERB_TYPES.indexOf(masterFX.reverb.type || 'hall');
+          masterFX.reverb.type = REVERB_TYPES[(idx + 1) % REVERB_TYPES.length];
           if (_masterNodes?.convReverb) _masterNodes.convReverb.setType(masterFX.reverb.type);
           renderMasterPanel();
           e.stopPropagation();
@@ -1576,35 +1579,35 @@ function renderMasterPanel() {
 
         // Icône ↻
         const rico = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        rico.setAttribute('x', px); rico.setAttribute('y', btnY + btnSize * 0.42);
+        rico.setAttribute('x', px); rico.setAttribute('y', btnY2 + btnH2 * 0.38);
         rico.setAttribute('text-anchor', 'middle');
         rico.setAttribute('font-family', "'DM Mono',monospace");
-        rico.setAttribute('font-size', String(Math.round(btnSize * 0.3)));
+        rico.setAttribute('font-size', '16');
         rico.setAttribute('fill', col); rico.setAttribute('pointer-events', 'none');
         rico.textContent = '↻';
         sg.appendChild(rico);
 
         // Nom du type actif
         const rtxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        rtxt.setAttribute('x', px); rtxt.setAttribute('y', btnY + btnSize * 0.72);
+        rtxt.setAttribute('x', px); rtxt.setAttribute('y', btnY2 + btnH2 * 0.65);
         rtxt.setAttribute('text-anchor', 'middle');
         rtxt.setAttribute('font-family', "'DM Mono',monospace");
-        rtxt.setAttribute('font-size', String(Math.max(8, Math.round(btnSize * 0.18))));
+        rtxt.setAttribute('font-size', '9');
         rtxt.setAttribute('font-weight', '500');
         rtxt.setAttribute('fill', '#cce'); rtxt.setAttribute('pointer-events', 'none');
         rtxt.textContent = (val || 'hall').toUpperCase();
         sg.appendChild(rtxt);
 
-        // 5 points indicateurs de position
-        const dotSpacing = 6, dotsTotal = REVERB_TYPES.length;
-        const dotsStartX = px - (dotsTotal - 1) * dotSpacing / 2;
-        const dotY = btnY + btnSize + 6;
+        // 5 points en bas du bouton
+        const dotSpacing = 7;
+        const dotsStartX = px - (REVERB_TYPES.length - 1) * dotSpacing / 2;
+        const dotY2 = btnY2 + btnH2 - 8;
         REVERB_TYPES.forEach((_, di) => {
           const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-          dot.setAttribute('cx', dotsStartX + di * dotSpacing);
-          dot.setAttribute('cy', dotY);
+          dot.setAttribute('cx', String(dotsStartX + di * dotSpacing));
+          dot.setAttribute('cy', String(dotY2));
           dot.setAttribute('r', di === curIdx ? '2.5' : '1.8');
-          dot.setAttribute('fill', di === curIdx ? col : col+'44');
+          dot.setAttribute('fill', di === curIdx ? col : col+'55');
           dot.setAttribute('pointer-events', 'none');
           sg.appendChild(dot);
         });
