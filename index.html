@@ -6252,8 +6252,17 @@ for (let i = 0; i < 16; i++) {
 // donc ce polyfill ne les affecte pas en doublon.
 (function() {
   const svgEl = document.getElementById('moveSVG');
-  const touchTargets = {};  // identifier → { target, startX, startY }
-  window._touchTargets = touchTargets; // exposé pour les handlers custom (encodeurs)
+  const touchTargets = {};
+  window._touchTargets = touchTargets;
+
+  // Touch qui a démarré un drag actif — seul lui peut dispatcher mousemove sur document
+  window._dragTouchId = null;
+  // Touch qui tient un step
+  let _stepHoldTouchId = null;
+
+  // IDs des éléments draggables (encodeurs, molette, sends)
+  const DRAG_IDS = new Set(['wheel','encVol','enc0','enc1','enc2','enc3','enc4','enc5']);
+
   function makeMouse(type, touch) {
     return new MouseEvent(type, {
       bubbles: true, cancelable: true,
@@ -6262,19 +6271,16 @@ for (let i = 0; i < 16; i++) {
       button: 0, buttons: type === 'mouseup' ? 0 : 1
     });
   }
-  // Identifiant du touch qui tient un step — ses mouvements n'interfèrent pas avec les drags
-  let _stepHoldTouchId = null;
 
   svgEl.addEventListener('touchstart', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
       touchTargets[t.identifier] = { target: t.target, startX: t.clientX, startY: t.clientY };
-      // Détecter si ce touch est sur un step (id="step0".."step15")
-      const targetId = t.target.id || '';
-      const isStep = /^step\d+$/.test(targetId);
-      if (isStep && _stepHoldTouchId === null) {
+      const tid = t.target.id || '';
+      if (/^step\d+$/.test(tid) && _stepHoldTouchId === null)
         _stepHoldTouchId = t.identifier;
-      }
+      if (DRAG_IDS.has(tid) && window._dragTouchId === null)
+        window._dragTouchId = t.identifier;
       t.target.dispatchEvent(makeMouse('mousedown', t));
     }
     e.preventDefault();
@@ -6283,7 +6289,8 @@ for (let i = 0; i < 16; i++) {
   svgEl.addEventListener('touchend', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
-      if (t.identifier === _stepHoldTouchId) _stepHoldTouchId = null;
+      if (t.identifier === _stepHoldTouchId)   _stepHoldTouchId = null;
+      if (t.identifier === window._dragTouchId) window._dragTouchId = null;
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mouseup', t));
@@ -6293,8 +6300,7 @@ for (let i = 0; i < 16; i++) {
         if (dx * dx + dy * dy < 225) {
           origTarget.dispatchEvent(new MouseEvent('click', {
             bubbles: true, cancelable: true,
-            clientX: t.clientX, clientY: t.clientY,
-            button: 0
+            clientX: t.clientX, clientY: t.clientY, button: 0
           }));
         }
         delete touchTargets[t.identifier];
@@ -6307,13 +6313,15 @@ for (let i = 0; i < 16; i++) {
     for (const t of e.changedTouches) {
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
+      // Toujours dispatcher sur la cible directe (pour les éléments qui gèrent leur propre mousemove)
       origTarget.dispatchEvent(makeMouse('mousemove', t));
-      // Le touch qui tient un step ne dispatch pas mousemove sur document
-      // pour ne pas interférer avec les drags d'encodeurs
-      if (t.identifier === _stepHoldTouchId) continue;
-      const dy = info ? Math.abs(t.clientY - info.startY) : 99;
-      const dx = info ? Math.abs(t.clientX - info.startX) : 99;
-      if (dy > 3 || dx > 3) {
+      // Dispatcher sur document UNIQUEMENT pour le touch qui drag
+      // Si un drag est actif : seul ce touch-là compte
+      // Si aucun drag : tous les touches sauf le step hold
+      if (window._dragTouchId !== null) {
+        if (t.identifier === window._dragTouchId)
+          document.dispatchEvent(makeMouse('mousemove', t));
+      } else if (t.identifier !== _stepHoldTouchId) {
         document.dispatchEvent(makeMouse('mousemove', t));
       }
     }
@@ -7211,6 +7219,8 @@ document.addEventListener('mousemove', e => {
   }
 });
 document.addEventListener('mouseup', () => {
+  // Libérer le touch de drag
+  window._dragTouchId = null;
   let keepOledLocked = false;
 
   // Reset encVol ring
