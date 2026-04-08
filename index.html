@@ -6289,12 +6289,17 @@ for (let i = 0; i < 16; i++) {
   svgEl.addEventListener('touchend', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
-      if (t.identifier === _stepHoldTouchId)   _stepHoldTouchId = null;
+      const isStepTouch = (t.identifier === _stepHoldTouchId);
+      if (isStepTouch)                          _stepHoldTouchId = null;
       if (t.identifier === window._dragTouchId) window._dragTouchId = null;
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mouseup', t));
-      document.dispatchEvent(makeMouse('mouseup', t));
+      // Dispatcher sur document seulement si c'est le touch du step
+      // ou si aucun step n'est tenu — évite que le touch encodeur appelle releaseStep
+      if (isStepTouch || !anyStepHeld()) {
+        document.dispatchEvent(makeMouse('mouseup', t));
+      }
       if (info) {
         const dx = t.clientX - info.startX, dy = t.clientY - info.startY;
         if (dx * dx + dy * dy < 225) {
@@ -6310,25 +6315,32 @@ for (let i = 0; i < 16; i++) {
   }, { passive: false });
 
   svgEl.addEventListener('touchmove', function(e) {
-    // Trouver le touch avec le plus grand déplacement total — c'est lui qui draggue
-    // Les autres (step tenu, micro-mouvements) sont ignorés pour document
-    let maxDist = 0, dragTouch = null;
-    for (const t of e.changedTouches) {
-      const info = touchTargets[t.identifier];
-      if (info) {
-        const dy = Math.abs(t.clientY - info.startY);
-        const dx = Math.abs(t.clientX - info.startX);
-        const dist = dy + dx;
-        if (dist > maxDist) { maxDist = dist; dragTouch = t; }
-      }
-    }
+    // Calculer le seuil Y écran correspondant à y=295 SVG (juste au-dessus des steps)
+    // viewBox 860×482, les steps commencent à y≈300
+    const svgRect = svgEl.getBoundingClientRect();
+    const yThreshold = svgRect.top + svgRect.height * (295 / 482);
+
     for (const t of e.changedTouches) {
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mousemove', t));
-      // Dispatcher sur document seulement pour le touch qui bouge le plus
-      // ET seulement s'il bouge vraiment (> 2px) pour filtrer les micro-tremblements
-      if (t === dragTouch && maxDist > 2) {
+
+      // Un drag sur document ne peut venir que d'un touch qui a démarré
+      // dans la zone encodeurs (partie haute, startY < seuil)
+      // Les touches qui démarrent dans la zone steps/piano/clavier sont ignorées
+      if (info && info.startY >= yThreshold) continue;
+
+      // Filtre de proximité : ignorer les sauts > 60px (doigt parasite)
+      if (info) {
+        const dist = Math.abs(t.clientY - info.startY) + Math.abs(t.clientX - info.startX);
+        // On met à jour startY pour les prochains moves (suivi continu)
+        // mais seulement si le touch est dans la zone encodeurs
+      }
+
+      if (window._dragTouchId !== null) {
+        if (t.identifier === window._dragTouchId)
+          document.dispatchEvent(makeMouse('mousemove', t));
+      } else {
         document.dispatchEvent(makeMouse('mousemove', t));
       }
     }
