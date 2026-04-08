@@ -1566,7 +1566,7 @@ function renderMasterPanel() {
         rbg.setAttribute('x', btnX2); rbg.setAttribute('y', btnY2);
         rbg.setAttribute('width', btnW2); rbg.setAttribute('height', btnH2);
         rbg.setAttribute('rx', '7');
-        rbg.setAttribute('fill', col+'33'); rbg.setAttribute('stroke', col);
+        rbg.setAttribute('fill', '#2a2a40'); rbg.setAttribute('stroke', col);
         rbg.setAttribute('stroke-width', '1.5'); rbg.setAttribute('cursor', 'pointer');
         rbg.addEventListener('click', e => {
           const idx = REVERB_TYPES.indexOf(masterFX.reverb.type || 'hall');
@@ -1606,8 +1606,9 @@ function renderMasterPanel() {
           const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
           dot.setAttribute('cx', String(dotsStartX + di * dotSpacing));
           dot.setAttribute('cy', String(dotY2));
-          dot.setAttribute('r', di === curIdx ? '2.5' : '1.8');
-          dot.setAttribute('fill', di === curIdx ? col : col+'55');
+          dot.setAttribute('r', di === curIdx ? '3' : '2');
+          dot.setAttribute('fill', di === curIdx ? col : '#445');
+          dot.setAttribute('opacity', di === curIdx ? '1' : '0.5');
           dot.setAttribute('pointer-events', 'none');
           sg.appendChild(dot);
         });
@@ -1672,12 +1673,12 @@ function renderMasterPanel() {
       hit.setAttribute('x', px-colW/2+1); hit.setAttribute('y', y+margin+24);
       hit.setAttribute('width', colW-2); hit.setAttribute('height', h-margin-26);
       hit.setAttribute('fill','transparent');
-      hit.setAttribute('cursor', (p.type==='toggle' || p.type==='typesel') ? 'pointer' : 'ns-resize');
+      hit.setAttribute('cursor', p.type==='toggle' ? 'pointer' : 'ns-resize');
       if (p.type !== 'typesel') {
         hit.setAttribute('data-mfx', def.id);
         hit.setAttribute('data-mfxp', pi);
+        sg.appendChild(hit);
       }
-      sg.appendChild(hit);
     });
   });
 }
