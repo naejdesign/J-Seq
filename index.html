@@ -2617,7 +2617,7 @@ function getMasterNodes() {
   const convReverb = createConvReverb();
   reverbBusIn.connect(reverbPre);
   reverbPre.connect(convReverb.input);
-  convReverb.output.connect(mixBus);
+  // convReverb.output sera connecté à mixBus après sa déclaration ci-dessous
 
   // ── COMPRESSEUR insert (toujours actif) ───────────────────
   const comp = actx.createDynamicsCompressor();
@@ -2646,7 +2646,7 @@ function getMasterNodes() {
   input.connect(masterGain);
   masterGain.connect(mixBus);
   delayWet.connect(mixBus);
-  // convReverb.output est déjà connecté à mixBus dans le bloc REVERB ci-dessus
+  convReverb.output.connect(mixBus); // connexion reverb ici, après déclaration mixBus
   mixBus.connect(comp);
   comp.connect(lim);
   lim.connect(limGain);
