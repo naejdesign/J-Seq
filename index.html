@@ -8650,21 +8650,6 @@ function midiCC(cc, value) {
     const d = rawD > 0 ? Math.min(rawD, 5) : Math.max(rawD, -5);
     if (d === 0) return;
 
-    // ── Mode sélection son drum ──
-    if (drumSoundSelectMode) {
-      const nSounds = DRUM_SYNTH_TYPES.length;
-      drumSoundSelectIdx = Math.max(0, Math.min(nSounds - 1, drumSoundSelectIdx - d));
-      // Preview du son
-      const ti = S.currentTrack;
-      const t = S.tracks[ti];
-      if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
-      const previewPad = { ...t.drumPads[S.selectedDrumPad], synthType: DRUM_SYNTH_TYPES[drumSoundSelectIdx], mode: 'synth' };
-      drumSynth(previewPad, 0.7, getMaster());
-      oledForce('SELECT SOUND', DRUM_SYNTH_TYPES[drumSoundSelectIdx],
-                `${drumSoundSelectIdx+1}/${nSounds} · clic=ok`);
-      return;
-    }
-
     // ── Comportement normal ──
     if (anyStepHeld()) {
       const res = getHeldSt();
