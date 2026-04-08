@@ -1472,10 +1472,10 @@ function renderMasterPanel() {
     {
       id:'reverb', name:'REVERB', slots:[2,3], col:'#58f',
       params: [
-        { key:'roomSize', label:'Room',   fmt: v => Math.round(v*100)+'%', min:0, max:1 },
-        { key:'damp',     label:'Damp',   fmt: v => Math.round(v*100)+'%', min:0, max:1 },
-        { key:'width',    label:'Width',  fmt: v => Math.round(v*100)+'%', min:0, max:1 },
-        { key:'predelay', label:'PreDly', fmt: v => Math.round(v*1000)+'ms', min:0, max:0.1 },
+        { key:'size',       label:'Size',   fmt: v => v.toFixed(1)+'s',      min:0.3, max:4.0 },
+        { key:'decay',      label:'Decay',  fmt: v => Math.round(v*100)+'%', min:0.1, max:1.0 },
+        { key:'brightness', label:'Bright', fmt: v => Math.round(v*100)+'%', min:0,   max:1   },
+        { key:'predelay',   label:'PreDly', fmt: v => Math.round(v*1000)+'ms', min:0, max:0.1 },
       ],
     },
     {
@@ -1522,6 +1522,32 @@ function renderMasterPanel() {
     nameEl.setAttribute('fill', col); nameEl.setAttribute('pointer-events', 'none');
     nameEl.textContent = def.name;
     sg.appendChild(nameEl);
+
+    // Pour la reverb : afficher le type actuel + clic sur le nom pour cycler
+    if (def.id === 'reverb') {
+      const REVERB_TYPES = ['plate','room','hall','large','shimmer'];
+      const typeEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      typeEl.setAttribute('x', x+14); typeEl.setAttribute('y', y+27);
+      typeEl.setAttribute('font-family', "'DM Mono',monospace");
+      typeEl.setAttribute('font-size', '7');
+      typeEl.setAttribute('fill', col+'aa'); typeEl.setAttribute('pointer-events', 'none');
+      typeEl.textContent = (masterFX.reverb.type || 'hall').toUpperCase();
+      sg.appendChild(typeEl);
+      // Zone de clic sur le label pour cycler le type
+      const typeHit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      typeHit.setAttribute('x', x+margin); typeHit.setAttribute('y', y+margin);
+      typeHit.setAttribute('width', 50); typeHit.setAttribute('height', 22);
+      typeHit.setAttribute('fill', 'transparent'); typeHit.setAttribute('cursor', 'pointer');
+      typeHit.addEventListener('click', e => {
+        const cur = REVERB_TYPES.indexOf(masterFX.reverb.type || 'hall');
+        masterFX.reverb.type = REVERB_TYPES[(cur + 1) % REVERB_TYPES.length];
+        if (_masterNodes?.convReverb) _masterNodes.convReverb.setType(masterFX.reverb.type);
+        oledForce('REVERB TYPE', (masterFX.reverb.type).toUpperCase(), 'clic=suivant');
+        renderMasterPanel();
+        e.stopPropagation();
+      });
+      sg.appendChild(typeHit);
+    }
 
     const nP = def.params.length;
     const colW = (w - margin*2) / nP;
@@ -1885,6 +1911,7 @@ function renderFXPageAdvanced(ti, slotIdx) {
 // ── Events FX panel ────────────────────────────────────────────
 let _fxPressTimer = null;
 let _fxDrag = null;
+let _reverbRebuildTimer = null;
 
 function fxHandleDown(e) {
   const panel = document.getElementById('enginePanel');
@@ -1900,7 +1927,7 @@ function fxHandleDown(e) {
       const pi    = parseInt(n.getAttribute('data-mfxp'));
       const DEFS_MAP = {
         delay:  [ {key:'syncDiv',min:0,max:6,step:1,log:false,def:4}, {key:'sync',type:'toggle',def:true}, {key:'feedback',min:0,max:0.95,log:false,def:0.35}, {key:'filter',min:200,max:16000,log:true,def:4000} ],
-        reverb: [ {key:'roomSize',min:0,max:1,log:false,def:0.85}, {key:'damp',min:0,max:1,log:false,def:0.35}, {key:'width',min:0,max:1,log:false,def:0.75}, {key:'predelay',min:0,max:0.1,log:false,def:0.028} ],
+        reverb: [ {key:'size',min:0.3,max:4.0,log:false,def:2.2}, {key:'decay',min:0.1,max:1.0,log:false,def:0.6}, {key:'brightness',min:0,max:1,log:false,def:0.6}, {key:'predelay',min:0,max:0.1,log:false,def:0.028} ],
         comp:   [ {key:'threshold',min:-60,max:0,log:false,def:-18}, {key:'ratio',min:1,max:20,log:false,def:3}, {key:'attack',min:0.0005,max:1,log:true,def:0.010}, {key:'release',min:0.01,max:1,log:true,def:0.15} ],
         lim:    [ {key:'threshold',min:-20,max:0,log:false,def:-1}, {key:'release',min:0.005,max:1,log:true,def:0.05}, {key:'knee',min:0,max:10,log:false,def:2}, {key:'gain',min:-6,max:12,log:false,def:0} ],
       };
@@ -2100,7 +2127,23 @@ function fxHandleMove(e) {
     if (pDef.step) newVal = Math.round(newVal);
     masterFX[fxId][pDef.key] = newVal;
     if (fxId === 'delay') updateDelayTime();
-    applyMasterFX();
+
+    // Pour la reverb : brightness est instantané, size/decay sont debounced
+    if (fxId === 'reverb' && _masterNodes?.convReverb) {
+      if (pDef.key === 'brightness') {
+        _masterNodes.convReverb.setBrightness(newVal);
+      } else if (pDef.key === 'predelay') {
+        _masterNodes.reverbPre.delayTime.value = Math.max(0, Math.min(0.5, newVal));
+      } else {
+        // size/decay : debounce 200ms pour éviter rebuild à chaque pixel
+        clearTimeout(_reverbRebuildTimer);
+        _reverbRebuildTimer = setTimeout(() => {
+          if (_masterNodes?.convReverb) _masterNodes.convReverb.rebuild();
+        }, 200);
+      }
+    } else {
+      applyMasterFX();
+    }
 
     // Formatters complets pour tous les params
     const DEFS_FMT = {
@@ -2110,7 +2153,7 @@ function fxHandleMove(e) {
         v => Math.round(v*100)+'%',
         v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'Hz'
       ],
-      reverb: [ v => Math.round(v*100)+'%', v => Math.round(v*100)+'%', v => Math.round(v*100)+'%', v => Math.round(v*1000)+'ms' ],
+      reverb: [ v => v.toFixed(1)+'s', v => Math.round(v*100)+'%', v => Math.round(v*100)+'%', v => Math.round(v*1000)+'ms' ],
       comp:   [ v => Math.round(v)+'dB', v => Math.round(v)+':1', v => v<0.01?(v*1000).toFixed(1)+'ms':(v*1000).toFixed(0)+'ms', v => (v*1000).toFixed(0)+'ms' ],
       lim:    [ v => Math.round(v)+'dB', v => (v*1000).toFixed(0)+'ms', v => Math.round(v)+'dB', v => (v>=0?'+':'')+Math.round(v)+'dB' ],
     };
@@ -2236,7 +2279,7 @@ document.addEventListener('dblclick', e => {
       const pi   = parseInt(n.getAttribute('data-mfxp'));
       const MASTER_DEFS = {
         delay:  [ {key:'syncDiv',def:4}, {key:'sync'}, {key:'feedback',def:0.35}, {key:'filter',def:4000} ],
-        reverb: [ {key:'roomSize',def:0.85}, {key:'damp',def:0.35}, {key:'width',def:0.75}, {key:'predelay',def:0.028} ],
+        reverb: [ {key:'size',def:2.2}, {key:'decay',def:0.6}, {key:'brightness',def:0.6}, {key:'predelay',def:0.028} ],
         comp:   [ {key:'threshold',def:-18}, {key:'ratio',def:3}, {key:'attack',def:0.010}, {key:'release',def:0.15} ],
         lim:    [ {key:'threshold',def:-1}, {key:'release',def:0.05}, {key:'knee',def:2}, {key:'gain',def:0} ],
       };
@@ -2511,10 +2554,11 @@ const masterFX = {
     syncDiv:  4,       // 1/8d — dotted eighth
   },
   reverb: {
-    roomSize: 0.85,
-    damp:     0.35,
-    width:    0.75,
-    predelay: 0.028,   // 28ms
+    size:       2.2,    // durée de l'impulse en secondes (0.3 → 4.0)
+    decay:      0.6,    // vitesse d'atténuation (0=rapide, 1=lent)
+    brightness: 0.6,    // filtre haute fréquence sur le wet (0=sombre, 1=brillant)
+    predelay:   0.028,  // 28ms
+    type:       'hall', // plate | room | hall | large | shimmer
   },
   comp: {
     threshold: -18,
@@ -2569,13 +2613,11 @@ function getMasterNodes() {
   // ── REVERB send ───────────────────────────────────────────
   const reverbBusIn  = actx.createGain();
   const reverbPre    = actx.createDelay(0.5);   // predelay
-  const reverbWet    = actx.createGain();
   reverbPre.delayTime.value = masterFX.reverb.predelay;
-  reverbWet.gain.value = 1.0; // ouvert — le niveau est contrôlé par les sends de chaque track
-  const freeverb = createFreeverb();
+  const convReverb = createConvReverb();
   reverbBusIn.connect(reverbPre);
-  reverbPre.connect(freeverb.input);
-  freeverb.output.connect(reverbWet);
+  reverbPre.connect(convReverb.input);
+  convReverb.output.connect(mixBus);
 
   // ── COMPRESSEUR insert (toujours actif) ───────────────────
   const comp = actx.createDynamicsCompressor();
@@ -2604,7 +2646,7 @@ function getMasterNodes() {
   input.connect(masterGain);
   masterGain.connect(mixBus);
   delayWet.connect(mixBus);
-  reverbWet.connect(mixBus);
+  // convReverb.output est déjà connecté à mixBus dans le bloc REVERB ci-dessus
   mixBus.connect(comp);
   comp.connect(lim);
   lim.connect(limGain);
@@ -2613,7 +2655,7 @@ function getMasterNodes() {
   _masterNodes = {
     input, masterGain, mixBus,
     delayBusIn, delayNode, delayFB, delayFilter, delayWet,
-    reverbBusIn, reverbPre, freeverb, reverbWet,
+    reverbBusIn, reverbPre, convReverb,
     comp, lim, limGain,
   };
   return _masterNodes;
@@ -2626,78 +2668,154 @@ function getMaster() {
 function getDelayBus()  { return getMasterNodes().delayBusIn; }
 function getReverbBus() { return getMasterNodes().reverbBusIn; }
 
-// ── FREEVERB ─────────────────────────────────────────────────
-// Implémentation de l'algorithme Freeverb de Jezar at Dreampoint
-// Réseau de 8 filtres comb + 4 allpass en stéréo
-function createFreeverb() {
-  // Reverb algorithmique style Schroeder/Gardner
-  // Modifiable en temps réel sans reconstruire de buffer
-  const input  = actx.createGain();
-  const output = actx.createGain();
-  output.gain.value = 1;
+// ── REVERB À CONVOLUTION ─────────────────────────────────────────
+// Génération algorithmique d'impulse response — pas de fichier externe.
+// 5 types : plate, room, hall, large, shimmer
+// Paramètres : size (durée), decay (atténuation), brightness (filtre HF)
+function createConvReverb() {
+  const input      = actx.createGain();
+  const convolver  = actx.createConvolver();
+  convolver.normalize = false;
 
-  const sr = actx.sampleRate;
-  const room = masterFX.reverb.roomSize;
-  const dmp  = masterFX.reverb.damp;
+  // Filtre de brillance sur le wet (highshelf)
+  const brightFilter = actx.createBiquadFilter();
+  brightFilter.type = 'highshelf';
+  brightFilter.frequency.value = 3000;
+  brightFilter.gain.value = -12 + masterFX.reverb.brightness * 18; // -12dB→+6dB
 
-  // 8 filtres comb en parallèle (L+R légèrement différents pour la stéréo)
-  const COMB_MS  = [29.7, 37.1, 41.1, 43.7, 47.1, 53.5, 59.1, 61.3];
-  const combs = COMB_MS.map((ms, i) => {
-    const spread = (i % 2 === 0) ? 0 : 1.3; // spread stéréo léger
-    const delay  = actx.createDelay(0.2);
-    const fb     = actx.createGain();
-    const damp   = actx.createGain();   // simple gain pour le damping haute fréq simulé
-    delay.delayTime.value = (ms + spread) / 1000;
-    fb.gain.value         = Math.min(0.93, 0.7 + room * 0.25);
-    damp.gain.value       = 1 - dmp * 0.6;
-    input.connect(delay);
-    delay.connect(damp);
-    damp.connect(fb);
-    fb.connect(delay);   // boucle feedback
-    damp.connect(output);
-    return { delay, fb, damp };
-  });
+  input.connect(convolver);
+  convolver.connect(brightFilter);
 
-  // 4 allpass en série pour diffuser
-  const ALLPASS_MS = [5.0, 1.7, 10.0, 3.5];
-  let chain = output;
-  const allpasses = ALLPASS_MS.map(ms => {
-    const ap = actx.createDelay(0.05);
-    ap.delayTime.value = ms / 1000;
-    chain.connect(ap);
-    chain = ap;
-    return ap;
-  });
+  // Génère l'impulse response selon les paramètres courants
+  function buildIR() {
+    const fx   = masterFX.reverb;
+    const sr   = actx.sampleRate;
+    const len  = Math.max(0.3, Math.min(4.0, fx.size));
+    const nSamples = Math.floor(sr * len);
+    const decay = Math.max(0.1, Math.min(1.0, fx.decay));
+    const type  = fx.type || 'hall';
+    const buf   = actx.createBuffer(2, nSamples, sr);
 
-  // Sortie finale avec contrôle de width (volume du wet)
-  const wetOut = actx.createGain();
-  wetOut.gain.value = masterFX.reverb.width;
-  chain.connect(wetOut);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+
+      // Courbe d'enveloppe : exponentielle inverse
+      // decay=0 → très court (exp rapide), decay=1 → très long (exp lente)
+      const expK = 3 + (1 - decay) * 9; // 3 (lent) → 12 (rapide)
+
+      for (let i = 0; i < nSamples; i++) {
+        const t   = i / nSamples;           // 0→1
+        const env = Math.pow(1 - t, expK);  // déclin exponentiel
+
+        let sample;
+        switch (type) {
+
+          case 'plate':
+            // Dense dès le départ, peu de réflexions précoces, déclin régulier
+            sample = (Math.random() * 2 - 1) * env;
+            // Légère modulation pour le "métal vibrant"
+            sample *= 1 + 0.08 * Math.sin(i * 0.003 + ch * 1.2);
+            break;
+
+          case 'room':
+            // Réflexions précoces distinctes puis déclin rapide
+            if (t < 0.05) {
+              // Premières réflexions : quelques pics
+              sample = (Math.random() > 0.97 ? (Math.random() * 2 - 1) * 0.8 : 0) * env;
+            } else {
+              sample = (Math.random() * 2 - 1) * env * 0.5;
+            }
+            break;
+
+          case 'hall':
+            // Montée progressive (build-up), puis longue queue dense
+            {
+              const attack = Math.min(1, t / 0.08); // montée sur 8% de la durée
+              sample = (Math.random() * 2 - 1) * env * attack;
+              // Un peu de réflexions tardives sur le canal droit
+              if (ch === 1 && t > 0.1 && t < 0.15) sample *= 1.3;
+            }
+            break;
+
+          case 'large':
+            // Hall très large : montée lente, queue très longue et diffuse
+            {
+              const attack = Math.min(1, t / 0.15); // montée sur 15%
+              const diffusion = 1 + 0.15 * Math.sin(i * 0.0007 + ch * 2.3);
+              sample = (Math.random() * 2 - 1) * env * attack * diffusion;
+            }
+            break;
+
+          case 'shimmer':
+            // Base hall + composante harmonique (octave au-dessus simulée par modulation)
+            {
+              const attack = Math.min(1, t / 0.1);
+              const base   = (Math.random() * 2 - 1) * env * attack;
+              // Shimmer : modulation à fréquence élevée pour simuler le pitch-shift
+              const shimFreq = 0.0023 + ch * 0.0003;
+              const shim = Math.sin(i * shimFreq * Math.PI) * env * attack * 0.4;
+              sample = base * 0.7 + shim;
+            }
+            break;
+
+          default:
+            sample = (Math.random() * 2 - 1) * env;
+        }
+
+        // Stéréo spread : léger décalage de phase entre L et R
+        if (ch === 1) {
+          const spread = type === 'large' ? 0.12 : 0.06;
+          sample *= 1 + spread * Math.sin(i * 0.0011);
+        }
+
+        d[i] = sample;
+      }
+    }
+
+    // Normaliser pour éviter le clipping
+    let peak = 0;
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < nSamples; i++) peak = Math.max(peak, Math.abs(d[i]));
+    }
+    if (peak > 0) {
+      const scale = 0.7 / peak;
+      for (let ch = 0; ch < 2; ch++) {
+        const d = buf.getChannelData(ch);
+        for (let i = 0; i < nSamples; i++) d[i] *= scale;
+      }
+    }
+
+    convolver.buffer = buf;
+  }
+
+  // Générer l'impulse initiale
+  buildIR();
 
   return {
     input,
-    output: wetOut,
-    setRoomSize(v) {
-      // Modifie le gain feedback de tous les combs — instantané, zéro coupure
-      const fg = Math.min(0.93, 0.7 + v * 0.25);
-      combs.forEach(c => c.fb.gain.value = fg);
+    output: brightFilter,
+    rebuild() { buildIR(); },
+    setSize(v) {
+      masterFX.reverb.size = Math.max(0.3, Math.min(4.0, v));
+      buildIR();
     },
-    setDamp(v) {
-      // Modifie le gain de damping — instantané
-      const dg = 1 - v * 0.6;
-      combs.forEach(c => c.damp.gain.value = Math.max(0.1, dg));
+    setDecay(v) {
+      masterFX.reverb.decay = Math.max(0.1, Math.min(1.0, v));
+      buildIR();
     },
-    setWidth(v) {
-      wetOut.gain.value = v;
+    setBrightness(v) {
+      masterFX.reverb.brightness = Math.max(0, Math.min(1, v));
+      brightFilter.gain.value = -12 + v * 18;
+    },
+    setType(v) {
+      masterFX.reverb.type = v;
+      buildIR();
     },
     flush() {
-      // Coupe le feedback de tous les combs → vide les boucles instantanément
-      // Restaure les valeurs correctes 100ms après (le temps que les buffers se vident)
-      const savedFB = combs.map(c => c.fb.gain.value);
-      combs.forEach(c => { c.fb.gain.value = 0; });
-      setTimeout(() => {
-        combs.forEach((c, i) => { c.fb.gain.value = savedFB[i]; });
-      }, 100);
+      const silBuf = actx.createBuffer(2, 64, actx.sampleRate);
+      convolver.buffer = silBuf;
+      setTimeout(() => buildIR(), 50);
     },
   };
 }
@@ -2712,10 +2830,9 @@ function applyMasterFX() {
   n.delayFB.gain.value = Math.max(0, Math.min(0.99, fx.delay.feedback));
   n.delayFilter.frequency.value = Math.max(20, Math.min(20000, fx.delay.filter));
   if (n.reverbPre) n.reverbPre.delayTime.value = Math.max(0, Math.min(0.5, fx.reverb.predelay));
-  if (n.freeverb)  {
-    n.freeverb.setRoomSize(fx.reverb.roomSize);
-    n.freeverb.setDamp(fx.reverb.damp);
-    if (n.freeverb.setWidth) n.freeverb.setWidth(fx.reverb.width);
+  if (n.convReverb) {
+    n.convReverb.setBrightness(fx.reverb.brightness); // instantané, pas de rebuild
+    n.convReverb.rebuild();                            // rebuild unique avec tous les params actuels
   }
   n.comp.threshold.value = fx.comp.threshold;
   n.comp.ratio.value     = Math.max(1, fx.comp.ratio);
@@ -3837,7 +3954,7 @@ function stopPlay() {
     _masterNodes.reverbWet.gain.setTargetAtTime(0, t0, 0.4);   // décroît en ~1.5s
     _masterNodes.delayWet.gain.setTargetAtTime(0, t0, 0.4);
     // Vider les boucles comb de la freeverb instantanément
-    if (_masterNodes.freeverb?.flush) _masterNodes.freeverb.flush();
+    if (_masterNodes.convReverb?.flush) _masterNodes.convReverb.flush();
     // Restaurer les gains après que la queue soit éteinte
     setTimeout(() => {
       if (_masterNodes) {
