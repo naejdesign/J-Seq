@@ -439,14 +439,12 @@ body {
     <!-- Sélecteur octave -->
     <g id="octaveSelector" transform="translate(0, 0)">
       <g id="btnOctUp" cursor="pointer">
-        <rect id="svgOctUpRect" x="0" y="0" width="52" height="34" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
-        <path d="M26 8 L14 22 L38 22 Z" fill="#888"/>
+        <rect id="svgOctUpRect" x="0" y="0" width="52" height="46" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
+        <path d="M26 14 L14 32 L38 32 Z" fill="#888"/>
       </g>
-      <rect x="0" y="37" width="52" height="23" rx="3" fill="#111" stroke="#2a2a2a" stroke-width="0.8"/>
-      <text id="octaveDisplay" x="26" y="53" text-anchor="middle" font-family="'DM Mono',monospace" font-size="11" font-weight="600" fill="#fff">0</text>
       <g id="btnOctDown" cursor="pointer">
-        <rect id="svgOctDownRect" x="0" y="63" width="52" height="34" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
-        <path d="M26 89 L14 75 L38 75 Z" fill="#888"/>
+        <rect id="svgOctDownRect" x="0" y="51" width="52" height="46" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
+        <path d="M26 83 L14 65 L38 65 Z" fill="#888"/>
       </g>
     </g>
 
@@ -8468,7 +8466,8 @@ function buildPiano() {
   }
   // Affichage octave relatif
   const octStr = S.pianoOctave === 0 ? '0' : (S.pianoOctave > 0 ? '+' + S.pianoOctave : '' + S.pianoOctave);
-  document.getElementById('octaveDisplay').textContent = octStr;
+  const octDisp2 = document.getElementById('octaveDisplay');
+  if (octDisp2) octDisp2.textContent = octStr;
   illuminatePianoNotes();
 }
 
