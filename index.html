@@ -8289,14 +8289,14 @@ document.addEventListener('mousemove', e => {
     const delta = dy + dx;
     if (Math.abs(delta) < 2) return;
     const t = S.tracks[S.currentTrack];
-    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 150));
+    // Course longue (400px pour 0→100%) — progression linéaire, niveau global contrôlé par reverbWet/delayWet
+    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 400));
     if (t.mode === 'drum') {
       if (!t.drumPads) return;
       t.drumPads[S.selectedDrumPad][def.key] = newVal;
       oledForce(def.label + ' SEND', Math.round(newVal * 100) + '%', `Pad ${S.selectedDrumPad + 1}`);
     } else {
       t[def.key] = newVal;
-      // Mettre à jour le GainNode send en temps réel
       const nodes = trackSendNodes[S.currentTrack];
       if (nodes) {
         if (def.key === 'sendDelay')  nodes.dSend.gain.value = newVal;
