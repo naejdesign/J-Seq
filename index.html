@@ -2852,50 +2852,35 @@ function drumSynth(pad, vel, dest) {
 
   const masterOut = dest || getMaster();
 
-  // Nœud intermédiaire : synth → drive → tone filter → gainOut → dest
-  // Le gainOut est ramené à 0 juste avant la fin pour éviter tout clic à la déconnexion.
-  // La déconnexion se fait via onended sur la source, sans setTimeout.
+  // Nœud intermédiaire : sourceNode → preGain → [saturation douce] → tone filter → gOut → masterOut
+  // Le drive est implémenté via un preGain élevé + compression douce, SANS WaveShaper.
+  // Aucune allocation dynamique de WaveShaper = aucun clic, aucun GC.
   function buildChain(sourceNode) {
+    // preGain : amplifie le signal avant le filtre (effet "drive" doux)
     const g = actx.createGain();
-    g.gain.value = 1;
+    // Avec drive, on préamplifie : drv=0 → gain=1, drv=1 → gain=8
+    g.gain.value = drv > 0.02 ? 1 + drv * 7 : 1;
     sourceNode.connect(g);
-    let node = g;
-    const chainNodes = [g];
-    if (drv > 0.02) {
-      const ws = actx.createWaveShaper();
-      const k  = drv * 80, n = 256, c = new Float32Array(n);
-      for (let i = 0; i < n; i++) {
-        const x = (i * 2) / n - 1;
-        c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
-      }
-      ws.curve = c; ws.oversample = '2x';
-      node.connect(ws); node = ws;
-      chainNodes.push(ws);
-    }
-    // Gain de sortie final — on peut le ramener à 0 proprement avant déco
-    const gOut = actx.createGain();
-    gOut.gain.value = 1;
-    node.connect(gOut);
-    chainNodes.push(gOut);
-    gOut.connect(masterOut);
 
-    // Tone filter remplacé par un filtre branché sur gOut→masterOut
-    // (applyToneFilter connecte directement, on réorganise)
-    // On branche le filtre entre node et gOut
-    // → reconstruire : node → filter → gOut → masterOut
-    // Annuler la connexion node→gOut et refaire avec filtre
-    node.disconnect(gOut);
+    // Tone filter
     const f = actx.createBiquadFilter();
     f.type = 'lowpass';
     const freq = 200 * Math.pow(90, tone);
     f.frequency.setValueAtTime(freq, actx.currentTime);
     const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
     f.Q.setValueAtTime(q, actx.currentTime);
-    node.connect(f);
-    f.connect(gOut);
-    chainNodes.push(f);
+    g.connect(f);
 
-    // Cleanup via onended : fade-out 10ms puis déconnexion propre
+    // Gain de sortie final — compense le preGain pour maintenir le niveau
+    // et sert de fade-out propre avant déconnexion
+    const gOut = actx.createGain();
+    gOut.gain.value = drv > 0.02 ? 1 / (1 + drv * 4) : 1; // compensation niveau
+    f.connect(gOut);
+    gOut.connect(masterOut);
+
+    const chainNodes = [g, f, gOut];
+
+    // Cleanup via onended : fade-out 20ms puis déconnexion propre, sans clic
     const prevOnEnded = sourceNode.onended;
     sourceNode.onended = () => {
       if (prevOnEnded) prevOnEnded();
@@ -3189,20 +3174,10 @@ function drumSample(pad, vel, dest) {
   g.gain.value = vel;
   s.connect(g);
 
-  // Drive
-  let node = g;
-  const chainNodes = [g];
-  if (drv > 0.02) {
-    const ws = actx.createWaveShaper();
-    const k  = drv * 80, n = 256, c = new Float32Array(n);
-    for (let i = 0; i < n; i++) {
-      const x = (i * 2) / n - 1;
-      c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
-    }
-    ws.curve = c; ws.oversample = '2x';
-    node.connect(ws); node = ws;
-    chainNodes.push(ws);
-  }
+  // Drive : preGain élevé + compensation niveau — sans WaveShaper, sans clic
+  const preGain = drv > 0.02 ? 1 + drv * 7 : 1;
+  const postGain = drv > 0.02 ? 1 / (1 + drv * 4) : 1;
+  g.gain.value = vel * preGain;
 
   // Filtre tone
   const filt = actx.createBiquadFilter();
@@ -3210,15 +3185,13 @@ function drumSample(pad, vel, dest) {
   filt.frequency.setValueAtTime(200 * Math.pow(90, tone), t);
   const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
   filt.Q.setValueAtTime(q, t);
-  node.connect(filt);
-  chainNodes.push(filt);
+  g.connect(filt);
 
-  // Gain de sortie final pour fade-out propre avant déconnexion
+  // Gain de sortie final
   const gOut = actx.createGain();
-  gOut.gain.value = 1;
+  gOut.gain.value = postGain;
   filt.connect(gOut);
   gOut.connect(masterOut);
-  chainNodes.push(gOut);
 
   s.start(t, startSec);
 
@@ -3228,8 +3201,10 @@ function drumSample(pad, vel, dest) {
     gOut.gain.setValueAtTime(gOut.gain.value, now);
     gOut.gain.linearRampToValueAtTime(0, now + 0.02);
     setTimeout(() => {
-      chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
       try { s.disconnect(); } catch(e) {}
+      try { g.disconnect(); } catch(e) {}
+      try { filt.disconnect(); } catch(e) {}
+      try { gOut.disconnect(); } catch(e) {}
     }, 30);
   };
 }
