@@ -2098,10 +2098,11 @@ function fxHandleDown(e) {
       e.stopPropagation(); e.preventDefault();
       return true;
     }
-    // Slot page principale — long press = page avancée (pas pour l'Arp, pas pour le Master)
+    // Slot page principale — long press = page avancée (pas pour l'Arp, pas pour le Master, pas pour le Drum)
     if (n.getAttribute('data-fxslot') !== null && fxPage === 'main' && n.getAttribute('data-fxparam') === null) {
-      // Bloquer complètement sur la piste Master
-      if (S.tracks[S.currentTrack].mode === 'master') return false;
+      // Bloquer sur piste Master et Drum
+      const curMode = S.tracks[S.currentTrack].mode;
+      if (curMode === 'master' || curMode === 'drum') return false;
       const slotIdx = parseInt(n.getAttribute('data-fxslot'));
       const def = FX_DEFS[slotIdx];
       if (!def) return false;
@@ -2128,6 +2129,16 @@ function fxHandleDown(e) {
 }
 
 function fxHandleUp(e) {
+  // Ignorer si le clic vient d'un pad drum — géré par son propre handler
+  let el = e.target;
+  for (let n = el; n && n !== document; n = n.parentNode) {
+    if (n.getAttribute && n.getAttribute('data-drumpad') !== null) {
+      _fxPressTimer !== null && clearTimeout(_fxPressTimer);
+      _fxPressTimer = null;
+      _fxDrag = null;
+      return;
+    }
+  }
   if (_fxDrag?.isMaster) {
     _fxDrag = null;
     S._oledLocked = false;
@@ -3359,20 +3370,25 @@ function drumSample(pad, vel, dest) {
   const drv       = Math.max(0, Math.min(1, pad.drive || 0));
   const masterOut = dest || getMaster();
 
+  // Decay : 0=très court (0.05s), 1=sample entier
+  const decayVal  = Math.max(0, Math.min(1, pad.decay ?? 0.5));
+  const sampleDur = pad.buffer.duration / (tuneRatio || 1);
+  // decayVal=0 → 50ms, decayVal=1 → durée totale du sample
+  const decSec    = 0.05 + decayVal * (sampleDur - 0.05);
+
   const s = actx.createBufferSource();
   s.buffer = pad.buffer;
-  // Reverse : on joue à l'envers via playbackRate négatif n'est pas supporté — on utilise l'offset
   s.playbackRate.value = tuneRatio;
 
   const startSec = (pad.startPoint || 0) * pad.buffer.duration;
 
-  // Gain
   const g = actx.createGain();
-  g.gain.value = vel;
-  s.connect(g);
-
-  // Drive : preGain fort + DynamicsCompressor comme saturateur
   g.gain.value = vel * (drv > 0.02 ? Math.pow(100, drv) : 1);
+  // Enveloppe decay sur le gain
+  g.gain.setValueAtTime(g.gain.value, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+  g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+  s.connect(g);
 
   let driveNode = g;
   if (drv > 0.02) {
@@ -3386,7 +3402,6 @@ function drumSample(pad, vel, dest) {
     driveNode = comp;
   }
 
-  // Filtre tone
   const filt = actx.createBiquadFilter();
   filt.type = 'lowpass';
   filt.frequency.setValueAtTime(200 * Math.pow(90, tone), t);
@@ -3394,15 +3409,15 @@ function drumSample(pad, vel, dest) {
   filt.Q.setValueAtTime(q, t);
   driveNode.connect(filt);
 
-  // Gain de sortie final
   const gOut = actx.createGain();
   gOut.gain.value = 1;
   filt.connect(gOut);
   gOut.connect(masterOut);
 
   s.start(t, startSec);
+  // Stopper le sample à la fin du decay (évite de lire inutilement)
+  s.stop(t + decSec + 0.04);
 
-  // Cleanup via onended : fade-out 20ms puis déconnexion propre, sans clic
   s.onended = () => {
     const now = actx.currentTime;
     gOut.gain.setValueAtTime(gOut.gain.value, now);
@@ -8111,7 +8126,17 @@ function updateEncArcs() {
     if (lbl) { lbl.textContent = text; lbl.setAttribute('fill', color); }
   }
 
-  // ── Step tenu : priorité maximale, toutes tracks ───────────────
+  // ── Mode master : masquer tous les encodeurs, step tenu ou non ──
+  if (t.mode === 'master') {
+    for (let i = 0; i < 6; i++) {
+      hideArc('encArc' + i);
+      setEncRing(i, false, col);
+      setLabel(i, '', '#2a2a2a');
+    }
+    return;
+  }
+
+  // ── Step tenu : priorité maximale, toutes tracks sauf master ───
   const res = getHeldSt();
   const hasStep = res && res.st.on;
 
@@ -8155,16 +8180,6 @@ function updateEncArcs() {
     setEncRing(3, true, col); setLabel(3, 'DRIVE', col);
     setArcUni('encArc3', pad.drive ?? 0, col);
 
-    return;
-  }
-
-  // ── Mode master : masquer tous les labels encodeurs ──────────
-  if (t.mode === 'master') {
-    for (let i = 0; i < 6; i++) {
-      hideArc('encArc' + i);
-      setEncRing(i, false, col);
-      setLabel(i, '', '#2a2a2a');
-    }
     return;
   }
 
@@ -8632,7 +8647,7 @@ function updatePianoOctaveIndicators() {
 
   let hasAbove = false, hasBelow = false;
   const t = S.tracks[S.currentTrack];
-  if (t.mode !== 'drum') {
+  if (t.mode !== 'drum' && t.mode !== 'master') {
     const clip = activeClip();
     for (let b = 0; b < clip.numBars; b++) {
       for (const st of clip.bars[b]) {
@@ -8878,17 +8893,30 @@ function midiCC(cc, value) {
     if (anyStepHeld()) {
       const res = getHeldSt();
       if (res && res.st.on) {
-        const clip = activeClip();
-        const totalSteps = clip.numBars * 16;
-        const absPos = S.currentBar * 16 + res.idx;
-        const maxLen = totalSteps - absPos;
-        const cur    = res.st.len || 1;
-        res.st.len   = Math.max(1, Math.min(maxLen, cur + d));
-        showNoteLengthFeedback(res.idx, true, res.st.len);
-        oledForce(`STEP ${res.idx+1}`, `${res.st.len} step${res.st.len>1?'s':''}`,
-                  `= ${(res.st.len * stepDur()).toFixed(2)}s`);
-        if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
-        updateEncArcs();
+        const isMasterTrack = S.tracks[S.currentTrack].mode === 'master';
+        if (isMasterTrack) {
+          // Master : modifier le BPM du step
+          const cur = res.st.note || S.bpm;
+          const newBpm = Math.max(20, Math.min(300, cur + d));
+          res.st.note = newBpm;
+          if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+          renderSteps();
+          oledForce(`STEP ${res.idx+1}`, `${newBpm} BPM`, `Bar ${S.currentBar+1}`);
+          flashKnob('wheel');
+        } else {
+          // Autres tracks : modifier la longueur du step
+          const clip = activeClip();
+          const totalSteps = clip.numBars * 16;
+          const absPos = S.currentBar * 16 + res.idx;
+          const maxLen = totalSteps - absPos;
+          const cur    = res.st.len || 1;
+          res.st.len   = Math.max(1, Math.min(maxLen, cur + d));
+          showNoteLengthFeedback(res.idx, true, res.st.len);
+          oledForce(`STEP ${res.idx+1}`, `${res.st.len} step${res.st.len>1?'s':''}`,
+                    `= ${(res.st.len * stepDur()).toFixed(2)}s`);
+          if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+          updateEncArcs();
+        }
       }
     } else if (S.mode === 'loop' && S._loopBarHeld >= 0) {
       loopBarVelocityDelta(d * 4);
