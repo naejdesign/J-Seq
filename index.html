@@ -1470,7 +1470,7 @@ function renderMasterPanel() {
     {
       id:'reverb', name:'REVERB', slots:[2,3], col:'#58f',
       params: [
-        { key:'type',       label:'Type',   type:'typesel', fmt: v => (v||'hall').toUpperCase() },
+        { key:'type',       label:'Type',   type:'typesel', fmt: v => (v||'hall1').toUpperCase() },
         { key:'decay',      label:'Decay',  fmt: v => v.toFixed(1)+'s', min:0.3, max:6.0 },
         { key:'brightness', label:'Bright', fmt: v => Math.round(v*100)+'%', min:0, max:1 },
         { key:'predelay',   label:'PreDly', fmt: v => Math.round(v*1000)+'ms', min:0, max:0.1 },
@@ -1521,7 +1521,7 @@ function renderMasterPanel() {
     nameEl.textContent = def.name;
     sg.appendChild(nameEl);
 
-    const REVERB_TYPES = ['plate','room','hall','large','shimmer'];
+    const REVERB_TYPES = ['plate1','plate2','room1','room2','hall1','hall2','space'];
     const nP = def.params.length;
     const colW = (w - margin*2) / nP;
     const yBase = y + 28;
@@ -2628,7 +2628,7 @@ const masterFX = {
     decay:      1.8,    // RT60 en secondes — hall medium
     brightness: 0.55,   // légèrement sombre, naturel
     predelay:   0.020,  // 20ms
-    type:       'hall',
+    type:       'hall1',
   },
   comp: {
     threshold: -18,
@@ -2764,15 +2764,17 @@ function createConvReverb() {
 
   // Charge une IR depuis un fichier WAV, avec fallback sur le générateur JS
   async function loadIR(type) {
-    // Mapping type → fichier
+    // Mapping type → fichier IR (OpenAIR)
     const IR_FILES = {
-      hall:    'reverb_hall.wav',
-      large:   'reverb_hall.wav',   // même IR, decay plus long via paramètre
-      plate:   'reverb_plate.wav',
-      room:    'reverb_plate.wav',  // plate plus courte = room
-      shimmer: 'reverb_hall.wav',   // hall avec brightness élevée
+      'plate1':  'plate1.wav',
+      'plate2':  'plate2.wav',
+      'room1':   'room1.wav',
+      'room2':   'room2.wav',
+      'hall1':   'hall1.wav',
+      'hall2':   'hall2.wav',
+      'space':   'space.wav',
     };
-    const file = IR_FILES[type] || 'reverb_hall.wav';
+    const file = IR_FILES[type] || 'hall1.wav';
     if (_irCache[file]) return _irCache[file];
     try {
       const resp = await fetch(file);
@@ -2811,7 +2813,7 @@ function createConvReverb() {
   // Charge et applique l'IR selon le type et le decay courants
   async function buildIR() {
     const fx   = masterFX.reverb;
-    const type = fx.type || 'hall';
+    const type = fx.type || 'hall1';
     // Mettre un buffer silence pendant le chargement
     const silBuf = actx.createBuffer(2, 64, actx.sampleRate);
     convolver.buffer = silBuf;
