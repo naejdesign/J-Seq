@@ -6310,18 +6310,25 @@ for (let i = 0; i < 16; i++) {
   }, { passive: false });
 
   svgEl.addEventListener('touchmove', function(e) {
+    // Trouver le touch avec le plus grand déplacement total — c'est lui qui draggue
+    // Les autres (step tenu, micro-mouvements) sont ignorés pour document
+    let maxDist = 0, dragTouch = null;
+    for (const t of e.changedTouches) {
+      const info = touchTargets[t.identifier];
+      if (info) {
+        const dy = Math.abs(t.clientY - info.startY);
+        const dx = Math.abs(t.clientX - info.startX);
+        const dist = dy + dx;
+        if (dist > maxDist) { maxDist = dist; dragTouch = t; }
+      }
+    }
     for (const t of e.changedTouches) {
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
-      // Toujours dispatcher sur la cible directe (pour les éléments qui gèrent leur propre mousemove)
       origTarget.dispatchEvent(makeMouse('mousemove', t));
-      // Dispatcher sur document UNIQUEMENT pour le touch qui drag
-      // Si un drag est actif : seul ce touch-là compte
-      // Si aucun drag : tous les touches sauf le step hold
-      if (window._dragTouchId !== null) {
-        if (t.identifier === window._dragTouchId)
-          document.dispatchEvent(makeMouse('mousemove', t));
-      } else if (t.identifier !== _stepHoldTouchId) {
+      // Dispatcher sur document seulement pour le touch qui bouge le plus
+      // ET seulement s'il bouge vraiment (> 2px) pour filtrer les micro-tremblements
+      if (t === dragTouch && maxDist > 2) {
         document.dispatchEvent(makeMouse('mousemove', t));
       }
     }
