@@ -8538,6 +8538,8 @@ function midiOnMessage(e) {
 }
 
 function midiCC(cc, value) {
+  // DEBUG temporaire
+  oledForce(`midiCC`, `cc=${cc} val=${value}`, '→ entry');
   // ── CC0 → joystick X-axis — ignoré ──
   if (cc === 0) return;
 
