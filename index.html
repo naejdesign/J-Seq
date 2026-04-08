@@ -1948,11 +1948,14 @@ function renderFXPageAdvanced(ti, slotIdx) {
 // ── Events FX panel ────────────────────────────────────────────
 let _fxPressTimer = null;
 let _fxDrag = null;
+let _fxLastTap = {}; // double-tap reset sur encodeurs FX et master
 let _reverbRebuildTimer = null;
 
 function fxHandleDown(e) {
   const panel = document.getElementById('enginePanel');
   if (!panel || panel.getAttribute('visibility') === 'hidden') return false;
+
+  const now = Date.now();
 
   let el = e.target;
   for (let n = el; n && n !== document; n = n.parentNode) {
@@ -1964,7 +1967,7 @@ function fxHandleDown(e) {
       const pi    = parseInt(n.getAttribute('data-mfxp'));
       const DEFS_MAP = {
         delay:  [ {key:'syncDiv',min:0,max:6,step:1,log:false,def:4}, {key:'sync',type:'toggle',def:true}, {key:'feedback',min:0,max:0.95,log:false,def:0.35}, {key:'filter',min:200,max:16000,log:true,def:4000} ],
-        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.3,max:6.0,log:false,def:2.2}, {key:'brightness',min:0,max:1,log:false,def:0.6}, {key:'predelay',min:0,max:0.1,log:false,def:0.028} ],
+        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.3,max:6.0,log:false,def:1.8}, {key:'brightness',min:0,max:1,log:false,def:0.55}, {key:'predelay',min:0,max:0.1,log:false,def:0.020} ],
         comp:   [ {key:'threshold',min:-60,max:0,log:false,def:-18}, {key:'ratio',min:1,max:20,log:false,def:3}, {key:'attack',min:0.0005,max:1,log:true,def:0.010}, {key:'release',min:0.01,max:1,log:true,def:0.15} ],
         lim:    [ {key:'threshold',min:-20,max:0,log:false,def:-1}, {key:'release',min:0.005,max:1,log:true,def:0.05}, {key:'knee',min:0,max:10,log:false,def:2}, {key:'gain',min:-6,max:12,log:false,def:0} ],
       };
@@ -1978,10 +1981,25 @@ function fxHandleDown(e) {
         e.stopPropagation(); e.preventDefault();
         return true;
       }
+      // Double-tap → reset à la valeur par défaut
+      const tapKey = `mfx_${fxId}_${pi}`;
+      if (_fxLastTap[tapKey] && now - _fxLastTap[tapKey] < 350) {
+        _fxLastTap[tapKey] = 0;
+        if (pDef.def !== undefined) {
+          masterFX[fxId][pDef.key] = pDef.def;
+          if (fxId === 'delay') updateDelayTime();
+          if (fxId === 'reverb') applyMasterFX();
+          else applyMasterFX();
+          renderMasterPanel();
+          oledForce('RESET', pDef.key.toUpperCase(), fxId.toUpperCase());
+        }
+        e.stopPropagation(); e.preventDefault();
+        return true;
+      }
+      _fxLastTap[tapKey] = now;
       _fxDrag = {
         isMaster: true, fxId, pi, pDef,
         startY: e.clientY, startX: e.clientX,
-        // En mode free pour syncDiv, startVal = delay.time (secondes), pas l'index
         startVal: (fxId === 'delay' && pDef.key === 'syncDiv' && !masterFX.delay.sync)
           ? masterFX.delay.time
           : masterFX[fxId][pDef.key]
@@ -2060,6 +2078,22 @@ function fxHandleDown(e) {
         e.stopPropagation(); e.preventDefault();
         return true;
       }
+
+      // Double-tap → reset à la valeur par défaut
+      const tapKeyFX = `fx_${slotIdx}_${paramIdx}`;
+      if (_fxLastTap[tapKeyFX] && now - _fxLastTap[tapKeyFX] < 350) {
+        _fxLastTap[tapKeyFX] = 0;
+        if (p.def !== undefined) {
+          fxSetParam(S.currentTrack, slotIdx, p.key, p.def);
+          if (fxPage === 'main') renderFXPageMain(S.currentTrack);
+          else renderFXPageAdvanced(S.currentTrack, slotIdx);
+          oledForce('RESET', p.name || p.key, def.name);
+        }
+        e.stopPropagation(); e.preventDefault();
+        return true;
+      }
+      _fxLastTap[tapKeyFX] = now;
+
       _fxDrag = { slotIdx, paramIdx, p, ti: S.currentTrack, startY: e.clientY, startX: e.clientX, startVal: slot.params[p.key] ?? p.def };
       e.stopPropagation(); e.preventDefault();
       return true;
@@ -2316,7 +2350,7 @@ document.addEventListener('dblclick', e => {
       const pi   = parseInt(n.getAttribute('data-mfxp'));
       const MASTER_DEFS = {
         delay:  [ {key:'syncDiv',def:4}, {key:'sync'}, {key:'feedback',def:0.35}, {key:'filter',def:4000} ],
-        reverb: [ {key:'decay',def:2.2}, {key:'brightness',def:0.6}, {key:'predelay',def:0.028} ],
+        reverb: [ {key:'decay',def:1.8}, {key:'brightness',def:0.55}, {key:'predelay',def:0.020} ],
         comp:   [ {key:'threshold',def:-18}, {key:'ratio',def:3}, {key:'attack',def:0.010}, {key:'release',def:0.15} ],
         lim:    [ {key:'threshold',def:-1}, {key:'release',def:0.05}, {key:'knee',def:2}, {key:'gain',def:0} ],
       };
@@ -2591,10 +2625,10 @@ const masterFX = {
     syncDiv:  4,       // 1/8d — dotted eighth
   },
   reverb: {
-    decay:      2.2,    // RT60 en secondes (0.3 → 6.0) — contrôle longueur + atténuation
-    brightness: 0.6,    // filtre haute fréquence sur le wet (0=sombre, 1=brillant)
-    predelay:   0.028,  // 28ms
-    type:       'hall', // plate | room | hall | large | shimmer
+    decay:      1.8,    // RT60 en secondes — hall medium
+    brightness: 0.55,   // légèrement sombre, naturel
+    predelay:   0.020,  // 20ms
+    type:       'hall',
   },
   comp: {
     threshold: -18,
@@ -11571,6 +11605,40 @@ requestAnimationFrame(pollGamepad);
           window._touchTargets[touch.identifier] = { target: el, startX: touch.clientX, startY: touch.clientY };
         }
         el.dispatchEvent(new MouseEvent('mousedown', {
+          bubbles: true, cancelable: true,
+          clientX: touch.clientX, clientY: touch.clientY,
+          button: 0, buttons: 1
+        }));
+      }
+      e.preventDefault();
+      e.stopPropagation();
+    }, true);
+  }
+
+  // encVol — double-tap → reset volume master à 0.65
+  const elVol = document.getElementById('encVol');
+  if (elVol) {
+    function handleVolDoubleTap(e) {
+      const now = Date.now();
+      if (_tap['encVol'] && now - _tap['encVol'] < 350) {
+        _tap['encVol'] = 0;
+        setMasterVolume(0.65);
+        oledForce('VOL MASTER', '65%', 'RESET');
+        e.preventDefault();
+      } else {
+        _tap['encVol'] = now;
+      }
+    }
+    elVol.addEventListener('mousedown', handleVolDoubleTap, true);
+    elVol.addEventListener('touchstart', function(e) {
+      handleVolDoubleTap(e);
+      if (e.defaultPrevented) { e.stopPropagation(); return; }
+      const touch = e.changedTouches[0];
+      if (touch) {
+        if (window._touchTargets) {
+          window._touchTargets[touch.identifier] = { target: elVol, startX: touch.clientX, startY: touch.clientY };
+        }
+        elVol.dispatchEvent(new MouseEvent('mousedown', {
           bubbles: true, cancelable: true,
           clientX: touch.clientX, clientY: touch.clientY,
           button: 0, buttons: 1
