@@ -8681,8 +8681,8 @@ function midiCC(cc, value) {
 
   // ── CC77 → Encodeur Volume master (ou vélocité step si tenu) ──
   if (cc === 77) {
-    const d = relDelta(value, 1 / 20);
     if (anyStepHeld()) {
+      const d = relDelta(value, 1 / 60); // step velocity : 60 ticks pour traverser
       const res = getHeldSt();
       if (res && res.st.on) {
         const cur = res.st.vel ?? 0.8;
@@ -8690,13 +8690,15 @@ function midiCC(cc, value) {
         oledForce(`STEP ${res.idx+1}`, `VÉL: ${Math.round(res.st.vel*127)}`,
                   `(${Math.round(res.st.vel*100)}%)`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
-        updateEncArcs(); // synchroniser l'arc enc1 (Velocity)
+        updateEncArcs();
       }
     } else if (S._heldTrack >= 0) {
+      const d = relDelta(value, 1 / 100); // volume track : 100 ticks → 1% par tick
       const t = S.tracks[S._heldTrack];
       t.volume = Math.max(0, Math.min(1, t.volume + d));
       oledForce(`VOL T${S._heldTrack+1}`, `${Math.round(t.volume*100)}%`, '');
     } else {
+      const d = relDelta(value, 1 / 100); // volume master : 100 ticks → 1% par tick
       setMasterVolume(S.masterVolume + d);
     }
     return;
@@ -8747,9 +8749,104 @@ function midiCC(cc, value) {
     setTimeout(() => setModeButtonLit(false), 150);
     return;
   }
-  if (cc === 116) {
-    // Clic molette via MIDI — afficher BPM
-    oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
+  if (cc === 115 || cc === 116) {
+    // Navigation preset : CC115=précédent, CC116=suivant
+    const ti = S.currentTrack;
+    const t  = S.tracks[ti];
+    // Pas d'action sur drum (T1) ni master (T8)
+    if (t.mode === 'drum' || t.mode === 'master') return;
+    if (!sf2Browser.catalogue || !sf2Browser.catalogue.length) {
+      oledForce('SF2', 'Pas de catalogue', 'charger un dossier');
+      return;
+    }
+
+    const delta = (cc === 115) ? -1 : 1;
+    const browserOpen = document.getElementById('sf2Browser').classList.contains('open');
+
+    // Construire la liste de navigation : si browser ouvert → currentFiltered,
+    // sinon les sons de la catégorie du son actif (ou catégorie 0 si rien)
+    const ts = trackSF2[ti];
+    let list;
+    if (browserOpen) {
+      list = sf2Browser.currentFiltered;
+    } else {
+      const activeEntry = sf2Browser.catalogue.find(s => s.file === ts.sfName);
+      const activeCat = activeEntry?.category || sf2Browser.categories[0];
+      list = sf2Browser.catalogue.filter(s => s.category === activeCat);
+    }
+    if (!list || !list.length) return;
+
+    let curIdx = list.findIndex(s => s.file === ts.sfName);
+    if (curIdx < 0) curIdx = delta > 0 ? -1 : list.length;
+    const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
+    if (newIdx === curIdx) return; // déjà au bout
+
+    const sound = list[newIdx];
+    if (!sound) return;
+
+    if (browserOpen) {
+      // Browser ouvert : simuler un clic (preview + chargement debounced)
+      sf2SoundClick(newIdx);
+      // Scroll vers l'item dans la liste
+      const items = document.querySelectorAll('#sf2PresetList .brItem');
+      if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+    } else {
+      // Browser fermé : feedback OLED immédiat + chargement debounced
+      oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0, 12),
+                (sound.category || '').slice(0, 12));
+      clearTimeout(sf2Browser.previewDebounce);
+      sf2Browser.previewDebounce = setTimeout(async () => {
+        sf2Browser.previewDebounce = null;
+        sf2Browser.trackIdx = ti;
+        // Charger le SF2 si nécessaire (utilise le mécanisme interne)
+        const name = sound.file;
+        let bankData = sf2BankCache[ti][name];
+        if (!bankData && sf2TempBank[ti]?.name === name) {
+          bankData = { sfontId: sf2TempBank[ti].sfontId, presets: sf2TempBank[ti].presets };
+        }
+        if (!bankData) {
+          // Charger via le même chemin que le browser (file handle ou fallback)
+          try {
+            let file;
+            if (sf2Browser.useFileHandles) {
+              const handle = sf2Browser.fileHandles[name];
+              if (!handle) { console.warn('[SF2] Handle introuvable :', name); return; }
+              file = await handle.getFile();
+            } else {
+              file = sf2Browser.fallbackFiles[name];
+              if (!file) { console.warn('[SF2] Fichier introuvable :', name); return; }
+            }
+            const buf     = await file.arrayBuffer();
+            const sfontId = await jsSynths[ti].loadSFont(buf);
+            const presets = sf2GetPresets(ti, sfontId);
+            bankData = { sfontId, presets };
+            sf2BankCache[ti][name] = bankData;
+          } catch(e) {
+            console.error('[SF2] Erreur chargement CC115/116 :', e);
+            return;
+          }
+        } else if (sf2TempBank[ti]?.name === name) {
+          // Promouvoir le temp en cache
+          sf2BankCache[ti][name] = bankData;
+          sf2TempBank[ti] = null;
+        }
+
+        // Sélectionner le preset (premier du SF2)
+        const oldName = trackSF2[ti].sfName;
+        const preset = bankData.presets?.[0] ?? { bank: 0, program: 0 };
+        trackSF2[ti].sfName  = name;
+        trackSF2[ti].sfontId = bankData.sfontId;
+        trackSF2[ti].presets = bankData.presets;
+        trackSF2[ti].bank    = preset.bank;
+        trackSF2[ti].program = preset.program;
+        try { jsSynths[ti].midiProgramSelect(SF2_CHANNEL, bankData.sfontId, preset.bank, preset.program); } catch(e) {}
+        S.tracks[ti].outputMode = 'sf2';
+        if (oldName && oldName !== name) sf2MaybeUnload(ti, oldName);
+        renderTrackButtons();
+        oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0, 12),
+                  (sound.category || '').slice(0, 12));
+      }, sf2Browser.PREVIEW_DELAY);
+    }
     return;
   }
 }
