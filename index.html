@@ -8463,8 +8463,6 @@ document.addEventListener('mousemove', e => {
     const res = getHeldSt();
     if (!res) return;
     const cur = def.get(res.st);
-    // Sensibilité fixe en pixels par unité selon l'encodeur :
-    // length : 2px/step, velocity : 1px/unité, offset : 150px/plage, prob : 1px/%
     const pxPerUnit = i === 0 ? 2 : (i === 2 ? 150 : 1);
     const newVal = Math.max(def.min, Math.min(eMax, cur + delta / pxPerUnit));
     def.set(res.st, newVal);
@@ -11664,13 +11662,13 @@ requestAnimationFrame(pollGamepad);
         _tap[id] = now;
       }
     }
-    el.addEventListener('mousedown', handleDoubleTap, true);
+    // Sur touch : touchstart seulement (le mousedown synthétisé arriverait en double)
+    // Sur desktop : mousedown seulement
     el.addEventListener('touchstart', function(e) {
       handleDoubleTap(e);
       if (e.defaultPrevented) { e.stopPropagation(); return; }
       const touch = e.changedTouches[0];
       if (touch) {
-        // Enregistrer dans touchTargets pour que touchmove/touchend fonctionnent
         if (window._touchTargets) {
           window._touchTargets[touch.identifier] = { target: el, startX: touch.clientX, startY: touch.clientY };
         }
@@ -11682,6 +11680,11 @@ requestAnimationFrame(pollGamepad);
       }
       e.preventDefault();
       e.stopPropagation();
+    }, true);
+    el.addEventListener('mousedown', function(e) {
+      // Ignorer si vient d'un touch (déjà traité par touchstart)
+      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      handleDoubleTap(e);
     }, true);
   }
 
@@ -11717,7 +11720,6 @@ requestAnimationFrame(pollGamepad);
         _tap[id] = now;
       }
     }
-    el.addEventListener('mousedown', handleSendDoubleTap, true);
     el.addEventListener('touchstart', function(e) {
       handleSendDoubleTap(e);
       if (e.defaultPrevented) { e.stopPropagation(); return; }
@@ -11735,6 +11737,10 @@ requestAnimationFrame(pollGamepad);
       e.preventDefault();
       e.stopPropagation();
     }, true);
+    el.addEventListener('mousedown', function(e) {
+      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      handleSendDoubleTap(e);
+    }, true);
   }
 
   // encVol — double-tap → reset volume master à 0.65
@@ -11751,7 +11757,6 @@ requestAnimationFrame(pollGamepad);
         _tap['encVol'] = now;
       }
     }
-    elVol.addEventListener('mousedown', handleVolDoubleTap, true);
     elVol.addEventListener('touchstart', function(e) {
       handleVolDoubleTap(e);
       if (e.defaultPrevented) { e.stopPropagation(); return; }
@@ -11768,6 +11773,10 @@ requestAnimationFrame(pollGamepad);
       }
       e.preventDefault();
       e.stopPropagation();
+    }, true);
+    elVol.addEventListener('mousedown', function(e) {
+      if (e.sourceCapabilities && e.sourceCapabilities.firesTouchEvents) return;
+      handleVolDoubleTap(e);
     }, true);
   }
 })();
