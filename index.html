@@ -8511,8 +8511,6 @@ function midiOnMessage(e) {
   const [status, data1, data2] = e.data;
   const cmd = status & 0xf0;
   const ch  = (status & 0x0f) + 1; // canal MIDI 1-16
-  // DEBUG — affiche tout CC reçu sur l'OLED
-  if (cmd === 0xb0) oledForce(`CH${ch} CC${data1}`, `val=${data2}`, 'RAW MIDI IN');
   if (cmd === 0x90) midiNoteOn(data1, data2, ch);
   else if (cmd === 0x80) midiNoteOff(data1, ch);
   else if (cmd === 0xb0) {
@@ -8538,8 +8536,6 @@ function midiOnMessage(e) {
 }
 
 function midiCC(cc, value) {
-  // DEBUG temporaire
-  oledForce(`midiCC`, `cc=${cc} val=${value}`, '→ entry');
   // ── CC0 → joystick X-axis — ignoré ──
   if (cc === 0) return;
 
@@ -8650,10 +8646,9 @@ function midiCC(cc, value) {
 
   // ── CC74 → Molette BPM (encodeur relatif, identique aux autres encodeurs) ──
   if (cc === 74) {
-    // DEBUG temporaire — affiche la valeur brute reçue sur l'OLED
     const rawD = relDelta(value, 1);
-    oledForce('CC74 DBG', `val=${value}`, `relD=${rawD}`);
-    return; // TEMPORAIRE — désactiver le BPM pour voir les valeurs brutes
+    const d = rawD > 0 ? Math.min(rawD, 5) : Math.max(rawD, -5);
+    if (d === 0) return;
 
     // ── Mode sélection son drum ──
     if (drumSoundSelectMode) {
