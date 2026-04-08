@@ -8444,20 +8444,21 @@ document.addEventListener('mouseup', () => {
   let any = false;
   encDrags.forEach((d, i) => {
     if (!d) return;
-    // Clic sans drag → afficher valeur actuelle
     if (!d.moved) {
       const res = getHeldSt();
       if (res && res.st.on) {
         const def = ENC_DEFS[i];
         oledForce(def.label, def.fmt(def.get(res.st)), `Step ${d.idx + 1}`);
-        S._oledLocked = true;
-        setTimeout(() => { S._oledLocked = false; }, 2000);
       }
     }
     encDrags[i] = null;
     any = true;
   });
-  if (any) { updateEncArcs(); if (!encDrags.some(d=>d)) S._oledLocked = false; }
+  if (any) {
+    updateEncArcs();
+    // Ne pas déverrouiller l'OLED si un step est encore tenu
+    if (!encDrags.some(d=>d) && !anyStepHeld()) S._oledLocked = false;
+  }
 });
 
 
