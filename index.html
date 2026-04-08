@@ -8453,6 +8453,12 @@ document.addEventListener('mousemove', e => {
 });
 
 document.addEventListener('mouseup', () => {
+  // Si un step est tenu, ne pas désactiver les encodeurs — on veut pouvoir
+  // enchaîner plusieurs réglages sans relâcher le step
+  if (anyStepHeld()) {
+    encDrags.forEach((d, i) => { encDrags[i] = null; });
+    return;
+  }
   let any = false;
   encDrags.forEach((d, i) => {
     if (!d) return;
@@ -8468,7 +8474,6 @@ document.addEventListener('mouseup', () => {
   });
   if (any) {
     updateEncArcs();
-    // Ne pas déverrouiller l'OLED si un step est encore tenu
     if (!encDrags.some(d=>d) && !anyStepHeld()) S._oledLocked = false;
   }
 });
