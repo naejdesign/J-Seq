@@ -1967,7 +1967,7 @@ function fxHandleDown(e) {
       const pi    = parseInt(n.getAttribute('data-mfxp'));
       const DEFS_MAP = {
         delay:  [ {key:'syncDiv',min:0,max:6,step:1,log:false,def:4}, {key:'sync',type:'toggle',def:true}, {key:'feedback',min:0,max:0.95,log:false,def:0.35}, {key:'filter',min:200,max:16000,log:true,def:4000} ],
-        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.3,max:6.0,log:false,def:1.8}, {key:'brightness',min:0,max:1,log:false,def:0.55}, {key:'predelay',min:0,max:0.1,log:false,def:0.0} ],
+        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.3,max:6.0,log:false,def:4.0}, {key:'brightness',min:0,max:1,log:false,def:0.55}, {key:'predelay',min:0,max:0.1,log:false,def:0.0} ],
         comp:   [ {key:'threshold',min:-60,max:0,log:false,def:-18}, {key:'ratio',min:1,max:20,log:false,def:3}, {key:'attack',min:0.0005,max:1,log:true,def:0.010}, {key:'release',min:0.01,max:1,log:true,def:0.15} ],
         lim:    [ {key:'threshold',min:-20,max:0,log:false,def:-1}, {key:'release',min:0.005,max:1,log:true,def:0.05}, {key:'knee',min:0,max:10,log:false,def:2}, {key:'gain',min:-6,max:12,log:false,def:0} ],
       };
@@ -2361,7 +2361,7 @@ document.addEventListener('dblclick', e => {
       const pi   = parseInt(n.getAttribute('data-mfxp'));
       const MASTER_DEFS = {
         delay:  [ {key:'syncDiv',def:4}, {key:'sync'}, {key:'feedback',def:0.35}, {key:'filter',def:4000} ],
-        reverb: [ {key:'decay',def:1.8}, {key:'brightness',def:0.55}, {key:'predelay',def:0.0} ],
+        reverb: [ {key:'decay',def:4.0}, {key:'brightness',def:0.55}, {key:'predelay',def:0.0} ],
         comp:   [ {key:'threshold',def:-18}, {key:'ratio',def:3}, {key:'attack',def:0.010}, {key:'release',def:0.15} ],
         lim:    [ {key:'threshold',def:-1}, {key:'release',def:0.05}, {key:'knee',def:2}, {key:'gain',def:0} ],
       };
@@ -2636,10 +2636,10 @@ const masterFX = {
     syncDiv:  4,       // 1/8d — dotted eighth
   },
   reverb: {
-    decay:      1.8,    // RT60 en secondes — hall medium
+    decay:      4.0,    // RT60 en secondes
     brightness: 0.55,   // légèrement sombre, naturel
     predelay:   0.0,    // 0ms par défaut
-    type:       'hall1',
+    type:       'atmos',
   },
   comp: {
     threshold: -18,
@@ -2722,7 +2722,7 @@ function getMasterNodes() {
 
   // ── MASTER GAIN ───────────────────────────────────────────
   masterGain = actx.createGain();
-  masterGain.gain.value = (typeof S !== 'undefined' && S.masterVolume) ? S.masterVolume : 0.65;
+  masterGain.gain.value = (typeof S !== 'undefined' && S.masterVolume) ? S.masterVolume : 0.80;
 
   // ── CÂBLAGE : input → masterGain → mixBus → comp → lim → limGain → destination
   const mixBus = actx.createGain(); mixBus.gain.value = 1;
@@ -3567,7 +3567,7 @@ const S = {
   _trackVisToken: 0,  // incrémenté à chaque changement de track pour invalider les setTimeout visuels
   _stepsLocked: false,
   _mHeld: false,
-  masterVolume: 0.65,
+  masterVolume: 0.80,
 };
 
 // Helper : nom du pad drum pour l'OLED
@@ -6262,22 +6262,32 @@ for (let i = 0; i < 16; i++) {
       button: 0, buttons: type === 'mouseup' ? 0 : 1
     });
   }
+  // Identifiant du touch qui tient un step — ses mouvements n'interfèrent pas avec les drags
+  let _stepHoldTouchId = null;
+
   svgEl.addEventListener('touchstart', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
       touchTargets[t.identifier] = { target: t.target, startX: t.clientX, startY: t.clientY };
+      // Détecter si ce touch est sur un step (id="step0".."step15")
+      const targetId = t.target.id || '';
+      const isStep = /^step\d+$/.test(targetId);
+      if (isStep && _stepHoldTouchId === null) {
+        _stepHoldTouchId = t.identifier;
+      }
       t.target.dispatchEvent(makeMouse('mousedown', t));
     }
     e.preventDefault();
   }, { passive: false });
+
   svgEl.addEventListener('touchend', function(e) {
     if (e.defaultPrevented) return;
     for (const t of e.changedTouches) {
+      if (t.identifier === _stepHoldTouchId) _stepHoldTouchId = null;
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mouseup', t));
       document.dispatchEvent(makeMouse('mouseup', t));
-      // Dispatch click si le doigt n'a pas trop bougé (< 15px)
       if (info) {
         const dx = t.clientX - info.startX, dy = t.clientY - info.startY;
         if (dx * dx + dy * dy < 225) {
@@ -6292,12 +6302,20 @@ for (let i = 0; i < 16; i++) {
     }
     e.preventDefault();
   }, { passive: false });
+
   svgEl.addEventListener('touchmove', function(e) {
     for (const t of e.changedTouches) {
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mousemove', t));
-      document.dispatchEvent(makeMouse('mousemove', t));
+      // Le touch qui tient un step ne dispatch pas mousemove sur document
+      // pour ne pas interférer avec les drags d'encodeurs
+      if (t.identifier === _stepHoldTouchId) continue;
+      const dy = info ? Math.abs(t.clientY - info.startY) : 99;
+      const dx = info ? Math.abs(t.clientX - info.startX) : 99;
+      if (dy > 3 || dx > 3) {
+        document.dispatchEvent(makeMouse('mousemove', t));
+      }
     }
     e.preventDefault();
   }, { passive: false });
@@ -7156,11 +7174,13 @@ svg('wheel').addEventListener('mousedown', e => {
   }
   _wheelLastTap = now;
   
+  // Ne pas réinitialiser si un drag est déjà en cours (touch parasite)
+  if (wheelDrag) return;
+  
   svg('wheel').setAttribute('stroke', '#aaa');
   svg('wheel').setAttribute('stroke-width', '2.5');
   wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, bpm: S.bpm, moved: false };
   S._oledLocked = true;
-  // Afficher BPM immédiatement au clic
   oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
   e.preventDefault();
 });
@@ -7250,8 +7270,8 @@ function setMasterVolume(v) {
 
 let volDrag = null;
 svg('encVol').addEventListener('mousedown', e => {
+  if (volDrag) return; // drag déjà actif — ignorer touch parasite
   S._oledLocked = true;
-  // Light up encVol ring
   svg('encVol').setAttribute('stroke', '#aaa');
   svg('encVol').setAttribute('stroke-width', '2.5');
   if (anyStepHeld()) {
@@ -7336,7 +7356,7 @@ const PROJECT_KEY   = (n) => `mwv_project_${n}`;
 // ── Remet l'état séquenceur à zéro total (nouveau projet vierge) ──
 function resetStateToEmpty() {
   S.bpm = 120;
-  S.masterVolume = 0.65;
+  S.masterVolume = 0.80;
   S.octave = 3;
   S.playing = false;
   S.recording = false;
@@ -7497,7 +7517,7 @@ function serializeProject() {
 function deserializeProject(data, slot) {
   if (!data || (data.version !== 1 && data.version !== 2)) return false;
   S.bpm = data.bpm ?? 120;
-  S.masterVolume = data.masterVolume ?? 0.65;
+  S.masterVolume = data.masterVolume ?? 0.80;
   S.octave = data.octave ?? 3;
   if (masterGain) masterGain.gain.value = S.masterVolume;
 
@@ -8220,6 +8240,7 @@ ENC_DEFS.forEach((def, i) => {
   svg('enc' + i).addEventListener('mousedown', e => {
     if (projectModeActive) return;
     if (S.mode === 'session') return;
+    if (encDrags[i]) return; // drag déjà actif — ignorer touch parasite
     const t = S.tracks[S.currentTrack];
 
     // Priorité 1 : step tenu → Length/Vel/Offset/Prob
@@ -10612,7 +10633,7 @@ async function restoreSF2Dir() {
 // ── Projet Demo par défaut ──
 function createDemoProject() {
   const demo = {
-    version: 2, bpm: 110, masterVolume: 0.65, octave: 0,
+    version: 2, bpm: 110, masterVolume: 0.80, octave: 0,
     masterFX: JSON.parse(JSON.stringify(masterFX)),
     tracks: [],
     _meta: { savedAt: Date.now(), name: 'DemoSong', color: '#3ddc84', demoVersion: 12 }
@@ -11645,8 +11666,8 @@ requestAnimationFrame(pollGamepad);
       const now = Date.now();
       if (_tap['encVol'] && now - _tap['encVol'] < 350) {
         _tap['encVol'] = 0;
-        setMasterVolume(0.65);
-        oledForce('VOL MASTER', '65%', 'RESET');
+        setMasterVolume(0.80);
+        oledForce('VOL MASTER', '80%', 'RESET');
         e.preventDefault();
       } else {
         _tap['encVol'] = now;
