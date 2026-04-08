@@ -1521,7 +1521,7 @@ function renderMasterPanel() {
     nameEl.textContent = def.name;
     sg.appendChild(nameEl);
 
-    const REVERB_TYPES = ['plate1','plate2','room1','room2','hall1','hall2','space'];
+    const REVERB_TYPES = ['plate','room','hall1','hall2','atmos'];
     const nP = def.params.length;
     const colW = (w - margin*2) / nP;
     const yBase = y + 28;
@@ -2673,7 +2673,7 @@ function getMasterNodes() {
   delayFilter.frequency.value = masterFX.delay.filter;
   delayFB.gain.value = masterFX.delay.feedback;
   delayNode.delayTime.value = masterFX.delay.time;
-  delayWet.gain.value = 0.8;   // niveau global delay
+  delayWet.gain.value = 1.0;   // niveau global delay
   delayBusIn.connect(delayNode);
   delayNode.connect(delayFilter);
   delayFilter.connect(delayFB);
@@ -2686,7 +2686,7 @@ function getMasterNodes() {
   reverbPre.delayTime.value = masterFX.reverb.predelay;
   const convReverb = createConvReverb();
   const reverbWet  = actx.createGain();
-  reverbWet.gain.value = 0.7;  // niveau global reverb
+  reverbWet.gain.value = 1.0;  // niveau global reverb
   reverbBusIn.connect(reverbPre);
   reverbPre.connect(convReverb.input);
   // convReverb.output → reverbWet → mixBus (connecté après déclaration mixBus)
@@ -2766,13 +2766,13 @@ function createConvReverb() {
   async function loadIR(type) {
     // Mapping type → fichier IR (OpenAIR)
     const IR_FILES = {
-      'plate1':  'plate1.wav',
-      'plate2':  'plate2.wav',
-      'room1':   'room1.wav',
-      'room2':   'room2.wav',
+      'plate':   'plate.wav',
+      
+      'room':    'room.wav',
+      
       'hall1':   'hall1.wav',
       'hall2':   'hall2.wav',
-      'space':   'space.wav',
+      'atmos':   'atmos.wav',
     };
     const file = IR_FILES[type] || 'hall1.wav';
     if (_irCache[file]) return _irCache[file];
@@ -4017,9 +4017,9 @@ function stopPlay() {
     setTimeout(() => {
       if (_masterNodes) {
         _masterNodes.reverbWet.gain.cancelScheduledValues(0);
-        _masterNodes.reverbWet.gain.value = 0.7;
+        _masterNodes.reverbWet.gain.value = 1.0;
         _masterNodes.delayWet.gain.cancelScheduledValues(0);
-        _masterNodes.delayWet.gain.value  = 0.8;
+        _masterNodes.delayWet.gain.value  = 1.0;
       }
     }, 3000);
   }

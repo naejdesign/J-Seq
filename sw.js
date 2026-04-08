@@ -1,16 +1,14 @@
-const CACHE = 'jseq-v25';
+const CACHE = 'jseq-v26';
 const ASSETS = [
   './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png',
-  './plate1.wav',
-  './plate2.wav',
-  './room1.wav',
-  './room2.wav',
+  './plate.wav',
+  './room.wav',
   './hall1.wav',
   './hall2.wav',
-  './space.wav'
+  './atmos.wav'
 ];
 
 self.addEventListener('install', e => {
