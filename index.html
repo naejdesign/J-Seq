@@ -2853,11 +2853,13 @@ function drumSynth(pad, vel, dest) {
   const masterOut = dest || getMaster();
 
   // Nœud intermédiaire : synth → drive → tone filter → dest
-  function buildChain(sourceNode) {
+  // Déconnecte automatiquement tous les nœuds après durée + marge
+  function buildChain(sourceNode, durSec) {
     const g = actx.createGain();
     g.gain.value = 1;
     sourceNode.connect(g);
     let node = g;
+    const chainNodes = [g];
     if (drv > 0.02) {
       const ws = actx.createWaveShaper();
       const k  = drv * 80, n = 256, c = new Float32Array(n);
@@ -2867,8 +2869,17 @@ function drumSynth(pad, vel, dest) {
       }
       ws.curve = c; ws.oversample = '2x';
       node.connect(ws); node = ws;
+      chainNodes.push(ws);
     }
-    applyToneFilter(node, tone, masterOut);
+    const f = applyToneFilter(node, tone, masterOut);
+    chainNodes.push(f);
+    // Cleanup automatique : déconnecter tous les nœuds après la fin du son
+    const cleanupMs = ((durSec || decSec) + 0.15) * 1000;
+    setTimeout(() => {
+      try { sourceNode.disconnect(); } catch(e) {}
+      chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
+    }, cleanupMs);
+    return chainNodes;
   }
 
   function noiseSrc(durSec) {
@@ -3194,6 +3205,7 @@ function drumSample(pad, vel, dest) {
 
   // Drive
   let node = g;
+  const chainNodes = [g];
   if (drv > 0.02) {
     const ws = actx.createWaveShaper();
     const k  = drv * 80, n = 256, c = new Float32Array(n);
@@ -3203,12 +3215,20 @@ function drumSample(pad, vel, dest) {
     }
     ws.curve = c; ws.oversample = '2x';
     node.connect(ws); node = ws;
+    chainNodes.push(ws);
   }
 
   // Tone filter — identique synth
-  applyToneFilter(node, tone, masterOut);
+  const f = applyToneFilter(node, tone, masterOut);
+  chainNodes.push(f);
 
+  const durSec = (pad.buffer.duration / (tuneRatio || 1)) + 0.15;
   s.start(t, startSec);
+  // Cleanup automatique après la fin du sample
+  setTimeout(() => {
+    try { s.disconnect(); } catch(e) {}
+    chainNodes.forEach(n => { try { n.disconnect(); } catch(e) {} });
+  }, durSec * 1000);
 }
 
 // ── Déclencheur unifié ───────────────────────────────────────────
@@ -4917,6 +4937,20 @@ function setBpm(v) {
   svg('oSub').textContent = `BPM ${S.bpm} · ${S.playing ? '▶' : '■'}`;
   status(`BPM: ${S.bpm}`);
   if (masterFX.delay.sync) updateDelayTime();
+}
+
+// Flash visuel d'un knob SVG (anneau lumineux bref)
+let _knobFlashTimers = {};
+function flashKnob(id, color) {
+  const el = svg(id);
+  if (!el) return;
+  el.setAttribute('stroke', color || '#aaa');
+  el.setAttribute('stroke-width', '2.5');
+  clearTimeout(_knobFlashTimers[id]);
+  _knobFlashTimers[id] = setTimeout(() => {
+    el.setAttribute('stroke', '#3a3a3a');
+    el.setAttribute('stroke-width', '1.5');
+  }, 300);
 }
 
 function navBar(delta) {
@@ -8671,6 +8705,7 @@ function midiCC(cc, value) {
     } else {
       setBpm(S.bpm + d);
       oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
+      flashKnob('wheel');
     }
     return;
   }
@@ -8696,6 +8731,7 @@ function midiCC(cc, value) {
     } else {
       const d = relDelta(value, 1 / 100); // volume master : 100 ticks → 1% par tick
       setMasterVolume(S.masterVolume + d);
+      flashKnob('encVol');
     }
     return;
   }
