@@ -7194,7 +7194,7 @@ svg('wheel').addEventListener('mousedown', e => {
   
   svg('wheel').setAttribute('stroke', '#aaa');
   svg('wheel').setAttribute('stroke-width', '2.5');
-  wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, bpm: S.bpm, moved: false };
+  wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, bpm: S.bpm, moved: false };
   S._oledLocked = true;
   oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
   e.preventDefault();
@@ -7202,26 +7202,32 @@ svg('wheel').addEventListener('mousedown', e => {
 document.addEventListener('mousemove', e => {
   if (!wheelDrag) return;
   if (wheelDrag.type === 'bpm') {
-    const dy = wheelDrag.y - e.clientY;
-    const dx = e.clientX - wheelDrag.x;
+    // Filtre de proximité : ignorer les mousemove trop loin de la dernière position connue
+    // (vient d'un autre doigt sur l'écran)
+    const distFromLast = Math.abs(e.clientY - wheelDrag.lastY) + Math.abs(e.clientX - wheelDrag.lastX);
+    if (distFromLast > 60) return; // saut trop grand = doigt parasite
+    const dy = wheelDrag.lastY - e.clientY;
+    const dx = e.clientX - wheelDrag.lastX;
     const delta = dy + dx;
-    if (Math.abs(delta) > 1) wheelDrag.moved = true;
+    wheelDrag.lastY = e.clientY;
+    wheelDrag.lastX = e.clientX;
+    if (Math.abs(delta) > 0.5) wheelDrag.moved = true;
     
     // Si un step master est maintenu → modifier le BPM de ce step
     const isMaster = S.tracks[S.currentTrack].mode === 'master';
     if (isMaster && anyStepHeld()) {
-      const newBpm = Math.max(20, Math.min(300, wheelDrag.bpm + Math.round(delta / 2)));
-      const bar = currentStepBar();
-      for (const [idx] of heldSteps) {
-        bar[idx].note = newBpm;
-        bar[idx].on = true;
+      const res = getHeldSt();
+      if (res && res.st.on) {
+        const newBpm = Math.max(20, Math.min(300, (res.st.note || S.bpm) + Math.round(delta / 2)));
+        res.st.note = newBpm;
+        if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+        renderSteps();
+        oledForce(`STEP ${res.idx+1}`, `${newBpm} BPM`, `Bar ${S.currentBar+1}`);
       }
-      renderSteps();
-      const stepList = [...heldSteps.keys()];
-      oledForce(`STEP ${stepList[0]+1}`, `${newBpm} BPM`, `Bar ${S.currentBar+1}`);
     } else {
-      setBpm(wheelDrag.bpm + Math.round(delta / 2));
-      oledForce('BPM', `${S.bpm}`, S.playing ? '▶ en lecture' : '■ arrêté');
+      setBpm(S.bpm + Math.round(delta / 2));
+      oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
+      flashKnob('wheel');
     }
   }
 });
@@ -7295,42 +7301,43 @@ svg('encVol').addEventListener('mousedown', e => {
     const firstIdx = heldStepList()[0];
     const bar = currentStepBar();
     const st = bar[firstIdx];
-    volDrag = { type: 'vel', y: e.clientY, x: e.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
+    volDrag = { type: 'vel', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
     heldSteps.get(firstIdx).didAction = true;
   } else if (S._heldTrack >= 0) {
-    volDrag = { type: 'track', y: e.clientY, x: e.clientX, ti: S._heldTrack, startVol: S.tracks[S._heldTrack].volume, moved: false };
+    volDrag = { type: 'track', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, ti: S._heldTrack, startVol: S.tracks[S._heldTrack].volume, moved: false };
   } else {
-    volDrag = { type: 'master', y: e.clientY, x: e.clientX, startVol: S.masterVolume, moved: false };
+    volDrag = { type: 'master', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVol: S.masterVolume, moved: false };
   }
   e.preventDefault();
 });
 document.addEventListener('mousemove', e => {
   if (!volDrag) return;
-  const dy = volDrag.y - e.clientY;
-  const dx = e.clientX - (volDrag.x || e.clientX);
+  const distFromLast = Math.abs(e.clientY - volDrag.lastY) + Math.abs(e.clientX - volDrag.lastX);
+  if (distFromLast > 60) return;
+  const dy = volDrag.lastY - e.clientY;
+  const dx = e.clientX - volDrag.lastX;
   const delta = dy + dx;
+  volDrag.lastY = e.clientY;
+  volDrag.lastX = e.clientX;
   if (volDrag.type === 'master') {
     volDrag.moved = true;
-    setMasterVolume(volDrag.startVol + delta / 150);
-    oledForce('VOL MASTER', `${Math.round(S.masterVolume * 100)}%`, S.playing ? '▶' : '■');
+    setMasterVolume(S.masterVolume + delta / 150);
   } else if (volDrag.type === 'track') {
-    const newVol = Math.max(0, Math.min(1, volDrag.startVol + delta / 150));
+    const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
     oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
   } else if (volDrag.type === 'vel') {
-    // Loop mode : velocity relative sur toute la bar
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
-      const vdelta = (volDrag.y - e.clientY) / 200;
+      const vdelta = dy / 200;
       if (Math.abs(vdelta) > 0.002) {
-        volDrag.y = e.clientY; volDrag.moved = true;
+        volDrag.moved = true;
         loopBarVelocityDelta(vdelta * 127);
       }
       return;
     }
-    const velDelta = delta / 80;
-    const newVel = Math.max(0, Math.min(1, volDrag.startVel + velDelta));
     const bar = currentStepBar();
     const st = bar[volDrag.stepIdx];
+    const newVel = Math.max(0, Math.min(1, st.vel + delta / 80));
     st.vel = newVel;
     const col = trackColor(S.currentTrack);
     svg(`sled${volDrag.stepIdx}`).setAttribute('fill', col);
@@ -8263,7 +8270,7 @@ ENC_DEFS.forEach((def, i) => {
     // Priorité 1 : step tenu → Length/Vel/Offset/Prob
     const res = getHeldSt();
     if (res && res.st.on) {
-      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       S._oledLocked = true;
       e.preventDefault();
@@ -8277,7 +8284,7 @@ ENC_DEFS.forEach((def, i) => {
       const dr = DRUM_ENC_RANGES[i];
       if (!dr) return;
       const key = DRUM_ENC_KEYS[i];
-      encDrags[i] = { y: e.clientY, x: e.clientX, startVal: pad[key] ?? 0, drumMode: true, key, dr };
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVal: pad[key] ?? 0, drumMode: true, key, dr };
       S._oledLocked = true;
       e.preventDefault();
       return;
@@ -8311,7 +8318,7 @@ SEND_ENCS.forEach((def, si) => {
     } else {
       startVal = t[def.key] ?? 0;
     }
-    encSendDrags[si] = { y: e.clientY, x: e.clientX, startVal };
+    encSendDrags[si] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVal };
     S._oledLocked = true;
     e.preventDefault();
   });
@@ -8321,13 +8328,19 @@ document.addEventListener('mousemove', e => {
   SEND_ENCS.forEach((def, si) => {
     const drag = encSendDrags[si];
     if (!drag) return;
-    const dy = drag.y - e.clientY;
-    const dx = e.clientX - (drag.x || e.clientX);
+    const distFromLast = Math.abs(e.clientY - drag.lastY) + Math.abs(e.clientX - drag.lastX);
+    if (distFromLast > 60) return;
+    const dy = drag.lastY - e.clientY;
+    const dx = e.clientX - drag.lastX;
     const delta = dy + dx;
-    if (Math.abs(delta) < 2) return;
+    drag.lastY = e.clientY;
+    drag.lastX = e.clientX;
+    if (Math.abs(delta) < 1) return;
     const t = S.tracks[S.currentTrack];
-    // Course longue (400px pour 0→100%) — progression linéaire, niveau global contrôlé par reverbWet/delayWet
-    const newVal = Math.max(0, Math.min(1, drag.startVal + delta / 300));
+    const curVal = t.mode === 'drum'
+      ? (t.drumPads?.[S.selectedDrumPad]?.[def.key] ?? 0)
+      : (t[def.key] ?? 0);
+    const newVal = Math.max(0, Math.min(1, curVal + delta / 300));
     if (t.mode === 'drum') {
       if (!t.drumPads) return;
       t.drumPads[S.selectedDrumPad][def.key] = newVal;
@@ -8386,32 +8399,38 @@ function updateSendArcs() {
 document.addEventListener('mousemove', e => {
   ENC_DEFS.forEach((def, i) => {
     if (!encDrags[i]) return;
-    const dy = encDrags[i].y - e.clientY;
-    const dx = e.clientX - (encDrags[i].x || e.clientX);
-    const delta = dy + dx; // up+right = increase, down+left = decrease
+    // Filtre de proximité : ignorer si le mousemove vient d'un doigt trop loin
+    const distFromLast = Math.abs(e.clientY - encDrags[i].lastY) + Math.abs(e.clientX - encDrags[i].lastX);
+    if (distFromLast > 60) return;
+    const dy = encDrags[i].lastY - e.clientY;
+    const dx = e.clientX - encDrags[i].lastX;
+    const delta = dy + dx;
+    encDrags[i].lastY = e.clientY;
+    encDrags[i].lastX = e.clientX;
 
     // Mode drum
     if (encDrags[i].drumMode) {
-      if (Math.abs(delta) < 2) return;
+      if (Math.abs(delta) < 0.5) return;
       const t = S.tracks[S.currentTrack];
       if (!t.drumPads) return;
       const pad = t.drumPads[S.selectedDrumPad];
       const { key, dr } = encDrags[i];
       const range = dr.max - dr.min;
-      const newVal = Math.max(dr.min, Math.min(dr.max, encDrags[i].startVal + delta / 120 * range));
+      const newVal = Math.max(dr.min, Math.min(dr.max, (pad[key] ?? dr.min) + delta / 120 * range));
       pad[key] = newVal;
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
       updateEncArcs();
       return;
     }
 
-    if (Math.abs(delta) < 2) return;
+    if (Math.abs(delta) < 0.5) return;
     encDrags[i].moved = true;
     const eMax = getEncMax(def);
     const range = eMax - def.min;
-    const newVal = Math.max(def.min, Math.min(eMax, encDrags[i].startVal + delta / 80 * range));
     const res = getHeldSt();
     if (!res) return;
+    const cur = def.get(res.st);
+    const newVal = Math.max(def.min, Math.min(eMax, cur + delta / 80 * range));
     def.set(res.st, newVal);
     if (i === 0 && res.st.on) {
       showNoteLengthFeedback(res.idx, true, Math.round(newVal));
