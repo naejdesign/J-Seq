@@ -507,6 +507,10 @@ body {
   <div id="sf2Header" class="brHeader">
     <span id="sf2TrackLabel" class="brTrackLabel" style="color:#ff6b00">TRACK 1</span>
     <button id="sf2FolderBtn" class="brFolderBtn">📁 Dossier SF2</button>
+    <label id="sf2PrevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
+      <input type="checkbox" id="sf2PreviewChk" style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
+      Preview
+    </label>
     <span id="sf2CurrentPreset" class="brCurrentLabel">—</span>
     <button id="sf2CloseBtn" class="brCloseBtn">✕</button>
   </div>
@@ -3324,7 +3328,8 @@ const S = {
     drumPads: null,
     sendReverb: 0,
     sendDelay:  0,
-    octave: 3,    // registre clavier par track (default = 3 = C3)
+    octave: 3,        // registre pad matrix par track (default = 3 = C3)
+    pianoOctave: 0,   // décalage piano widget par track (-2 à +3)
   })),
   currentBar: 0,
   playingBar: 0,
@@ -4414,6 +4419,7 @@ function selectTrack(ti) {
   const prev   = S.tracks[prevTi];
   // Sauvegarder l'octave courante dans la track précédente
   prev.octave = S.octave;
+  prev.pianoOctave = S.pianoOctave;
   if (ti !== prevTi) {
     if (prev.outputMode === 'midi') midiAllNotesOff(prevTi);
     if (prev.outputMode === 'sf2')  sf2AllNotesOff(prevTi);
@@ -4426,6 +4432,8 @@ function selectTrack(ti) {
 
   // Restaurer l'octave de la nouvelle track
   S.octave = S.tracks[ti].octave ?? 3;
+  S.pianoOctave = S.tracks[ti].pianoOctave ?? 0;
+  if (S.pianoOpen) buildPiano(); // reconstruire le piano avec le bon registre
 
   for (let r = 0; r < 4; r++)
     for (let c = 0; c < 8; c++)
@@ -7180,6 +7188,7 @@ function serializeProject() {
       soloed: t.soloed,
       volume: t.volume,
       octave: t.octave ?? 3,
+      pianoOctave: t.pianoOctave ?? 0,
       sendDelay:  t.sendDelay  || 0,
       sendReverb: t.sendReverb || 0,
       soundIndex: t.soundIndex,
@@ -7267,6 +7276,7 @@ function deserializeProject(data, slot) {
     t.soloed      = td.soloed      ?? false;
     t.volume      = td.volume      ?? 0.8;
     t.octave      = td.octave      ?? 3;
+    t.pianoOctave = td.pianoOctave ?? 0;
     t.sendDelay   = td.sendDelay   ?? 0;
     t.sendReverb  = td.sendReverb  ?? 0;
     t.soundIndex  = td.soundIndex  ?? 0;
@@ -9794,6 +9804,7 @@ const sf2Browser = {
   previewDebounce: null,      // setTimeout handle
   PREVIEW_DELAY:  300,        // ms avant de lancer le chargement SF2 + preview
   previewTimer:   null,       // noteOff timer
+  previewEnabled: false,      // false par défaut : ne pas jouer de note auto, charger seulement le preset
 };
 
 // ── Ouvrir / fermer ────────────────────────────────────────────────────────
@@ -10092,6 +10103,8 @@ function sf2DoPreview(ti, sfontId, bank, program) {
   try {
     jsSynths[ti].midiProgramSelect(SF2_CHANNEL, sfontId, bank, program);
   } catch(e) { return; }
+  // Si preview désactivée : le preset est chargé, l'user peut jouer au clavier MIDI
+  if (!sf2Browser.previewEnabled) return;
   sf2Browser.previewTimer = setTimeout(() => {
     try {
       jsSynths[ti].midiNoteOn(SF2_CHANNEL, 60, 100);
@@ -10169,6 +10182,21 @@ document.getElementById('sf2PresetSearch').addEventListener('input', e => {
 });
 
 document.getElementById('sf2CloseBtn').addEventListener('click', closeSF2Browser);
+
+// Checkbox Preview : on/off → joue ou non la note auto au clic d'un preset
+document.getElementById('sf2PreviewChk').addEventListener('change', (e) => {
+  sf2Browser.previewEnabled = e.target.checked;
+  if (!sf2Browser.previewEnabled) {
+    // Couper immédiatement toute note de preview en cours
+    clearTimeout(sf2Browser.previewTimer);
+    sf2Browser.previewTimer = null;
+    const ti = sf2Browser.trackIdx;
+    if (jsSynths[ti]) {
+      try { jsSynths[ti].midiNoteOff(SF2_CHANNEL, 60); } catch(e) {}
+      try { jsSynths[ti].midiAllNotesOff(SF2_CHANNEL); } catch(e) {}
+    }
+  }
+});
 
 // IndexedDB
 function openIDB() {
