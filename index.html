@@ -1553,36 +1553,60 @@ function renderMasterPanel() {
         sg.appendChild(ttxt);
 
       } else if (p.type === 'typesel') {
-        // Sélecteur de type reverb : 5 boutons empilés
-        const btnH = 9, btnW = colW - 4, btnX = px - btnW/2;
-        REVERB_TYPES.forEach((rtype, ri) => {
-          const isActive = (val === rtype);
-          const by = yBase + ri * (btnH + 2);
-          const rbg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-          rbg.setAttribute('x', btnX); rbg.setAttribute('y', by);
-          rbg.setAttribute('width', btnW); rbg.setAttribute('height', btnH);
-          rbg.setAttribute('rx', 2);
-          rbg.setAttribute('fill', isActive ? col+'44' : '#1a1a1e');
-          rbg.setAttribute('stroke', isActive ? col : '#333');
-          rbg.setAttribute('stroke-width', isActive ? '1' : '0.5');
-          rbg.setAttribute('cursor', 'pointer');
-          rbg.addEventListener('click', e => {
-            masterFX.reverb.type = rtype;
-            if (_masterNodes?.convReverb) _masterNodes.convReverb.setType(rtype);
-            oledForce('REVERB', rtype.toUpperCase(), '');
-            renderMasterPanel();
-            e.stopPropagation();
-          });
-          sg.appendChild(rbg);
-          const rtxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-          rtxt.setAttribute('x', px); rtxt.setAttribute('y', by + btnH - 2);
-          rtxt.setAttribute('text-anchor', 'middle');
-          rtxt.setAttribute('font-family', "'DM Mono',monospace");
-          rtxt.setAttribute('font-size', '6');
-          rtxt.setAttribute('fill', isActive ? col : '#666');
-          rtxt.setAttribute('pointer-events', 'none');
-          rtxt.textContent = rtype.toUpperCase();
-          sg.appendChild(rtxt);
+        // Grand bouton tactile carré — cycle entre les types au tap
+        const curIdx = REVERB_TYPES.indexOf(val || 'hall');
+        const btnSize = Math.min(colW - 6, h - margin*2 - 8);
+        const btnX = px - btnSize/2;
+        const btnY = yBase;
+
+        // Fond du bouton
+        const rbg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rbg.setAttribute('x', btnX); rbg.setAttribute('y', btnY);
+        rbg.setAttribute('width', btnSize); rbg.setAttribute('height', btnSize);
+        rbg.setAttribute('rx', '7');
+        rbg.setAttribute('fill', col+'33'); rbg.setAttribute('stroke', col);
+        rbg.setAttribute('stroke-width', '1.5'); rbg.setAttribute('cursor', 'pointer');
+        rbg.addEventListener('click', e => {
+          masterFX.reverb.type = REVERB_TYPES[(curIdx + 1) % REVERB_TYPES.length];
+          if (_masterNodes?.convReverb) _masterNodes.convReverb.setType(masterFX.reverb.type);
+          renderMasterPanel();
+          e.stopPropagation();
+        });
+        sg.appendChild(rbg);
+
+        // Icône ↻
+        const rico = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        rico.setAttribute('x', px); rico.setAttribute('y', btnY + btnSize * 0.42);
+        rico.setAttribute('text-anchor', 'middle');
+        rico.setAttribute('font-family', "'DM Mono',monospace");
+        rico.setAttribute('font-size', String(Math.round(btnSize * 0.3)));
+        rico.setAttribute('fill', col); rico.setAttribute('pointer-events', 'none');
+        rico.textContent = '↻';
+        sg.appendChild(rico);
+
+        // Nom du type actif
+        const rtxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        rtxt.setAttribute('x', px); rtxt.setAttribute('y', btnY + btnSize * 0.72);
+        rtxt.setAttribute('text-anchor', 'middle');
+        rtxt.setAttribute('font-family', "'DM Mono',monospace");
+        rtxt.setAttribute('font-size', String(Math.max(8, Math.round(btnSize * 0.18))));
+        rtxt.setAttribute('font-weight', '500');
+        rtxt.setAttribute('fill', '#cce'); rtxt.setAttribute('pointer-events', 'none');
+        rtxt.textContent = (val || 'hall').toUpperCase();
+        sg.appendChild(rtxt);
+
+        // 5 points indicateurs de position
+        const dotSpacing = 6, dotsTotal = REVERB_TYPES.length;
+        const dotsStartX = px - (dotsTotal - 1) * dotSpacing / 2;
+        const dotY = btnY + btnSize + 6;
+        REVERB_TYPES.forEach((_, di) => {
+          const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          dot.setAttribute('cx', dotsStartX + di * dotSpacing);
+          dot.setAttribute('cy', dotY);
+          dot.setAttribute('r', di === curIdx ? '2.5' : '1.8');
+          dot.setAttribute('fill', di === curIdx ? col : col+'44');
+          dot.setAttribute('pointer-events', 'none');
+          sg.appendChild(dot);
         });
 
       } else {
