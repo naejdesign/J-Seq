@@ -7249,6 +7249,15 @@ document.addEventListener('mousemove', e => {
 document.addEventListener('mouseup', () => {
   // Libérer le touch de drag
   window._dragTouchId = null;
+
+  // Si un step est encore physiquement tenu, ignorer ce mouseup complètement
+  // (vient d'un autre doigt — encodeur, zone vide, etc.)
+  if (anyStepHeld()) {
+    wheelDrag = null;
+    volDrag = null;
+    return;
+  }
+
   let keepOledLocked = false;
 
   // Reset encVol ring
