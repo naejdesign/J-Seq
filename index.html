@@ -7317,12 +7317,72 @@ function setMasterVolume(v) {
 }
 
 let volDrag = null;
+
+// encVol : handlers touch directs (contournent le polyfill)
+svg('encVol').addEventListener('touchstart', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  const t = e.changedTouches[0];
+  volDrag = null;
+  S._oledLocked = true;
+  svg('encVol').setAttribute('stroke', '#aaa');
+  svg('encVol').setAttribute('stroke-width', '2.5');
+  if (anyStepHeld()) {
+    const firstIdx = heldStepList()[0];
+    const st = currentStepBar()[firstIdx];
+    volDrag = { type: 'vel', lastY: t.clientY, lastX: t.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
+    heldSteps.get(firstIdx).didAction = true;
+  } else if (S._heldTrack >= 0) {
+    volDrag = { type: 'track', lastY: t.clientY, lastX: t.clientX, ti: S._heldTrack, moved: false };
+  } else {
+    volDrag = { type: 'master', lastY: t.clientY, lastX: t.clientX, moved: false };
+  }
+}, { passive: false });
+
+svg('encVol').addEventListener('touchmove', function(e) {
+  e.preventDefault();
+  if (!volDrag) return;
+  const t = e.changedTouches[0];
+  const dy = volDrag.lastY - t.clientY;
+  const dx = t.clientX - volDrag.lastX;
+  const delta = dy + dx;
+  volDrag.lastY = t.clientY;
+  volDrag.lastX = t.clientX;
+  if (Math.abs(delta) < 0.5) return;
+  volDrag.moved = true;
+  if (volDrag.type === 'master') {
+    setMasterVolume(S.masterVolume + delta / 150);
+    oledForce('VOL MASTER', `${Math.round(S.masterVolume * 100)}%`, S.playing ? '▶' : '■');
+  } else if (volDrag.type === 'track') {
+    const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
+    S.tracks[volDrag.ti].volume = newVol;
+    oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
+  } else if (volDrag.type === 'vel') {
+    const st = currentStepBar()[volDrag.stepIdx];
+    const newVel = Math.max(0, Math.min(1, st.vel + delta / 80));
+    st.vel = newVel;
+    svg(`sled${volDrag.stepIdx}`).setAttribute('fill', trackColor(S.currentTrack));
+    svg(`sled${volDrag.stepIdx}`).setAttribute('opacity', newVel.toFixed(2));
+    oledForce(`STEP ${volDrag.stepIdx+1}`, `VÉL: ${Math.round(newVel*127)}`, `(${Math.round(newVel*100)}%)`);
+  }
+}, { passive: false });
+
+svg('encVol').addEventListener('touchend', function(e) {
+  e.preventDefault();
+  svg('encVol').setAttribute('stroke', '#3a3a3a');
+  svg('encVol').setAttribute('stroke-width', '1.5');
+  if (!anyStepHeld()) S._oledLocked = false;
+  volDrag = null;
+}, { passive: false });
+
+// encVol mousedown/mouseup pour desktop
 svg('encVol').addEventListener('mouseup', e => {
   if (anyStepHeld()) { e.stopPropagation(); volDrag = null; }
 });
 svg('encVol').addEventListener('mousedown', e => {
+  // Ignorer si vient d'un touch (déjà géré par touchstart)
+  if (window._lastTouchTime && Date.now() - window._lastTouchTime < 500) return;
   volDrag = null;
-  console.log('[VOL] mousedown OK, clientY=', e.clientY);
   S._oledLocked = true;
   svg('encVol').setAttribute('stroke', '#aaa');
   svg('encVol').setAttribute('stroke-width', '2.5');
@@ -7330,18 +7390,17 @@ svg('encVol').addEventListener('mousedown', e => {
     const firstIdx = heldStepList()[0];
     const bar = currentStepBar();
     const st = bar[firstIdx];
-    volDrag = { type: 'vel', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
+    volDrag = { type: 'vel', lastY: e.clientY, lastX: e.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
     heldSteps.get(firstIdx).didAction = true;
   } else if (S._heldTrack >= 0) {
-    volDrag = { type: 'track', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, ti: S._heldTrack, startVol: S.tracks[S._heldTrack].volume, moved: false };
+    volDrag = { type: 'track', lastY: e.clientY, lastX: e.clientX, ti: S._heldTrack, moved: false };
   } else {
-    volDrag = { type: 'master', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVol: S.masterVolume, moved: false };
+    volDrag = { type: 'master', lastY: e.clientY, lastX: e.clientX, moved: false };
   }
   e.preventDefault();
 });
 document.addEventListener('mousemove', e => {
   if (!volDrag) return;
-  console.log('[VOL] mousemove clientY=', e.clientY, 'lastY=', volDrag.lastY);
   const distFromLast = Math.abs(e.clientY - volDrag.lastY) + Math.abs(e.clientX - volDrag.lastX);
   // Toujours mettre à jour lastY pour éviter le deadlock du filtre
   const prevLastY = volDrag.lastY;
@@ -10207,10 +10266,10 @@ function loopDeleteBar(barIdx) {
 }
 .brItem:hover { background: #1a1a1f; color: #bbb; }
 .brItem.active-sf2   { color: #fff; background: #1a1a2a; border-left-color: #ff6b00; }
-.brItem.active-preset{ color: #fff; background: #1a2a1a; border-left-color: #3ddc84; }
+.brItem.active-preset{ color: #fff; background: #1a3a1a; border-left-color: #3ddc84; border-left-width: 4px; font-weight: 600; }
 .brItem.active-synth { color: #fff; background: #1a1a2a; border-left-color: #ff6b00; }
 .brItem.active-folder{ color: #fff; background: #1a1a2a; border-left-color: #fa8; }
-.brItem.active-file  { color: #fff; background: #1a2a1a; border-left-color: #3ddc84; }
+.brItem.active-file  { color: #fff; background: #1a3a1a; border-left-color: #3ddc84; border-left-width: 4px; font-weight: 600; }
 .brItem .brSub  { font-size: 11px; color: #3a3a3a; flex-shrink: 0; margin-left: auto; }
 .brItem .brName { flex: 1; }
 
