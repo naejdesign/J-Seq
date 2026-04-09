@@ -1045,49 +1045,98 @@ const FX_DEFS = [
     },
   },
   {
-    id: 'bitcrusher', name: 'Bitcrush', color: '#f84',
+    id: 'saturation', name: 'Saturate', color: '#f84',
     params: [
-      { name: 'Bits', key: '_bits', min: 1,    max: 16, def: 16, log: false },
-      { name: 'Rate', key: '_rate', min: 0.01, max: 1,  def: 1,  log: false },
+      { name: 'Drive', key: '_drive', min: 0,   max: 1,   def: 0.5, log: false },
+      { name: 'Type',  key: '_type',  min: 0,   max: 2,   def: 0,   log: false, labels: ['Tape','Tube','Clip'], cycle: true },
+      { name: 'Mix',   key: '_mix',   min: 0,   max: 1,   def: 0.5, log: false },
     ],
-    mainParams: [0, 1],
+    mainParams: [0, 2],
     create: () => {
-      const bufSize = 2048; // buffer plus petit = moins de latence
-      const crusher = actx.createScriptProcessor(bufSize, 1, 1);
-      let _bits = 16, _rate = 1;
-      let _phase = 0, _lastSample = 0;
-      let _bypassed = false;
+      const input    = actx.createGain();
+      const output   = actx.createGain();
+      const preGain  = actx.createGain();   // boost avant WaveShaper
+      const shaper   = actx.createWaveShaper();
+      shaper.oversample = '4x';
+      const postGain = actx.createGain();   // compensation niveau
+      const wetGain  = actx.createGain();
+      const dryGain  = actx.createGain();
 
-      crusher.onaudioprocess = (e) => {
-        const inp = e.inputBuffer.getChannelData(0);
-        const out = e.outputBuffer.getChannelData(0);
-        if (_bypassed) {
-          out.set(inp);
-          return;
-        }
-        const step = Math.pow(0.5, _bits - 1);
-        for (let i = 0; i < bufSize; i++) {
-          _phase += _rate;
-          if (_phase >= 1.0) {
-            _phase -= 1.0;
-            _lastSample = step * Math.round(inp[i] / step);
+      let _driveVal = 0.5, _typeVal = 0, _mixVal = 0.5;
+
+      function makeCurve(drive, type) {
+        const n = 512;
+        const curve = new Float32Array(n);
+        const k = 1 + drive * 99; // 1..100
+
+        for (let i = 0; i < n; i++) {
+          const x = (i * 2) / n - 1; // -1..+1
+          let y;
+          if (type === 0) {
+            // Tape : tanh doux, harmoniques paires et impaires
+            y = Math.tanh(k * x) / Math.tanh(k);
+          } else if (type === 1) {
+            // Tube : asymétrique comme un tube à vide
+            if (x >= 0) {
+              y = 1 - Math.exp(-k * x);
+            } else {
+              y = -0.6 * (1 - Math.exp(k * 0.6 * x));
+            }
+            // Normaliser
+            const peak = 1 - Math.exp(-k);
+            y /= peak;
+          } else {
+            // Hard clip avec arrondi doux aux bords
+            const t = 1 / (1 + drive * 4);
+            if (Math.abs(x) < t) {
+              y = x / t;
+            } else {
+              y = Math.sign(x);
+            }
           }
-          out[i] = _lastSample;
+          curve[i] = y;
         }
-      };
+        return curve;
+      }
 
-      crusher.input  = crusher;
-      crusher.output = crusher;
+      function update() {
+        shaper.curve = makeCurve(_driveVal, _typeVal);
+        // preGain booste pour activer la distortion
+        const boost = 1 + _driveVal * 5;
+        preGain.gain.setTargetAtTime(boost, actx.currentTime, 0.01);
+        // postGain compense le niveau
+        postGain.gain.setTargetAtTime(1 / Math.sqrt(boost), actx.currentTime, 0.01);
+        wetGain.gain.setTargetAtTime(_mixVal, actx.currentTime, 0.01);
+        dryGain.gain.setTargetAtTime(1 - _mixVal, actx.currentTime, 0.01);
+      }
+
+      // Wet : input → preGain → shaper → postGain → wetGain → output
+      input.connect(preGain);
+      preGain.connect(shaper);
+      shaper.connect(postGain);
+      postGain.connect(wetGain);
+      wetGain.connect(output);
+      // Dry
+      input.connect(dryGain);
+      dryGain.connect(output);
+
+      update();
 
       return {
-        input:  crusher,
-        output: crusher,
-        get bypass()  { return _bypassed; },
-        set bypass(v) { _bypassed = !!v; },
-        get _bits()   { return _bits; },
-        set _bits(v)  { _bits = Math.max(1, Math.min(16, Math.round(v))); },
-        get _rate()   { return _rate; },
-        set _rate(v)  { _rate = Math.max(0.01, Math.min(1, v)); },
+        input, output,
+        _dryGain: dryGain, _wetGain: wetGain,
+        get bypass() { return false; },
+        set bypass(v) {},
+        get _drive() { return _driveVal; },
+        set _drive(v) { _driveVal = Math.max(0, Math.min(1, v)); update(); },
+        get _type()  { return _typeVal; },
+        set _type(v) { _typeVal = Math.round(v) % 3; update(); },
+        get _mix()   { return _mixVal; },
+        set _mix(v)  {
+          _mixVal = Math.max(0, Math.min(1, v));
+          wetGain.gain.setTargetAtTime(_mixVal,     actx.currentTime, 0.01);
+          dryGain.gain.setTargetAtTime(1 - _mixVal, actx.currentTime, 0.01);
+        },
       };
     },
   },
