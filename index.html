@@ -25,6 +25,8 @@ html, body {
   background: #808080;
   font-family: 'DM Mono', monospace;
   touch-action: none;
+  overscroll-behavior: none; /* bloque pull-to-refresh et swipe de navigation */
+  -webkit-overflow-scrolling: auto;
 }
 
 body {
@@ -7592,6 +7594,25 @@ function scheduleAutosave() {
     projectSave(currentProject.slot);
   }, 300);
 }
+
+// Sauvegarde immédiate quand l'app passe en arrière-plan (bouton Home, changement d'app)
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && currentProject) {
+    clearTimeout(autosaveTimer);
+    projectSave(currentProject.slot);
+  }
+});
+window.addEventListener('pagehide', () => {
+  if (currentProject) projectSave(currentProject.slot);
+});
+
+// Intercepter le geste/bouton Back Android pour éviter de quitter accidentellement
+// On pousse un état fictif dans l'historique, et quand Back est pressé on le re-pousse
+history.pushState({ jseq: true }, '');
+window.addEventListener('popstate', () => {
+  // Remettre l'état fictif immédiatement → annule l'effet du Back
+  history.pushState({ jseq: true }, '');
+});
 
 function projectSave(slot) {
   try {
