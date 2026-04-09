@@ -2070,6 +2070,9 @@ function fxHandleDown(e) {
   const panel = document.getElementById('enginePanel');
   if (!panel || panel.getAttribute('visibility') === 'hidden') return false;
 
+  // Page avancée drum active → router vers son handler
+  if (drumAdvPage !== null) return drumAdvHandleDown(e);
+
   const now = Date.now();
 
   let el = e.target;
@@ -2157,6 +2160,11 @@ function fxHandleDown(e) {
         updateEncArcs();
         updateSendArcs();
         oled('DRUM', getDrumPadName(S.currentTrack, padIdx), `pad ${padIdx+1} · seq`);
+        // Long press → page avancée
+        _fxPressTimer = setTimeout(() => {
+          _fxPressTimer = null;
+          renderDrumPadAdvanced(padIdx);
+        }, 500);
         e.stopPropagation(); e.preventDefault();
         return true;
       }
@@ -3072,28 +3080,28 @@ const DRUM_SYNTH_TYPES = [
 
 // Valeurs par défaut par type
 const DRUM_SYNTH_DEFAULTS = {
-  'Kick':     { tune:0, decay:0.5,  tone:0.5, drive:0 },
-  'Snare':    { tune:0, decay:0.3,  tone:0.5, drive:0 },
-  'Clap':     { tune:0, decay:0.2,  tone:0.5, drive:0 },
-  'HH Cl':    { tune:0, decay:0.1,  tone:0.7, drive:0 },
-  'HH Op':    { tune:0, decay:0.4,  tone:0.7, drive:0 },
-  'Rim':      { tune:0, decay:0.15, tone:0.5, drive:0 },
-  'Tom Hi':   { tune:0, decay:0.35, tone:0.5, drive:0 },
-  'Tom Mid':  { tune:0, decay:0.4,  tone:0.45,drive:0 },
-  'Tom Lo':   { tune:0, decay:0.45, tone:0.4, drive:0 },
-  'Crash':    { tune:0, decay:0.8,  tone:0.6, drive:0 },
-  'Ride':     { tune:0, decay:0.6,  tone:0.7, drive:0 },
-  'Shaker':   { tune:0, decay:0.08, tone:0.8, drive:0 },
-  'Tamb':     { tune:0, decay:0.25, tone:0.7, drive:0 },
-  'Conga':    { tune:0, decay:0.3,  tone:0.5, drive:0 },
-  'Bongo':    { tune:0, decay:0.2,  tone:0.55,drive:0 },
-  'Maracas':  { tune:0, decay:0.05, tone:0.85,drive:0 },
-  'Woodblk':  { tune:0, decay:0.1,  tone:0.6, drive:0 },
-  'Triangle': { tune:0, decay:0.5,  tone:0.9, drive:0 },
-  'Snap':     { tune:0, decay:0.06, tone:0.7, drive:0 },
-  'Zap':      { tune:0, decay:0.15, tone:0.5, drive:0.2 },
-  'Noise':    { tune:0, decay:0.3,  tone:0.5, drive:0 },
-  'Click':    { tune:0, decay:0.03, tone:0.8, drive:0 },
+  'Kick':     { tune:0, decay:0.5,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Snare':    { tune:0, decay:0.3,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Clap':     { tune:0, decay:0.2,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'HH Cl':    { tune:0, decay:0.1,  tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:1 },
+  'HH Op':    { tune:0, decay:0.4,  tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:1 },
+  'Rim':      { tune:0, decay:0.15, tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Tom Hi':   { tune:0, decay:0.35, tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Tom Mid':  { tune:0, decay:0.4,  tone:0.45,drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Tom Lo':   { tune:0, decay:0.45, tone:0.4, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Crash':    { tune:0, decay:0.8,  tone:0.6, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Ride':     { tune:0, decay:0.6,  tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Shaker':   { tune:0, decay:0.08, tone:0.8, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Tamb':     { tune:0, decay:0.25, tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Conga':    { tune:0, decay:0.3,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Bongo':    { tune:0, decay:0.2,  tone:0.55,drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Maracas':  { tune:0, decay:0.05, tone:0.85,drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Woodblk':  { tune:0, decay:0.1,  tone:0.6, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Triangle': { tune:0, decay:0.5,  tone:0.9, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Snap':     { tune:0, decay:0.06, tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Zap':      { tune:0, decay:0.15, tone:0.5, drive:0.2, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Noise':    { tune:0, decay:0.3,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Click':    { tune:0, decay:0.03, tone:0.8, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
 };
 
 // Fabrique un pad drum vide
@@ -3101,16 +3109,23 @@ function makeDrumPad(typeIdx) {
   const typeName = DRUM_SYNTH_TYPES[typeIdx] || 'Kick';
   const defs = DRUM_SYNTH_DEFAULTS[typeName] || DRUM_SYNTH_DEFAULTS['Kick'];
   return {
-    mode:       'synth',       // 'synth' | 'sample'
+    mode:       'synth',
     synthType:  typeName,
-    tune:       defs.tune,     // demi-tons -12..+12
-    decay:      defs.decay,    // secondes 0.05..2.0
-    tone:       defs.tone,     // timbre 0..1
-    drive:      defs.drive,    // 0..1
+    tune:       defs.tune,
+    decay:      defs.decay,
+    tone:       defs.tone,
+    drive:      defs.drive,
+    // Nouveaux paramètres avancés
+    pitchDrop:  defs.pitchDrop  ?? 0,  // demi-tons 0..24
+    punch:      defs.punch      ?? 0,  // 0..1
+    click:      defs.click      ?? 0,  // 0..1
+    filterQ:    defs.filterQ    ?? 0,  // 0..1
+    pan:        defs.pan        ?? 0,  // -1..+1
+    chokeGroup: defs.chokeGroup ?? 0,  // 0=aucun, 1-4=groupe
     // sample
     buffer:     null,
     fileName:   '',
-    startPoint: 0,             // 0..1
+    startPoint: 0,
     reverse:    false,
     // commun
     volume:     0.85,
@@ -3561,8 +3576,8 @@ function drumSample(pad, vel, dest) {
   };
 }
 
-// ── Déclencheur unifié ───────────────────────────────────────────
-// Retourne un AudioNode gainPad pour les sends individuels
+// Tracker des gainNodes actifs par groupe choke : { trackIdx: { groupN: [gainNode, ...] } }
+const _chokeNodes = {};
 
 function drumPadPlay(ti, padIdx, vel) {
   const t  = S.tracks[ti];
@@ -3571,9 +3586,41 @@ function drumPadPlay(ti, padIdx, vel) {
   const pad = pads[padIdx];
   const vol = (pad.volume || 0.85) * t.volume;
 
+  // Choke : couper les pads du même groupe
+  const chokeGroup = pad.chokeGroup || 0;
+  if (chokeGroup > 0) {
+    if (!_chokeNodes[ti]) _chokeNodes[ti] = {};
+    const group = _chokeNodes[ti][chokeGroup];
+    if (group) {
+      group.forEach(gn => {
+        try {
+          const now = actx.currentTime;
+          gn.gain.setTargetAtTime(0, now, 0.005); // fade-out 20ms
+        } catch(e) {}
+      });
+    }
+    _chokeNodes[ti][chokeGroup] = [];
+  }
+
   const padGain = actx.createGain();
   padGain.gain.value = vol;
-  padGain.connect(getMaster());
+
+  // Pan stéréo par pad
+  const pan = pad.pan || 0; // -1..+1
+  if (Math.abs(pan) > 0.01) {
+    const panner = actx.createStereoPanner();
+    panner.pan.value = Math.max(-1, Math.min(1, pan));
+    padGain.connect(panner);
+    panner.connect(getMaster());
+    // Sends depuis padGain (avant pan — comportement naturel)
+  } else {
+    padGain.connect(getMaster());
+  }
+
+  // Enregistrer dans le groupe choke
+  if (chokeGroup > 0) {
+    _chokeNodes[ti][chokeGroup].push(padGain);
+  }
 
   // Sends vers bus delay et reverb du Master
   const sendRev = pad.sendReverb || 0;
@@ -4927,6 +4974,7 @@ function playPad(row, col) {
 }
 
 function renderDrumPadSelection() {
+  drumAdvPage = null; // toujours revenir à la page principale
   if (projectModeActive) return;
   const ti = S.currentTrack;
   const t  = S.tracks[ti];
@@ -5019,6 +5067,233 @@ function renderDrumPadSelection() {
     if (row) row.setAttribute('visibility', 'hidden');
   }
 }
+
+
+// ── Page avancée drum pad ────────────────────────────────────────
+let drumAdvPage = null; // null = page principale, sinon padIdx en cours d'édition
+
+// Définitions des 7 paramètres avancés par pad
+const DRUM_ADV_PARAMS = [
+  { key:'pitchDrop', label:'PitchDrp', min:0,   max:24,  def:0,   fmt: v => `+${Math.round(v)}st`,  step:false, comingSoon:true  },
+  { key:'punch',     label:'Punch',    min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
+  { key:'click',     label:'Click',    min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
+  { key:'pan',       label:'Pan',      min:-1,  max:1,   def:0,   fmt: v => v===0?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
+  { key:'chokeGroup',label:'Choke',    min:0,   max:4,   def:0,   fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true, comingSoon:false },
+  { key:'filterQ',   label:'FilterQ',  min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
+  { key:'_back',     label:'← BACK',   min:0,   max:0,   def:0,   fmt: v => '',                      step:false, comingSoon:false },
+];
+
+function renderDrumPadAdvanced(padIdx) {
+  drumAdvPage = padIdx;
+  const ti  = S.currentTrack;
+  const t   = S.tracks[ti];
+  if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
+  const pad = t.drumPads[padIdx];
+  const col = trackColor(ti);
+  const panel = document.getElementById('enginePanel');
+
+  for (let slotIdx = 0; slotIdx < 8; slotIdx++) {
+    const sg = document.getElementById(`fxslot_${slotIdx}`);
+    if (!sg) continue;
+    sg.innerHTML = '';
+    const sx = fxSlotX(slotIdx), sy = fxSlotY(slotIdx);
+    const pw = FX_SW, ph = FX_SH, margin = 4;
+
+    const isBack = slotIdx === 7;
+    const p = DRUM_ADV_PARAMS[slotIdx];
+    if (!p) continue;
+
+    // Fond
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
+    bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
+    bg.setAttribute('rx', 6);
+    bg.setAttribute('fill', isBack ? '#1a1a1a' : (p.comingSoon ? '#111' : '#141416'));
+    bg.setAttribute('stroke', isBack ? '#444' : (p.comingSoon ? '#1a1a1a' : col+'55'));
+    bg.setAttribute('stroke-width', '0.8');
+    if (!isBack) bg.setAttribute('data-drumadv', slotIdx);
+    sg.appendChild(bg);
+
+    if (isBack) {
+      // Bouton retour
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', sx+pw/2); txt.setAttribute('y', sy+ph/2+5);
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('font-family', "'DM Mono',monospace");
+      txt.setAttribute('font-size', '14');
+      txt.setAttribute('fill', '#888');
+      txt.setAttribute('pointer-events', 'none');
+      txt.textContent = '← BACK';
+      sg.appendChild(txt);
+      const hitBack = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      hitBack.setAttribute('x', sx+margin); hitBack.setAttribute('y', sy+margin);
+      hitBack.setAttribute('width', pw-margin*2); hitBack.setAttribute('height', ph-margin*2);
+      hitBack.setAttribute('fill', 'transparent');
+      hitBack.setAttribute('data-drumadvback', '1');
+      sg.appendChild(hitBack);
+      continue;
+    }
+
+    // Label paramètre
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lbl.setAttribute('x', sx+pw/2); lbl.setAttribute('y', sy+margin+20);
+    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('font-family', "'DM Mono',monospace");
+    lbl.setAttribute('font-size', '11');
+    lbl.setAttribute('fill', p.comingSoon ? '#333' : '#888');
+    lbl.setAttribute('pointer-events', 'none');
+    lbl.textContent = p.label;
+    sg.appendChild(lbl);
+
+    // Valeur
+    const val = pad[p.key] ?? p.def;
+    const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    valTxt.setAttribute('id', `drumadv_val_${slotIdx}`);
+    valTxt.setAttribute('x', sx+pw/2); valTxt.setAttribute('y', sy+ph/2+8);
+    valTxt.setAttribute('text-anchor', 'middle');
+    valTxt.setAttribute('font-family', "'DM Mono',monospace");
+    valTxt.setAttribute('font-size', '16');
+    valTxt.setAttribute('font-weight', '500');
+    valTxt.setAttribute('fill', p.comingSoon ? '#2a2a2a' : col);
+    valTxt.setAttribute('pointer-events', 'none');
+    valTxt.textContent = p.comingSoon ? '—' : p.fmt(val);
+    sg.appendChild(valTxt);
+
+    // "soon" label pour paramètres pas encore implémentés
+    if (p.comingSoon) {
+      const soon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      soon.setAttribute('x', sx+pw/2); soon.setAttribute('y', sy+ph-margin-8);
+      soon.setAttribute('text-anchor', 'middle');
+      soon.setAttribute('font-family', "'DM Mono',monospace");
+      soon.setAttribute('font-size', '9');
+      soon.setAttribute('fill', '#2a2a2a');
+      soon.setAttribute('pointer-events', 'none');
+      soon.textContent = 'v2';
+      sg.appendChild(soon);
+    }
+
+    // Zone de drag (sauf comingSoon)
+    if (!p.comingSoon) {
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      hit.setAttribute('x', sx+margin); hit.setAttribute('y', sy+margin);
+      hit.setAttribute('width', pw-margin*2); hit.setAttribute('height', ph-margin*2);
+      hit.setAttribute('fill', 'transparent');
+      hit.setAttribute('cursor', p.step ? 'pointer' : 'ns-resize');
+      hit.setAttribute('data-drumadv', slotIdx);
+      sg.appendChild(hit);
+    }
+  }
+
+  // Header OLED
+  const padName = (pad.mode==='sample' && pad.fileName)
+    ? pad.fileName.replace(/\.[^.]+$/,'').slice(0,10)
+    : (pad.synthType || '—');
+  oled(`PAD ${padIdx+1} · ADV`, padName, 'tap=cycle  drag=valeur');
+
+  if (panel) panel.setAttribute('visibility', 'visible');
+}
+
+function exitDrumAdvPage() {
+  drumAdvPage = null;
+  renderDrumPadSelection();
+  const ti = S.currentTrack;
+  const t  = S.tracks[ti];
+  const pad = t.drumPads?.[S.selectedDrumPad];
+  const padName = pad ? ((pad.mode==='sample'&&pad.fileName) ? pad.fileName.replace(/\.[^.]+$/,'').slice(0,10) : pad.synthType) : '';
+  oled('DRUM', padName || getDrumPadName(ti, S.selectedDrumPad), `pad ${S.selectedDrumPad+1} · seq`);
+}
+
+// Drag sur les paramètres avancés drum
+let _drumAdvDrag = null;
+let _drumAdvLastTap = {};
+
+function drumAdvHandleDown(e) {
+  const panel = document.getElementById('enginePanel');
+  if (!panel || panel.getAttribute('visibility')==='hidden') return false;
+  if (drumAdvPage === null) return false;
+
+  let el = e.target;
+  for (let n = el; n && n !== document; n = n.parentNode) {
+    if (!n.getAttribute) continue;
+
+    // Retour
+    if (n.getAttribute('data-drumadvback') !== null) {
+      exitDrumAdvPage();
+      e.stopPropagation(); e.preventDefault();
+      return true;
+    }
+
+    // Paramètre avancé
+    if (n.getAttribute('data-drumadv') !== null) {
+      const slotIdx = parseInt(n.getAttribute('data-drumadv'));
+      const p = DRUM_ADV_PARAMS[slotIdx];
+      if (!p || p.comingSoon) return false;
+
+      const ti  = S.currentTrack;
+      const t   = S.tracks[ti];
+      const pad = t.drumPads?.[drumAdvPage];
+      if (!pad) return false;
+
+      const now = Date.now();
+      const tapKey = `drumadv_${slotIdx}`;
+
+      // Double-tap = reset
+      if (_drumAdvLastTap[tapKey] && now - _drumAdvLastTap[tapKey] < 350) {
+        _drumAdvLastTap[tapKey] = 0;
+        pad[p.key] = p.def;
+        renderDrumPadAdvanced(drumAdvPage);
+        oledForce('RESET', p.label, p.fmt(p.def));
+        e.stopPropagation(); e.preventDefault();
+        return true;
+      }
+      _drumAdvLastTap[tapKey] = now;
+
+      if (p.step) {
+        // Cycle par tap
+        const cur = Math.round(pad[p.key] ?? p.def);
+        pad[p.key] = (cur >= p.max) ? p.min : cur + 1;
+        const valEl = document.getElementById(`drumadv_val_${slotIdx}`);
+        if (valEl) valEl.textContent = p.fmt(pad[p.key]);
+        oledForce(p.label, p.fmt(pad[p.key]), `Pad ${drumAdvPage+1}`);
+        e.stopPropagation(); e.preventDefault();
+        return true;
+      }
+
+      // Drag continu
+      _drumAdvDrag = { slotIdx, p, padIdx: drumAdvPage, lastY: e.clientY, lastX: e.clientX };
+      e.stopPropagation(); e.preventDefault();
+      return true;
+    }
+    break;
+  }
+  return false;
+}
+
+document.addEventListener('mousemove', e => {
+  if (!_drumAdvDrag) return;
+  const { slotIdx, p, padIdx } = _drumAdvDrag;
+  const dist = Math.abs(e.clientY - _drumAdvDrag.lastY) + Math.abs(e.clientX - _drumAdvDrag.lastX);
+  const prevY = _drumAdvDrag.lastY, prevX = _drumAdvDrag.lastX;
+  _drumAdvDrag.lastY = e.clientY;
+  _drumAdvDrag.lastX = e.clientX;
+  if (dist > 60) return;
+  const dy = prevY - e.clientY;
+  const dx = e.clientX - prevX;
+  const delta = dy + dx;
+  if (Math.abs(delta) < 0.5) return;
+  const ti  = S.currentTrack;
+  const t   = S.tracks[ti];
+  const pad = t.drumPads?.[padIdx];
+  if (!pad) return;
+  const range = p.max - p.min;
+  const newVal = Math.max(p.min, Math.min(p.max, (pad[p.key] ?? p.def) + delta / 150 * range));
+  pad[p.key] = newVal;
+  const valEl = document.getElementById(`drumadv_val_${slotIdx}`);
+  if (valEl) valEl.textContent = p.fmt(newVal);
+  oledForce(p.label, p.fmt(newVal), `Pad ${padIdx+1}`);
+});
+
+document.addEventListener('mouseup', () => { _drumAdvDrag = null; });
 
 function muteTrack(ti) {
   S.tracks[ti].muted = !S.tracks[ti].muted;
