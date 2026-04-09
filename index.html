@@ -88,6 +88,7 @@ body {
 <script src="https://cdn.jsdelivr.net/npm/js-synthesizer@latest/externals/libfluidsynth-2.3.0.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-synthesizer@latest/dist/js-synthesizer.js"></script>
 <!-- Tuna.js — effets audio WebAudio -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tunajs@1.0.1/tuna.js"></script>
 </head>
 <body>
@@ -473,6 +474,26 @@ body {
   </g>
 
 </svg>
+
+<!-- Project Browser — export/import ZIP -->
+<div id="projectBrowser" class="brOverlay" style="z-index:102">
+  <div id="prjBrHeader" class="brHeader">
+    <span id="prjBrLabel" class="brTrackLabel" style="color:#ff6b00">PROJET</span>
+    <span id="prjBrCurrent" class="brCurrentLabel">—</span>
+    <button id="prjBrCloseBtn" class="brCloseBtn">✕</button>
+  </div>
+  <div id="prjBrBody" class="brBody">
+    <div id="prjBrLeftCol" class="brLeftCol">
+      <h3>Actions</h3>
+      <div id="prjBrActionList"></div>
+    </div>
+    <div id="prjBrRightCol" class="brRightCol">
+      <h3 id="prjBrRightTitle">Contenu</h3>
+      <div id="prjBrContentList" class="brList"></div>
+    </div>
+  </div>
+</div>
+<input type="file" id="prjBrFileInput" accept=".zip" style="display:none">
 
 <!-- Drum Browser — overlay pour choisir synth type ou sample par pad -->
 <div id="drumBrowser" class="brOverlay" style="z-index:101">
@@ -7948,9 +7969,10 @@ function renderProjectMode() {
           el.setAttribute('stroke-width', '1.5');
         }
       } else {
-        el.setAttribute('fill',         '#111113');
-        el.setAttribute('stroke',       '#2a2a2a');
-        el.setAttribute('stroke-width', '0.8');
+        const isEmptySelected = isSelected;
+        el.setAttribute('fill',         isEmptySelected ? '#1a1a2a' : '#111113');
+        el.setAttribute('stroke',       isEmptySelected ? '#fff'    : '#2a2a2a');
+        el.setAttribute('stroke-width', isEmptySelected ? '2'       : '0.8');
       }
 
       // Nom du projet (tronqué à 7 chars) ou numéro si vide
@@ -10989,8 +11011,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!d || (d._meta?.demoVersion || 0) < DEMO_VER) createDemoProject();
   } catch(e) { createDemoProject(); }
   document.getElementById('oledClickZone')?.addEventListener('click', () => {
-    // Bloquer en modes non-éditables
-    if (projectModeActive) return;
+    // En mode project → ouvrir le browser projet si un slot est sélectionné
+    if (projectModeActive) {
+      if (projectSelected) openProjectBrowser(projectSelected.slot);
+      return;
+    }
     if (S.mode === 'session') return;
     const ti = S.tracks[S.currentTrack];
     if (ti.mode === 'master') return;
@@ -11808,6 +11833,337 @@ function dpadAction(name) {
 }
 
 // Démarrer le polling gamepad
+
+// ═══════════════════════════════════════════════════════════════
+// PROJECT BROWSER — Export ZIP / Import ZIP
+// ═══════════════════════════════════════════════════════════════
+
+function openProjectBrowser(slot) {
+  const data = projectLoad(slot);
+  const slotNum = (slot % 32) + 1;
+  const page = Math.floor(slot / 32) + 1;
+  const label = `P${page}·${slotNum}`;
+
+  document.getElementById('prjBrLabel').textContent = label;
+  document.getElementById('prjBrCurrent').textContent = data?._meta?.name || (data ? 'Sans nom' : 'Vide');
+  document.getElementById('projectBrowser').classList.add('open');
+
+  const actionList = document.getElementById('prjBrActionList');
+  const contentList = document.getElementById('prjBrContentList');
+  const rightTitle = document.getElementById('prjBrRightTitle');
+
+  if (data) {
+    // ── Slot occupé : export ──
+    rightTitle.textContent = 'Contenu du projet';
+    // Résumé des pistes
+    const tracks = data.tracks || [];
+    contentList.innerHTML = tracks.map((t, i) => {
+      const modeName = t.mode === 'drum' ? '🥁 Drums' : t.mode === 'master' ? '⚙ Master' : `🎹 Track ${i+1}`;
+      const clips = t.clips ? t.clips.filter(c => c && prjClipHasNotes(c, t.mode)).length : 0;
+      const sf2 = t.mode !== 'drum' && t.mode !== 'master' ? (t.sfName?.replace('.sf2','') || 'synth') : '';
+      return `<div class="brItem" style="pointer-events:none">
+        <span class="brName">${modeName}${sf2 ? ' · '+sf2 : ''}</span>
+        <span class="brSub">${clips} clip${clips!==1?'s':''}</span>
+      </div>`;
+    }).join('');
+
+    actionList.innerHTML = `
+      <div class="brItem" id="prjExportBtn" style="cursor:pointer">
+        <span class="brName">⬇ Exporter ZIP</span>
+        <span class="brSub">MIDI + JSON</span>
+      </div>
+      <div class="brItem" style="pointer-events:none;opacity:0.3">
+        <span class="brName">⬆ Importer ZIP</span>
+        <span class="brSub">slot occupé</span>
+      </div>`;
+    document.getElementById('prjExportBtn').addEventListener('click', () => exportProjectZip(slot, data));
+
+  } else {
+    // ── Slot vide : import ──
+    rightTitle.textContent = 'Charger un projet';
+    contentList.innerHTML = `<div style="padding:16px;font-size:13px;color:#555;line-height:1.6">
+      Sélectionne un fichier .zip<br>exporté depuis J-seq<br>pour charger ce projet.
+    </div>`;
+    actionList.innerHTML = `
+      <div class="brItem" style="pointer-events:none;opacity:0.3">
+        <span class="brName">⬇ Exporter ZIP</span>
+        <span class="brSub">slot vide</span>
+      </div>
+      <div class="brItem" id="prjImportBtn" style="cursor:pointer">
+        <span class="brName">⬆ Importer ZIP</span>
+        <span class="brSub">charger projet</span>
+      </div>`;
+    document.getElementById('prjImportBtn').addEventListener('click', () => {
+      document.getElementById('prjBrFileInput').click();
+    });
+  }
+
+  document.getElementById('prjBrCloseBtn').addEventListener('click', closeProjectBrowser, { once: true });
+}
+
+function closeProjectBrowser() {
+  document.getElementById('projectBrowser').classList.remove('open');
+}
+
+function prjClipHasNotes(clip, mode) {
+  if (mode === 'drum') {
+    return clip.drumBars && clip.drumBars.some(padBars =>
+      padBars && padBars.some(bar => bar && bar.some(st => st && st.on)));
+  }
+  return clip.bars && clip.bars.some(bar => bar && bar.some(st => st && st.on));
+}
+
+// ── MIDI file generation ──────────────────────────────────────
+
+function writeMidiVarLen(val) {
+  // Variable length encoding pour MIDI
+  const bytes = [];
+  bytes.push(val & 0x7f);
+  val >>= 7;
+  while (val > 0) { bytes.push((val & 0x7f) | 0x80); val >>= 7; }
+  return bytes.reverse();
+}
+
+function buildMidiFile(notes, bpmMap, ticksPerBeat) {
+  // notes: [{tick, pitch, vel, offTick}]
+  // bpmMap: [{tick, bpm}] — tempo changes
+  ticksPerBeat = ticksPerBeat || 96;
+
+  const tempoTrack = [];
+  // Track header
+  tempoTrack.push(0x4d, 0x54, 0x72, 0x6b); // "MTrk"
+
+  const tempoEvents = [];
+  for (const { tick, bpm } of bpmMap) {
+    const uspb = Math.round(60000000 / bpm); // microseconds per beat
+    tempoEvents.push(...writeMidiVarLen(tick));
+    tempoEvents.push(0xff, 0x51, 0x03);
+    tempoEvents.push((uspb >> 16) & 0xff, (uspb >> 8) & 0xff, uspb & 0xff);
+  }
+  tempoEvents.push(0x00, 0xff, 0x2f, 0x00); // EOT
+
+  // Track length
+  const tLen = tempoEvents.length;
+  tempoTrack.push((tLen>>24)&0xff,(tLen>>16)&0xff,(tLen>>8)&0xff,tLen&0xff);
+  tempoTrack.push(...tempoEvents);
+
+  // Note track
+  const noteTrack = [];
+  noteTrack.push(0x4d, 0x54, 0x72, 0x6b);
+
+  // Build events list sorted by tick
+  const events = [];
+  for (const n of notes) {
+    events.push({ tick: n.tick, type: 'on',  pitch: n.pitch, vel: n.vel });
+    events.push({ tick: n.offTick, type: 'off', pitch: n.pitch });
+  }
+  events.sort((a, b) => a.tick - b.tick || (a.type === 'off' ? -1 : 1));
+
+  const noteEvents = [];
+  let lastTick = 0;
+  for (const ev of events) {
+    const delta = ev.tick - lastTick;
+    lastTick = ev.tick;
+    noteEvents.push(...writeMidiVarLen(delta));
+    if (ev.type === 'on') {
+      noteEvents.push(0x90, ev.pitch & 0x7f, Math.round(ev.vel * 127) & 0x7f);
+    } else {
+      noteEvents.push(0x80, ev.pitch & 0x7f, 0x40);
+    }
+  }
+  noteEvents.push(0x00, 0xff, 0x2f, 0x00); // EOT
+
+  const nLen = noteEvents.length;
+  noteTrack.push((nLen>>24)&0xff,(nLen>>16)&0xff,(nLen>>8)&0xff,nLen&0xff);
+  noteTrack.push(...noteEvents);
+
+  // Header chunk: format 1, 2 tracks, ticksPerBeat
+  const header = [
+    0x4d,0x54,0x68,0x64, // "MThd"
+    0x00,0x00,0x00,0x06, // length 6
+    0x00,0x01,           // format 1
+    0x00,0x02,           // 2 tracks
+    (ticksPerBeat>>8)&0xff, ticksPerBeat&0xff
+  ];
+
+  return new Uint8Array([...header, ...tempoTrack, ...noteTrack]);
+}
+
+function projectToMidiFiles(data) {
+  // Retourne { 'Track1_Piano/clip_1.mid': Uint8Array, ... }
+  const TICKS = 96; // ticks per beat
+  const files = {};
+  const tracks = data.tracks || [];
+
+  // Construire la bpmMap depuis la piste master
+  const masterTrack = tracks.find(t => t.mode === 'master');
+  const baseBpm = data.bpm || 120;
+
+  // Pour chaque piste
+  tracks.forEach((track, ti) => {
+    if (track.mode === 'master') return;
+
+    const modeName = track.mode === 'drum' ? 'Drums' : `Track${ti+1}`;
+    const sf2name = track.sfName ? `_${track.sfName.replace('.sf2','').replace(/[^a-zA-Z0-9]/g,'_')}` : '';
+    const folderName = `${modeName}${sf2name}`;
+
+    const clips = track.clips || [];
+    clips.forEach((clip, ci) => {
+      if (!clip || !prjClipHasNotes(clip, track.mode)) return;
+
+      const notes = [];
+      const bpmMap = [{ tick: 0, bpm: baseBpm }];
+
+      if (track.mode === 'drum') {
+        // Drums → canal 10 (MIDI channel 9), notes GM drums
+        const GM_DRUMS = [36,38,42,46,49,51,39,45]; // kick,snare,HH,openHH,crash,ride,clap,tom
+        const drumBars = clip.drumBars || [];
+        drumBars.forEach((padBars, padIdx) => {
+          const pitch = GM_DRUMS[padIdx] || (36 + padIdx);
+          if (!padBars) return;
+          padBars.forEach((bar, barIdx) => {
+            if (!bar) return;
+            bar.forEach((st, stepIdx) => {
+              if (!st || !st.on) return;
+              const tick = (barIdx * 16 + stepIdx) * TICKS / 4;
+              const offTick = tick + TICKS / 4 - 1;
+              notes.push({ tick, pitch, vel: st.vel || 0.8, offTick });
+            });
+          });
+        });
+      } else {
+        // Mélodique
+        const bars = clip.bars || [];
+        bars.forEach((bar, barIdx) => {
+          if (!bar) return;
+          bar.forEach((st, stepIdx) => {
+            if (!st || !st.on) return;
+            const tick = (barIdx * 16 + stepIdx) * TICKS / 4;
+            const len = Math.max(1, st.len || 1);
+            const offTick = tick + len * TICKS / 4 - 1;
+            const allNotes = [st.note, ...(st.extraNotes || [])].filter(n => n >= 0 && n <= 127);
+            allNotes.forEach(pitch => {
+              notes.push({ tick, pitch, vel: st.vel || 0.8, offTick });
+            });
+          });
+        });
+
+        // Intégrer les changements de tempo depuis la piste master
+        if (masterTrack && masterTrack.clips?.[ci]) {
+          const masterClip = masterTrack.clips[ci];
+          const masterBars = masterClip.bars || [];
+          bpmMap.length = 0;
+          let lastBpm = baseBpm;
+          masterBars.forEach((bar, barIdx) => {
+            if (!bar) return;
+            bar.forEach((st, stepIdx) => {
+              if (!st || !st.on) return;
+              const tick = (barIdx * 16 + stepIdx) * TICKS / 4;
+              const bpm = st.note || baseBpm;
+              if (bpm !== lastBpm || (barIdx === 0 && stepIdx === 0)) {
+                bpmMap.push({ tick, bpm });
+                lastBpm = bpm;
+              }
+            });
+          });
+          if (!bpmMap.length) bpmMap.push({ tick: 0, bpm: baseBpm });
+        }
+      }
+
+      if (notes.length === 0) return;
+      const midi = buildMidiFile(notes, bpmMap, TICKS);
+      files[`${folderName}/clip_${ci + 1}.mid`] = midi;
+    });
+
+    // Fichier infos.txt pour la piste
+    let infos = `Piste : ${folderName}\n`;
+    infos += `Mode : ${track.mode}\n`;
+    if (track.sfName)   infos += `SF2 : ${track.sfName}\n`;
+    if (track.sendReverb > 0) infos += `Reverb send : ${Math.round(track.sendReverb * 100)}%\n`;
+    if (track.sendDelay > 0)  infos += `Delay send : ${Math.round(track.sendDelay * 100)}%\n`;
+    files[`${folderName}/infos.txt`] = infos;
+  });
+
+  return files;
+}
+
+// ── Export ZIP ────────────────────────────────────────────────
+
+async function exportProjectZip(slot, data) {
+  const btn = document.getElementById('prjExportBtn');
+  if (btn) btn.textContent = '⏳ Génération…';
+
+  try {
+    const zip = new JSZip();
+    const name = (data._meta?.name || 'projet').replace(/[^a-zA-Z0-9_\-]/g, '_');
+
+    // JSON complet pour re-import
+    zip.file('_projet.json', JSON.stringify(data, null, 2));
+
+    // Fichiers MIDI par piste/clip
+    const midiFiles = projectToMidiFiles(data);
+    for (const [path, content] of Object.entries(midiFiles)) {
+      zip.file(path, content);
+    }
+
+    const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${name}_jseq.zip`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+    closeProjectBrowser();
+    oledForce('EXPORT', name, '✓ ZIP téléchargé');
+    setTimeout(() => { S._oledLocked = false; }, 2000);
+
+  } catch(e) {
+    console.error('Export ZIP error:', e);
+    oledForce('EXPORT', 'Erreur', e.message?.slice(0,16) || '');
+  }
+}
+
+// ── Import ZIP ────────────────────────────────────────────────
+
+document.getElementById('prjBrFileInput').addEventListener('change', async function() {
+  const file = this.files?.[0];
+  if (!file) return;
+  this.value = ''; // reset pour pouvoir re-sélectionner le même fichier
+
+  try {
+    const zip = await JSZip.loadAsync(file);
+    const jsonFile = zip.file('_projet.json');
+    if (!jsonFile) {
+      oledForce('IMPORT', 'Erreur', 'pas de _projet.json');
+      return;
+    }
+    const jsonText = await jsonFile.async('string');
+    const data = JSON.parse(jsonText);
+
+    // Trouver le slot cible (le slot vide sélectionné)
+    const slot = projectSelected?.slot;
+    if (slot === undefined || slot === null) {
+      oledForce('IMPORT', 'Erreur', 'aucun slot sélectionné');
+      return;
+    }
+
+    // Sauvegarder dans le slot
+    const name = data._meta?.name || 'Importé';
+    localStorage.setItem(PROJECT_KEY(slot), JSON.stringify(data));
+
+    closeProjectBrowser();
+    renderProjectMode();
+    oledForce('IMPORT', name, `→ slot ${(slot % 32) + 1}`);
+    setTimeout(() => { S._oledLocked = false; }, 2000);
+
+  } catch(e) {
+    console.error('Import ZIP error:', e);
+    oledForce('IMPORT', 'Erreur', e.message?.slice(0,16) || '');
+  }
+});
+
+
 window.addEventListener('gamepadconnected', e => {
   console.log('[J-seq] Gamepad connecté:', e.gamepad.id);
   oledForce('GAMEPAD', e.gamepad.id.slice(0, 14), 'Connecté');
