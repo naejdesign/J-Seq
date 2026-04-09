@@ -4068,6 +4068,8 @@ function flashDrumPadNew(padIdx) {
   if (S.mode === 'session') return;
   if (S.tracks[S.currentTrack].mode !== 'drum') return;
   if (padIdx < 0 || padIdx > 7) return;
+  // Pas de flash en page avancée — ça interfère avec les drags
+  if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null) return;
   const slotToPad = [4,5,6,7,0,1,2,3];
   const slotIdx = slotToPad.indexOf(padIdx);
   if (slotIdx < 0) return;
@@ -5186,54 +5188,61 @@ function renderDrumPadAdvanced(padIdx) {
     const p = DRUM_ADV_PARAMS[slotIdx];
     if (!p) continue;
 
-    // Label paramètre
+    const val = pad[p.key] ?? p.def;
+
+    // Fond (style SF2 avancé)
+    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
+    bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
+    bg.setAttribute('rx', 5); bg.setAttribute('fill', '#141416');
+    bg.setAttribute('stroke', col+'55'); bg.setAttribute('stroke-width', '0.5');
+    sg.appendChild(bg);
+
+    // Barre verticale (style SF2)
+    const pct = p.max > p.min ? Math.max(0, Math.min(1, (val - p.min) / (p.max - p.min))) : 0;
+    const barH = Math.round(pct * (ph - margin*2 - 30));
+    const barBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    barBg.setAttribute('x', sx+margin+8); barBg.setAttribute('y', sy+margin+10);
+    barBg.setAttribute('width', 6); barBg.setAttribute('height', ph-margin*2-30);
+    barBg.setAttribute('rx', 3); barBg.setAttribute('fill', '#1e1e22');
+    sg.appendChild(barBg);
+    const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bar.setAttribute('id', `drumadv_bar_${slotIdx}`);
+    const barTop = sy + margin + 10 + (ph-margin*2-30) - barH;
+    bar.setAttribute('x', sx+margin+8); bar.setAttribute('y', String(barTop));
+    bar.setAttribute('width', 6); bar.setAttribute('height', String(Math.max(0, barH)));
+    bar.setAttribute('rx', 3); bar.setAttribute('fill', col);
+    bar.setAttribute('pointer-events', 'none');
+    sg.appendChild(bar);
+
+    // Nom (style SF2 : en haut à droite de la barre)
     const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    lbl.setAttribute('x', sx+pw/2); lbl.setAttribute('y', sy+margin+20);
-    lbl.setAttribute('text-anchor', 'middle');
+    lbl.setAttribute('x', sx+margin+20); lbl.setAttribute('y', sy+22);
     lbl.setAttribute('font-family', "'DM Mono',monospace");
-    lbl.setAttribute('font-size', '11');
-    lbl.setAttribute('fill', p.comingSoon ? '#333' : '#888');
-    lbl.setAttribute('pointer-events', 'none');
+    lbl.setAttribute('font-size', '13'); lbl.setAttribute('font-weight', '500');
+    lbl.setAttribute('fill', col); lbl.setAttribute('pointer-events', 'none');
     lbl.textContent = p.label;
     sg.appendChild(lbl);
 
-    // Valeur
-    const val = pad[p.key] ?? p.def;
+    // Valeur (style SF2 : en bas à droite)
     const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     valTxt.setAttribute('id', `drumadv_val_${slotIdx}`);
-    valTxt.setAttribute('x', sx+pw/2); valTxt.setAttribute('y', sy+ph/2+8);
-    valTxt.setAttribute('text-anchor', 'middle');
+    valTxt.setAttribute('x', sx + pw - margin - 6); valTxt.setAttribute('y', sy + ph - margin - 6);
+    valTxt.setAttribute('text-anchor', 'end');
     valTxt.setAttribute('font-family', "'DM Mono',monospace");
-    valTxt.setAttribute('font-size', '16');
-    valTxt.setAttribute('font-weight', '500');
-    valTxt.setAttribute('fill', p.comingSoon ? '#2a2a2a' : col);
+    valTxt.setAttribute('font-size', '14'); valTxt.setAttribute('fill', '#ccc');
     valTxt.setAttribute('pointer-events', 'none');
-    valTxt.textContent = p.comingSoon ? '—' : p.fmt(val);
+    valTxt.textContent = p.fmt(val);
     sg.appendChild(valTxt);
 
-    // "soon" label pour paramètres pas encore implémentés
-    if (p.comingSoon) {
-      const soon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      soon.setAttribute('x', sx+pw/2); soon.setAttribute('y', sy+ph-margin-8);
-      soon.setAttribute('text-anchor', 'middle');
-      soon.setAttribute('font-family', "'DM Mono',monospace");
-      soon.setAttribute('font-size', '9');
-      soon.setAttribute('fill', '#2a2a2a');
-      soon.setAttribute('pointer-events', 'none');
-      soon.textContent = 'v2';
-      sg.appendChild(soon);
-    }
-
-    // Zone de drag (sauf comingSoon)
-    if (!p.comingSoon) {
-      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      hit.setAttribute('x', sx+margin); hit.setAttribute('y', sy+margin);
-      hit.setAttribute('width', pw-margin*2); hit.setAttribute('height', ph-margin*2);
-      hit.setAttribute('fill', 'transparent');
-      hit.setAttribute('cursor', p.step ? 'pointer' : 'ns-resize');
-      hit.setAttribute('data-drumadv', slotIdx);
-      sg.appendChild(hit);
-    }
+    // Zone drag/tap
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    hit.setAttribute('x', sx+margin); hit.setAttribute('y', sy+margin);
+    hit.setAttribute('width', pw-margin*2); hit.setAttribute('height', ph-margin*2);
+    hit.setAttribute('fill', 'transparent');
+    hit.setAttribute('cursor', p.step ? 'pointer' : 'ns-resize');
+    hit.setAttribute('data-drumadv', slotIdx);
+    sg.appendChild(hit);
   }
 
   // Header OLED
@@ -5342,6 +5351,25 @@ document.addEventListener('mousemove', e => {
   pad[p.key] = newVal;
   const valEl = document.getElementById(`drumadv_val_${slotIdx}`);
   if (valEl) valEl.textContent = p.fmt(newVal);
+  // Mettre à jour la barre verticale
+  const barEl = document.getElementById(`drumadv_bar_${slotIdx}`);
+  if (barEl) {
+    const sg = document.getElementById(`fxslot_${slotIdx}`);
+    if (sg) {
+      const pct2 = p.max > p.min ? Math.max(0, Math.min(1, (newVal - p.min) / (p.max - p.min))) : 0;
+      const margin2 = 4;
+      const ph2 = FX_SH;
+      const totalH = ph2 - margin2*2 - 30;
+      const barH2 = Math.round(pct2 * totalH);
+      const barTop2 = margin2 + 10 + totalH - barH2;
+      barEl.setAttribute('height', String(Math.max(0, barH2)));
+      barEl.setAttribute('y', String(barTop2 + (parseInt(barEl.getAttribute('y').split('.')[0]) - barTop2)));
+      // Recalcul direct depuis fxslot position
+      const sx2 = fxSlotX(slotIdx), sy2 = fxSlotY(slotIdx);
+      barEl.setAttribute('y', String(sy2 + margin2 + 10 + totalH - barH2));
+      barEl.setAttribute('height', String(Math.max(0, barH2)));
+    }
+  }
   oledForce(p.label, p.fmt(newVal), `Pad ${padIdx+1}`);
 });
 
