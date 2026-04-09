@@ -1047,76 +1047,90 @@ const FX_DEFS = [
   {
     id: 'saturation', name: 'Saturate', color: '#f84',
     params: [
-      { name: 'Drive', key: '_drive', min: 0,   max: 1,   def: 0.5, log: false },
-      { name: 'Type',  key: '_type',  min: 0,   max: 2,   def: 0,   log: false, labels: ['Tape','Tube','Clip'], cycle: true },
-      { name: 'Mix',   key: '_mix',   min: 0,   max: 1,   def: 0.5, log: false },
+      { name: 'Drive', key: '_drive', min: -12, max: 24,  def: 0,   log: false },
+      { name: 'Type',  key: '_type',  min: 0,   max: 7,   def: 0,   log: false, labels: ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'], cycle: true },
+      { name: 'Mix',   key: '_mix',   min: 0,   max: 1,   def: 0.8, log: false },
     ],
     mainParams: [0, 2],
     create: () => {
       const input    = actx.createGain();
       const output   = actx.createGain();
-      const preGain  = actx.createGain();   // boost avant WaveShaper
+      const preGain  = actx.createGain();
       const shaper   = actx.createWaveShaper();
       shaper.oversample = '4x';
-      const postGain = actx.createGain();   // compensation niveau
+      const postGain = actx.createGain();
       const wetGain  = actx.createGain();
       const dryGain  = actx.createGain();
 
-      let _driveVal = 0.5, _typeVal = 0, _mixVal = 0.5;
+      let _driveVal = 0, _typeVal = 0, _mixVal = 0.8;
 
-      function makeCurve(drive, type) {
-        const n = 512;
+      function dBtoLin(db) { return Math.pow(10, db / 20); }
+
+      function makeCurve(type) {
+        const n = 1024;
         const curve = new Float32Array(n);
-        const k = 1 + drive * 99; // 1..100
-
         for (let i = 0; i < n; i++) {
-          const x = (i * 2) / n - 1; // -1..+1
+          let x = (i * 2) / n - 1; // -1..+1, représente le signal après preGain
+          // Amplifier pour activer la saturation (les algos opèrent sur des valeurs > 1)
+          x *= 8;
           let y;
-          if (type === 0) {
-            // Tape : tanh doux, harmoniques paires et impaires
-            y = Math.tanh(k * x) / Math.tanh(k);
-          } else if (type === 1) {
-            // Tube : asymétrique comme un tube à vide
-            if (x >= 0) {
-              y = 1 - Math.exp(-k * x);
-            } else {
-              y = -0.6 * (1 - Math.exp(k * 0.6 * x));
-            }
-            // Normaliser
-            const peak = 1 - Math.exp(-k);
-            y /= peak;
-          } else {
-            // Hard clip avec arrondi doux aux bords
-            const t = 1 / (1 + drive * 4);
-            if (Math.abs(x) < t) {
-              y = x / t;
-            } else {
-              y = Math.sign(x);
-            }
+          const sign = x >= 0 ? 1 : -1;
+          const ax = Math.abs(x);
+          switch (type) {
+            case 0: // tanh
+              y = Math.tanh(x);
+              break;
+            case 1: // sine
+              y = Math.sin(x);
+              break;
+            case 2: // hard — x / (1+x^8)^(1/8)
+              y = x / Math.pow(1 + Math.pow(ax, 8), 1/8);
+              break;
+            case 3: // log
+              y = Math.log(1 + ax) * sign * 0.6;
+              y = y / Math.pow(1 + Math.pow(Math.abs(y), 8), 1/8);
+              break;
+            case 4: // sqrt
+              y = Math.sqrt(ax) * sign * 0.6;
+              y = y / Math.pow(1 + Math.pow(Math.abs(y), 8), 1/8);
+              break;
+            case 5: // cube — sin(cbrt(x) * 0.5)
+              y = Math.sin(Math.cbrt(x) * 0.5);
+              break;
+            case 6: // fold
+              { const t = 0.9;
+                let s = x % (2 * t);
+                if (s > t) s = 2*t - s;
+                else if (s < -t) s = -2*t - s;
+                y = s; }
+              break;
+            case 7: // squaredSine — sin(x²·sign)
+              y = Math.sin(ax * ax * sign);
+              break;
+            default:
+              y = Math.tanh(x);
           }
-          curve[i] = y;
+          // Limiter à -1/+1
+          curve[i] = Math.max(-1, Math.min(1, y));
         }
         return curve;
       }
 
       function update() {
-        shaper.curve = makeCurve(_driveVal, _typeVal);
-        // preGain booste pour activer la distortion
-        const boost = 1 + _driveVal * 5;
-        preGain.gain.setTargetAtTime(boost, actx.currentTime, 0.01);
-        // postGain compense le niveau
-        postGain.gain.setTargetAtTime(1 / Math.sqrt(boost), actx.currentTime, 0.01);
-        wetGain.gain.setTargetAtTime(_mixVal, actx.currentTime, 0.01);
+        shaper.curve = makeCurve(_typeVal);
+        const lin = dBtoLin(_driveVal);
+        preGain.gain.setTargetAtTime(lin, actx.currentTime, 0.02);
+        // Compensation niveau : plus on pousse le drive plus on atténue la sortie
+        postGain.gain.setTargetAtTime(1 / Math.max(1, Math.sqrt(lin)), actx.currentTime, 0.02);
+        wetGain.gain.setTargetAtTime(_mixVal,     actx.currentTime, 0.01);
         dryGain.gain.setTargetAtTime(1 - _mixVal, actx.currentTime, 0.01);
       }
 
-      // Wet : input → preGain → shaper → postGain → wetGain → output
       input.connect(preGain);
       preGain.connect(shaper);
       shaper.connect(postGain);
       postGain.connect(wetGain);
       wetGain.connect(output);
-      // Dry
       input.connect(dryGain);
       dryGain.connect(output);
 
@@ -1128,9 +1142,9 @@ const FX_DEFS = [
         get bypass() { return false; },
         set bypass(v) {},
         get _drive() { return _driveVal; },
-        set _drive(v) { _driveVal = Math.max(0, Math.min(1, v)); update(); },
+        set _drive(v){ _driveVal = v; update(); },
         get _type()  { return _typeVal; },
-        set _type(v) { _typeVal = Math.round(v) % 3; update(); },
+        set _type(v) { _typeVal = Math.round(v) % 8; update(); },
         get _mix()   { return _mixVal; },
         set _mix(v)  {
           _mixVal = Math.max(0, Math.min(1, v));
