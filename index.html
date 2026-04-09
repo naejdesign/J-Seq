@@ -3349,16 +3349,8 @@ function drumSynth(pad, vel, dest) {
 function drumSample(pad, vel, dest) {
   if (!pad.buffer) return;
   const t         = actx.currentTime;
-  const tuneRatio = Math.pow(2, (pad.tune || 0) / 12);
-  const tone      = Math.max(0, Math.min(1, pad.tone ?? 0.5));
-  const drv       = Math.max(0, Math.min(1, pad.drive || 0));
+  const tuneRatio = Math.pow(2, ((pad.tune || 0) + (pad._stepTune || 0)) / 12);
   const masterOut = dest || getMaster();
-
-  // Decay : 0=très court (0.05s), 1=sample entier
-  const decayVal  = Math.max(0, Math.min(1, pad.decay ?? 0.5));
-  const sampleDur = pad.buffer.duration / (tuneRatio || 1);
-  // decayVal=0 → 50ms, decayVal=1 → durée totale du sample
-  const decSec    = 0.05 + decayVal * (sampleDur - 0.05);
 
   const s = actx.createBufferSource();
   s.buffer = pad.buffer;
@@ -3366,61 +3358,31 @@ function drumSample(pad, vel, dest) {
 
   const startSec = (pad.startPoint || 0) * pad.buffer.duration;
 
+  // Gain simple = vélocité, sans enveloppe — le sample joue naturellement
   const g = actx.createGain();
   g.gain.value = vel;
   s.connect(g);
+  g.connect(masterOut);
 
-  let lastNode = g;
-
-  // Drive — seulement si > 0
-  if (drv > 0.02) {
-    const preG = actx.createGain();
-    preG.gain.value = Math.pow(100, drv);
-    g.connect(preG);
-    const comp = actx.createDynamicsCompressor();
-    comp.threshold.value = -6 - drv * 30;
-    comp.knee.value      = 10;
-    comp.ratio.value     = 4 + drv * 16;
-    comp.attack.value    = 0.001;
-    comp.release.value   = 0.05;
-    preG.connect(comp);
-    lastNode = comp;
-  }
-
-  // Tone filter — seulement si éloigné de la valeur neutre (0.5)
-  // tone < 0.45 → coupe les aigus, tone > 0.55 → boost résonance
-  if (Math.abs(tone - 0.5) > 0.04) {
-    const filt = actx.createBiquadFilter();
-    filt.type = 'lowpass';
-    // Remapper : tone=0→200Hz, tone=0.5→20000Hz (transparent), tone=1→20000Hz+résonance
-    const normTone = tone < 0.5 ? tone * 2 : 1; // 0..1 pour la fréquence
-    filt.frequency.setValueAtTime(200 * Math.pow(100, normTone), t);
-    const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
-    filt.Q.setValueAtTime(q, t);
-    lastNode.connect(filt);
-    lastNode = filt;
-  }
-
-  // Enveloppe decay
-  const gOut = actx.createGain();
-  gOut.gain.setValueAtTime(1, t);
-  gOut.gain.setValueAtTime(1, t);
-  gOut.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-  gOut.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-  lastNode.connect(gOut);
-  gOut.connect(masterOut);
+  // Decay : 1.0 = sample entier (naturel), < 1.0 = coupe à ce pourcentage de la durée
+  const decayVal  = Math.max(0, Math.min(1, pad.decay ?? 1.0));
+  const sampleDur = pad.buffer.duration / (tuneRatio || 1);
+  const stopTime  = decayVal < 0.99
+    ? t + Math.max(0.02, decayVal * sampleDur)
+    : undefined; // laisser le sample finir naturellement
 
   s.start(t, startSec);
-  s.stop(t + decSec + 0.04);
+  if (stopTime !== undefined) {
+    // Petit fade-out avant la coupure pour éviter les clics
+    g.gain.setValueAtTime(vel, stopTime - 0.01);
+    g.gain.linearRampToValueAtTime(0, stopTime);
+    s.stop(stopTime + 0.01);
+  }
 
   s.onended = () => {
-    const now = actx.currentTime;
-    gOut.gain.setValueAtTime(gOut.gain.value, now);
-    gOut.gain.linearRampToValueAtTime(0, now + 0.02);
     setTimeout(() => {
       try { s.disconnect(); } catch(e) {}
       try { g.disconnect(); } catch(e) {}
-      try { gOut.disconnect(); } catch(e) {}
     }, 30);
   };
 }
@@ -6376,15 +6338,20 @@ function pressStep(idx) {
   const st = bar[idx];
   setStepAppearance(idx, st.on, false);
 
-  // Jouer les notes du step si actif et piste mélodique
+  // Jouer le step si actif
   const t = S.tracks[S.currentTrack];
-  if (st && st.on && t.mode !== 'drum' && t.mode !== 'master') {
+  if (st && st.on) {
     ensureAudio();
-    const notes = [st.note, ...(st.extraNotes || [])];
-    notes.forEach(n => {
-      playTrackNote(S.currentTrack, n, st.vel || 0.65);
-      if (t.outputMode === 'sf2') setTimeout(() => sf2NoteOff(S.currentTrack, n), 300);
-    });
+    if (t.mode === 'drum') {
+      // Preview du pad avec le tune du step
+      drumPadPlay(S.currentTrack, S.selectedDrumPad, st.vel || 0.65, st.tune || 0);
+    } else if (t.mode !== 'master') {
+      const notes = [st.note, ...(st.extraNotes || [])];
+      notes.forEach(n => {
+        playTrackNote(S.currentTrack, n, st.vel || 0.65);
+        if (t.outputMode === 'sf2') setTimeout(() => sf2NoteOff(S.currentTrack, n), 300);
+      });
+    }
   }
   obj.timer = setTimeout(() => {
     if (!heldSteps.has(idx)) return;
@@ -11558,6 +11525,7 @@ async function drumBrConfirmFile(idx) {
     pad.fileName = f.name;
     pad.mode     = 'sample';
     pad.reverse  = doReverse;
+    pad.decay    = 1.0; // sample entier par défaut
     saveUndo();
     drumBrUpdateCurrent(pad);
     const revTag = doReverse ? ' ◀' : '';
