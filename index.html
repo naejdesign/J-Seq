@@ -6137,7 +6137,7 @@ function pressStep(idx) {
       const bpmVal = bar[idx].on ? bar[idx].note : S.bpm;
       oled(count + ' STEP' + (count > 1 ? 'S' : ''), `${Math.round(bpmVal)} BPM`, 'wheel=BPM  </>=nudge');
     } else {
-      oled(count + ' STEP' + (count > 1 ? 'S' : '') + ' TENUS', 'VOL=velo wheel=duree', '+/-=oct  </>=nudge');
+      oled(count + ' STEP' + (count > 1 ? 'S' : '') + ' TENUS', 'enc=length/vel/offset', '+/-=oct  </>=nudge');
     }
   }, 250);
   heldSteps.set(idx, obj);
@@ -8740,11 +8740,32 @@ function pianoKeyPress(midi) {
       for (const idx of heldSteps.keys()) {
         const st = bar[idx];
         if (!st.on) { st.on=true; st.note=midi; st.vel=0.8; st.len=1; st.extraNotes=[]; }
-        else if (st.note === midi) { st.on=false; st.extraNotes=[]; }
+        else if (st.note === midi) {
+          // Supprimer la note principale
+          if (st.extraNotes && st.extraNotes.length > 0) {
+            // Promouvoir la première extraNote comme note principale
+            st.note = st.extraNotes.shift();
+          } else {
+            // Plus aucune note → désactiver le step
+            st.on = false; st.extraNotes = [];
+          }
+        }
         else {
           if (!st.extraNotes) st.extraNotes = [];
           const i2 = st.extraNotes.indexOf(midi);
-          if (i2 >= 0) st.extraNotes.splice(i2, 1); else st.extraNotes.push(midi);
+          if (i2 >= 0) {
+            // Note déjà présente → la retirer
+            st.extraNotes.splice(i2, 1);
+          } else {
+            // Nouvelle note → l'ajouter, et si st.note était le C4 par défaut (60) le remplacer
+            const DEFAULT_NOTE = 60;
+            if (st.note === DEFAULT_NOTE && st.extraNotes.length === 0) {
+              // Le step n'avait que la note par défaut → la remplacer
+              st.note = midi;
+            } else {
+              st.extraNotes.push(midi);
+            }
+          }
         }
       }
       clearStepNoteIllumination(); illuminateHeldStepNotes(); renderSteps(); illuminatePianoNotes();
@@ -9648,12 +9669,23 @@ function midiNoteOn(midi, velocity, ch) {
       if (!st.on) {
         st.on = true; st.note = midi; st.vel = vel; st.len = 1; st.extraNotes = [];
       } else if (st.note === midi) {
-        st.on = false; st.extraNotes = [];
+        if (st.extraNotes && st.extraNotes.length > 0) {
+          st.note = st.extraNotes.shift();
+        } else {
+          st.on = false; st.extraNotes = [];
+        }
       } else {
         if (!st.extraNotes) st.extraNotes = [];
         const i2 = st.extraNotes.indexOf(midi);
         if (i2 >= 0) st.extraNotes.splice(i2, 1);
-        else st.extraNotes.push(midi);
+        else {
+          const DEFAULT_NOTE = 60;
+          if (st.note === DEFAULT_NOTE && st.extraNotes.length === 0) {
+            st.note = midi;
+          } else {
+            st.extraNotes.push(midi);
+          }
+        }
       }
     }
     clearStepNoteIllumination(); illuminateHeldStepNotes(); renderSteps();
@@ -9685,8 +9717,12 @@ function recNoteOn(midi, vel) {
     st.extraNotes = []; st.prob = 100;
     st.shift = pos.shift; // shift calculé depuis la position réelle de jeu
   } else if (st.note === midi) {
-    st.on = false; st.extraNotes = [];
-    recHeld.delete(midi); renderSteps(); return;
+    if (st.extraNotes && st.extraNotes.length > 0) {
+      st.note = st.extraNotes.shift();
+    } else {
+      st.on = false; st.extraNotes = [];
+      recHeld.delete(midi); renderSteps(); return;
+    }
   } else {
     if (!st.extraNotes) st.extraNotes = [];
     const idx = st.extraNotes.indexOf(midi);
@@ -9694,7 +9730,12 @@ function recNoteOn(midi, vel) {
       st.extraNotes.splice(idx, 1);
       recHeld.delete(midi); renderSteps(); return;
     }
-    st.extraNotes.push(midi);
+    const DEFAULT_NOTE = 60;
+    if (st.note === DEFAULT_NOTE && st.extraNotes.length === 0) {
+      st.note = midi;
+    } else {
+      st.extraNotes.push(midi);
+    }
   }
 
   recHeld.set(midi, { bar: pos.bar, step: pos.step, startTime: pos.time });
