@@ -3078,35 +3078,21 @@ const noteName = m => noteNames[m%12] + (Math.floor(m/12)-1);
 
 // Types de sons synthétisés disponibles
 const DRUM_SYNTH_TYPES = [
-  'Kick','Snare','Clap','HH Cl','HH Op','Rim','Tom Hi','Tom Mid','Tom Lo',
-  'Crash','Ride','Shaker','Tamb','Conga','Bongo','Maracas',
-  'Woodblk','Triangle','Snap','Zap','Noise','Click'
+  'Kick','Snare','Clap','HH Cl','HH Op','Tom',
+  'Crash','Triangle','Zap'
 ];
 
 // Valeurs par défaut par type
 const DRUM_SYNTH_DEFAULTS = {
-  'Kick':     { tune:0, decay:0.5,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Snare':    { tune:0, decay:0.3,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Clap':     { tune:0, decay:0.2,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'HH Cl':    { tune:0, decay:0.1,  tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:1 },
-  'HH Op':    { tune:0, decay:0.4,  tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:1 },
-  'Rim':      { tune:0, decay:0.15, tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Tom Hi':   { tune:0, decay:0.35, tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Tom Mid':  { tune:0, decay:0.4,  tone:0.45,drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Tom Lo':   { tune:0, decay:0.45, tone:0.4, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Crash':    { tune:0, decay:0.8,  tone:0.6, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Ride':     { tune:0, decay:0.6,  tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Shaker':   { tune:0, decay:0.08, tone:0.8, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Tamb':     { tune:0, decay:0.25, tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Conga':    { tune:0, decay:0.3,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Bongo':    { tune:0, decay:0.2,  tone:0.55,drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Maracas':  { tune:0, decay:0.05, tone:0.85,drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Woodblk':  { tune:0, decay:0.1,  tone:0.6, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Triangle': { tune:0, decay:0.5,  tone:0.9, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Snap':     { tune:0, decay:0.06, tone:0.7, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Zap':      { tune:0, decay:0.15, tone:0.5, drive:0.2, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Noise':    { tune:0, decay:0.3,  tone:0.5, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
-  'Click':    { tune:0, decay:0.03, tone:0.8, drive:0, pitchDrop:0, punch:0, click:0, filterQ:0, pan:0, chokeGroup:0 },
+  'Kick':     { tune:0, decay:0.5,  tone:0.5, drive:0, pan:0, chokeGroup:0 },
+  'Snare':    { tune:0, decay:0.3,  tone:0.5, drive:0, pan:0, chokeGroup:0 },
+  'Clap':     { tune:0, decay:0.2,  tone:0.5, drive:0, pan:0, chokeGroup:0 },
+  'HH Cl':    { tune:0, decay:0.1,  tone:0.7, drive:0, pan:0, chokeGroup:1 },
+  'HH Op':    { tune:0, decay:0.4,  tone:0.7, drive:0, pan:0, chokeGroup:1 },
+  'Tom':      { tune:0, decay:0.4,  tone:0.45,drive:0, pan:0, chokeGroup:0 },
+  'Crash':    { tune:0, decay:0.8,  tone:0.6, drive:0, pan:0, chokeGroup:0 },
+  'Triangle': { tune:0, decay:0.5,  tone:0.9, drive:0, pan:0, chokeGroup:0 },
+  'Zap':      { tune:0, decay:0.15, tone:0.5, drive:0.2, pan:0, chokeGroup:0 },
 };
 
 // Fabrique un pad drum vide
@@ -3120,13 +3106,8 @@ function makeDrumPad(typeIdx) {
     decay:      defs.decay,
     tone:       defs.tone,
     drive:      defs.drive,
-    // Nouveaux paramètres avancés
-    pitchDrop:  defs.pitchDrop  ?? 0,  // demi-tons 0..24
-    punch:      defs.punch      ?? 0,  // 0..1
-    click:      defs.click      ?? 0,  // 0..1
-    filterQ:    defs.filterQ    ?? 0,  // 0..1
-    pan:        defs.pan        ?? 0,  // -1..+1
-    chokeGroup: defs.chokeGroup ?? 0,  // 0=aucun, 1-4=groupe
+    pan:        defs.pan        ?? 0,
+    chokeGroup: defs.chokeGroup ?? 0,
     // sample
     buffer:     null,
     fileName:   '',
@@ -3194,122 +3175,50 @@ function drumSynth(pad, vel, dest) {
   const decSec    = 0.05 + (pad.decay || 0.5) * 1.95;
   const tone      = Math.max(0, Math.min(1, pad.tone ?? 0.5));
   const drv       = Math.max(0, Math.min(1, pad.drive || 0));
-  const pitchDrop = Math.max(0, Math.min(24, pad.pitchDrop ?? 0));
-  const punch     = Math.max(0, Math.min(1,  pad.punch     ?? 0));
-  const clickAmt  = Math.max(0, Math.min(1,  pad.click     ?? 0));
-  const filterQ   = Math.max(0, Math.min(1,  pad.filterQ   ?? 0));
 
   const masterOut = dest || getMaster();
 
-  // ── SIMIAN ar_running_slope : falloff curve ──────────────────────
-  // halfwayValue=0.5 → linéaire, 0.9 → convexe (explosif), 0.1 → concave (doux)
-  // Punch 0→1 mappe halfwayValue 0.5→0.92
-  function slope(t, hw) {
-    const hwC = Math.max(0.001, Math.min(0.999, hw));
-    return t / ((1.0 / hwC - 2.0) * (1.0 - t) + 1.0);
-  }
-
-  // Enveloppe AR avec courbe SIMIAN
-  // Retourne la valeur de l'enveloppe à un instant donné (pour scheduling WebAudio)
-  // On génère une courbe WebAudio en la discrétisant en N points
-  function scheduleEnvSIMIAN(gainNode, peakVel, duration, punchVal) {
-    const hw = 0.5 + punchVal * 0.42; // 0.5 (linéaire) → 0.92 (très convexe)
-    const N = 32; // points de courbe
-    gainNode.gain.setValueAtTime(0.001, t);
-    for (let i = 1; i <= N; i++) {
-      const frac = i / N;
-      const tCurve = slope(frac, hw);
-      const gainVal = Math.max(0.001, peakVel * (1.0 - tCurve));
-      gainNode.gain.linearRampToValueAtTime(gainVal, t + frac * duration);
-    }
-    gainNode.gain.linearRampToValueAtTime(0, t + duration + 0.02);
-  }
-
-  // ── PitchDrop : la fréquence suit l'enveloppe (style SIMIAN oscEnvBend * toneEnv) ──
-  // pitchDrop en demi-tons. La fréquence part de f0*2^(drop/12) et descend vers f0
-  // en suivant la même courbe que l'enveloppe → sweep très musical
-  function schedulePitchDrop(oscNode, baseFreq, dropSemitones, duration) {
-    if (dropSemitones < 0.1) {
-      oscNode.frequency.setValueAtTime(baseFreq, t);
-      return;
-    }
-    const hw = 0.5 + punch * 0.42;
-    const startFreq = baseFreq * Math.pow(2, dropSemitones / 12);
-    const N = 32;
-    oscNode.frequency.setValueAtTime(startFreq, t);
-    for (let i = 1; i <= N; i++) {
-      const frac = i / N;
-      const tCurve = slope(frac, hw); // suit la même courbe que l'enveloppe
-      const sweepDuration = Math.min(duration, decSec * 0.4); // sweep = 40% de la decay max
-      const freq = startFreq + (baseFreq - startFreq) * tCurve;
-      oscNode.frequency.linearRampToValueAtTime(Math.max(freq, 15), t + frac * sweepDuration);
-    }
-  }
-
-  // ── Click spécifique par type ─────────────────────────────────────
-  // Un vrai transient d'attaque, pas un bruit générique
-  function addClick(baseFreq, isNoise) {
-    if (clickAmt < 0.02) return;
-    const clickDur = 0.019; // 19ms SIMIAN
-    if (isNoise) {
-      // Click bruit filtré passe-haut pour snare/clap/HH
-      const len = Math.round(actx.sampleRate * clickDur);
-      const buf = actx.createBuffer(1, len, actx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-      const s = actx.createBufferSource();
-      const g = actx.createGain();
-      const hp = actx.createBiquadFilter();
-      hp.type = 'highpass'; hp.frequency.value = 2000; hp.Q.value = 0.7;
-      s.buffer = buf;
-      g.gain.setValueAtTime(vel * clickAmt * 2.0, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
-      s.connect(hp); hp.connect(g); g.connect(masterOut);
-      s.start(t);
-    } else {
-      // Click tonal pour kick/tom : sinus court à fréquence haute accordée
-      // = attaque physique de la peau à sa fréquence de résonance haute
-      const clickFreq = baseFreq * 4; // harmonique 4 = très percussif
-      const o = actx.createOscillator();
-      const g = actx.createGain();
-      o.type = 'sine'; o.frequency.value = Math.min(clickFreq, 3000);
-      g.gain.setValueAtTime(vel * clickAmt * 1.8, t);
-      g.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
-      o.connect(g); g.connect(masterOut);
-      o.start(t); o.stop(t + clickDur + 0.005);
-    }
-  }
-
-  // buildChain : preGain → comp/sat → tone filter (+filterQ) → gOut → masterOut
+  // Nœud intermédiaire : sourceNode → preGain → compresseur/saturateur → tone filter → gOut → masterOut
+  // Le drive est implémenté via preGain fort + DynamicsCompressor (ratio élevé = saturation douce).
+  // DynamicsCompressor est un nœud permanent de WebAudio, sans discontinuité, sans clic.
   function buildChain(sourceNode) {
     const g = actx.createGain();
+    // preGain exponentiel : drv=0→1, drv=0.3→~8, drv=0.6→~32, drv=1→100
     g.gain.value = drv > 0.02 ? Math.pow(100, drv) : 1;
     sourceNode.connect(g);
+
     let node = g;
 
     if (drv > 0.02) {
+      // DynamicsCompressor comme saturateur : threshold bas, ratio très élevé = écrêtage doux
       const comp = actx.createDynamicsCompressor();
-      comp.threshold.value = -6 - drv * 30;
+      comp.threshold.value = -6 - drv * 30; // drv=0.3→-15dB, drv=1→-36dB
       comp.knee.value      = 10;
-      comp.ratio.value     = 4 + drv * 16;
+      comp.ratio.value     = 4 + drv * 16;  // drv=0.3→~9, drv=1→20
       comp.attack.value    = 0.001;
       comp.release.value   = 0.05;
-      g.connect(comp); node = comp;
+      g.connect(comp);
+      node = comp;
     }
 
+    // Tone filter
     const f = actx.createBiquadFilter();
     f.type = 'lowpass';
     const freq = 200 * Math.pow(90, tone);
-    f.frequency.setValueAtTime(freq, t);
-    const baseQ  = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
-    f.Q.setValueAtTime(baseQ + filterQ * 15, t);
+    f.frequency.setValueAtTime(freq, actx.currentTime);
+    const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+    f.Q.setValueAtTime(q, actx.currentTime);
     node.connect(f);
 
+    // Gain de sortie — fade-out propre avant déconnexion
     const gOut = actx.createGain();
     gOut.gain.value = 1;
-    f.connect(gOut); gOut.connect(masterOut);
+    f.connect(gOut);
+    gOut.connect(masterOut);
 
     const chainNodes = drv > 0.02 ? [g, node, f, gOut] : [g, f, gOut];
+
+    // Cleanup via onended : fade-out 20ms puis déconnexion propre, sans clic
     const prevOnEnded = sourceNode.onended;
     sourceNode.onended = () => {
       if (prevOnEnded) prevOnEnded();
@@ -3333,206 +3242,249 @@ function drumSynth(pad, vel, dest) {
 
   if (type === 'Kick') {
     const o = actx.createOscillator(), g = actx.createGain();
-    const baseFreq = 60 * tuneRatio; // fréquence fondamentale du kick
-    // PitchDrop : à 0 → descente de 150→50Hz (kick classique)
-    //             à max → descente de 800→50Hz (808 profond)
-    const startFreq = baseFreq * (2.5 + pitchDrop * 0.8); // 150Hz → 800Hz selon pitchDrop
-    const endFreq   = baseFreq * 0.83; // ~50Hz
-    o.frequency.setValueAtTime(startFreq, t);
-    o.frequency.exponentialRampToValueAtTime(endFreq, t + decSec * (0.15 + pitchDrop * 0.012));
-    scheduleEnvSIMIAN(g, vel, decSec, punch);
+    const f0 = 150 * tuneRatio, f1 = 30 * tuneRatio;
+    o.frequency.setValueAtTime(f0, t);
+    o.frequency.exponentialRampToValueAtTime(f1, t + decSec * 0.3);
+    g.gain.setValueAtTime(vel, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
-    addClick(baseFreq, false); // click tonal accordé
 
   } else if (type === 'Snare') {
-    const baseFreq = 180 * tuneRatio;
-    // Bruit : corps principal
-    const s = noiseSrc(decSec * 0.9), gn = actx.createGain();
-    scheduleEnvSIMIAN(gn, vel * 0.65, decSec * 0.8, punch);
+    // Bruit
+    const s = noiseSrc(decSec * 0.8), gn = actx.createGain();
+    gn.gain.setValueAtTime(vel * 0.7, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
-    // Corps oscillateur avec pitchDrop
+    // Corps
     const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'triangle';
-    schedulePitchDrop(o, baseFreq, pitchDrop * 0.5, decSec); // snare = drop plus subtil
-    scheduleEnvSIMIAN(og, vel * 0.45, decSec * 0.35, punch);
+    o.type = 'triangle'; o.frequency.value = 180 * tuneRatio;
+    og.gain.setValueAtTime(vel * 0.4, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec * 0.4 + 0.04);
-    addClick(baseFreq, true); // click bruit HP = mordant/snap
 
   } else if (type === 'Clap') {
-    [0, 0.009, 0.020].forEach((dly, i) => {
-      const len2 = Math.round(actx.sampleRate * Math.max(0.04, decSec * (0.3 + i * 0.1)));
-      const buf2 = actx.createBuffer(1, len2, actx.sampleRate);
-      const d2   = buf2.getChannelData(0);
-      for (let j = 0; j < len2; j++) d2[j] = Math.random() * 2 - 1;
+    [0, 0.008, 0.018].forEach(dly => {
+      const durC  = Math.max(0.04, decSec * 0.5);
+      const buf2  = getNoiseBuffer(durC);
       const s2 = actx.createBufferSource(), g2 = actx.createGain();
       s2.buffer = buf2;
-      scheduleEnvSIMIAN(g2, vel * (0.7 - i * 0.1), decSec * (0.4 + i * 0.15), punch);
+      g2.gain.setValueAtTime(vel * 0.55, t + dly);
+      g2.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.6);
+      g2.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.6 + 0.02);
       s2.connect(g2); buildChain(g2); s2.start(t + dly);
     });
-    addClick(1000, true);
 
   } else if (type === 'HH Cl') {
-    const s3 = noiseSrc(Math.max(0.02, decSec * 0.35)), g3 = actx.createGain();
-    scheduleEnvSIMIAN(g3, vel * 0.5, decSec * 0.35, punch);
+    const s3 = actx.createBufferSource(), g3 = actx.createGain();
+    s3.buffer = getNoiseBuffer(Math.max(0.02, decSec * 0.4));
+    g3.gain.setValueAtTime(vel * 0.5, t);
+    g3.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
+    g3.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
     s3.connect(g3); buildChain(g3); s3.start(t);
 
   } else if (type === 'HH Op') {
-    const s4 = noiseSrc(Math.max(0.05, decSec)), g4 = actx.createGain();
-    scheduleEnvSIMIAN(g4, vel * 0.45, decSec, punch);
+    const s4 = actx.createBufferSource(), g4 = actx.createGain();
+    s4.buffer = getNoiseBuffer(Math.max(0.05, decSec));
+    g4.gain.setValueAtTime(vel * 0.45, t);
+    g4.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g4.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     s4.connect(g4); buildChain(g4); s4.start(t);
 
   } else if (type === 'Rim') {
-    const baseFreq = 1600 * tuneRatio;
     const o5 = actx.createOscillator(), g5 = actx.createGain();
-    o5.type = 'triangle'; o5.frequency.value = baseFreq;
-    scheduleEnvSIMIAN(g5, vel * 0.5, decSec * 0.45, punch);
+    o5.type = 'triangle'; o5.frequency.value = 1600 * tuneRatio;
+    g5.gain.setValueAtTime(vel * 0.45, t);
+    g5.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.04, decSec * 0.5));
     o5.connect(g5); buildChain(g5);
     o5.start(t); o5.stop(t + decSec * 0.5 + 0.05);
-    addClick(baseFreq, true);
 
   } else if (type === 'Tom Hi') {
-    const baseFreq = 220 * tuneRatio;
     const o6 = actx.createOscillator(), g6 = actx.createGain();
     o6.type = 'sine';
-    schedulePitchDrop(o6, baseFreq, 5 + pitchDrop * 1.5, decSec); // toms avec drop prononcé
-    scheduleEnvSIMIAN(g6, vel, decSec, punch);
+    o6.frequency.setValueAtTime(220 * tuneRatio, t);
+    o6.frequency.exponentialRampToValueAtTime(90 * tuneRatio, t + decSec);
+    g6.gain.setValueAtTime(vel, t);
+    g6.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g6.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o6.connect(g6); buildChain(g6);
     o6.start(t); o6.stop(t + decSec + 0.05);
-    addClick(baseFreq, false);
-
-  } else if (type === 'Tom Mid') {
-    const baseFreq = 150 * tuneRatio;
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine';
-    schedulePitchDrop(o, baseFreq, 6 + pitchDrop * 1.5, decSec);
-    scheduleEnvSIMIAN(g, vel, decSec, punch);
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec + 0.04);
-    addClick(baseFreq, false);
 
   } else if (type === 'Tom Lo') {
-    const baseFreq = 90 * tuneRatio;
     const o7 = actx.createOscillator(), g7 = actx.createGain();
     o7.type = 'sine';
-    schedulePitchDrop(o7, baseFreq, 7 + pitchDrop * 1.5, decSec);
-    scheduleEnvSIMIAN(g7, vel, decSec, punch);
+    o7.frequency.setValueAtTime(100 * tuneRatio, t);
+    o7.frequency.exponentialRampToValueAtTime(42 * tuneRatio, t + decSec);
+    g7.gain.setValueAtTime(vel, t);
+    g7.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g7.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o7.connect(g7); buildChain(g7);
     o7.start(t); o7.stop(t + decSec + 0.05);
-    addClick(baseFreq, false);
+
+  } else if (type === 'Tom Mid') {
+    const o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(160 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(65 * tuneRatio, t + decSec);
+    g.gain.setValueAtTime(vel, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.connect(g); buildChain(g);
+    o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Crash') {
-    const s = noiseSrc(Math.max(0.1, decSec)), gn = actx.createGain();
-    scheduleEnvSIMIAN(gn, vel * 0.55, decSec, 0);
+    // Bruit long filtré haut + composante métallique
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = getNoiseBuffer(Math.max(0.1, decSec));
+    gn.gain.setValueAtTime(vel * 0.6, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
+    // Composante métallique
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'square'; o.frequency.value = 3200 * tuneRatio;
-    scheduleEnvSIMIAN(og, vel * 0.12, decSec * 0.5, 0);
+    og.gain.setValueAtTime(vel * 0.15, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.6);
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.6 + 0.02);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Ride') {
-    const s = noiseSrc(Math.max(0.1, decSec * 0.7)), gn = actx.createGain();
-    scheduleEnvSIMIAN(gn, vel * 0.3, decSec * 0.7, 0);
+    // Bruit medium + sinusoïde métallique haute
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = getNoiseBuffer(Math.max(0.1, decSec * 0.8));
+    gn.gain.setValueAtTime(vel * 0.35, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'triangle'; o.frequency.value = 4800 * tuneRatio;
-    scheduleEnvSIMIAN(og, vel * 0.18, decSec, 0);
+    og.gain.setValueAtTime(vel * 0.2, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    og.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Shaker') {
-    const s = noiseSrc(Math.max(0.01, decSec * 0.25)), gn = actx.createGain();
-    scheduleEnvSIMIAN(gn, vel * 0.4, decSec * 0.25, punch);
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = getNoiseBuffer(Math.max(0.01, decSec * 0.3));
+    gn.gain.setValueAtTime(vel * 0.4, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.3);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.3 + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
 
   } else if (type === 'Tamb') {
-    [0, 0.005, 0.013].forEach(dly => {
-      const len = Math.round(actx.sampleRate * Math.max(0.03, decSec * 0.4));
-      const buf = actx.createBuffer(1, len, actx.sampleRate);
-      const d = buf.getChannelData(0);
-      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    // Bruit + cliquetis métalliques (multi-burst)
+    [0, 0.005, 0.012].forEach(dly => {
       const s = actx.createBufferSource(), g = actx.createGain();
-      s.buffer = buf;
-      scheduleEnvSIMIAN(g, vel * 0.35, decSec * 0.4, punch);
+      s.buffer = getNoiseBuffer(Math.max(0.03, decSec * 0.5));
+      g.gain.setValueAtTime(vel * 0.35, t + dly);
+      g.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.5);
+      g.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.5 + 0.02);
       s.connect(g); buildChain(g); s.start(t + dly);
     });
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'square'; o.frequency.value = 5500 * tuneRatio;
-    scheduleEnvSIMIAN(og, vel * 0.08, decSec * 0.35, 0);
+    og.gain.setValueAtTime(vel * 0.1, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec * 0.4 + 0.04);
 
   } else if (type === 'Conga') {
-    const baseFreq = 200 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
-    schedulePitchDrop(o, baseFreq, 3 + pitchDrop, decSec);
-    scheduleEnvSIMIAN(g, vel * 0.85, decSec, punch);
+    o.frequency.setValueAtTime(280 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(180 * tuneRatio, t + decSec * 0.3);
+    g.gain.setValueAtTime(vel * 0.9, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
-    addClick(baseFreq, false);
 
   } else if (type === 'Bongo') {
-    const baseFreq = 320 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
-    schedulePitchDrop(o, baseFreq, 2 + pitchDrop * 0.8, decSec);
-    scheduleEnvSIMIAN(g, vel * 0.85, decSec, punch);
+    o.frequency.setValueAtTime(420 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(280 * tuneRatio, t + decSec * 0.2);
+    g.gain.setValueAtTime(vel * 0.85, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
-    addClick(baseFreq, false);
 
   } else if (type === 'Maracas') {
-    const s = noiseSrc(Math.max(0.01, decSec * 0.18)), g = actx.createGain();
-    scheduleEnvSIMIAN(g, vel * 0.35, decSec * 0.18, punch);
-    s.connect(g); buildChain(g); s.start(t);
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.15));
+    gn.gain.setValueAtTime(vel * 0.35, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.15);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.15 + 0.02);
+    s.connect(gn); buildChain(gn); s.start(t);
 
   } else if (type === 'Woodblk') {
-    const baseFreq = 800 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'square';
-    o.frequency.setValueAtTime(baseFreq, t);
-    scheduleEnvSIMIAN(g, vel * 0.5, decSec * 0.5, punch);
+    o.type = 'triangle'; o.frequency.value = 900 * tuneRatio;
+    g.gain.setValueAtTime(vel * 0.6, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.03, decSec * 0.3));
     o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec * 0.5 + 0.04);
+    o.start(t); o.stop(t + decSec * 0.3 + 0.04);
 
   } else if (type === 'Triangle') {
-    const baseFreq = 2500 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = baseFreq;
-    scheduleEnvSIMIAN(g, vel * 0.4, decSec, 0);
+    o.type = 'sine'; o.frequency.value = 6000 * tuneRatio;
+    g.gain.setValueAtTime(vel * 0.3, t);
+    g.gain.setValueAtTime(vel * 0.3, t + 0.001);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Snap') {
-    const baseFreq = 1200 * tuneRatio;
-    const s = noiseSrc(Math.max(0.01, decSec * 0.2)), gn = actx.createGain();
-    scheduleEnvSIMIAN(gn, vel * 0.5, decSec * 0.2, 0.8); // snap = toujours très punchy
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.12));
+    gn.gain.setValueAtTime(vel * 0.6, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.12);
+    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.12 + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
-    addClick(baseFreq, true);
+    // Petit clic tonal
+    const o = actx.createOscillator(), og = actx.createGain();
+    o.type = 'sine'; o.frequency.value = 1800 * tuneRatio;
+    og.gain.setValueAtTime(vel * 0.3, t);
+    og.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+    og.gain.linearRampToValueAtTime(0, t + 0.02 + 0.02);
+    o.connect(og); buildChain(og);
+    o.start(t); o.stop(t + 0.06);
 
   } else if (type === 'Zap') {
-    const baseFreq = 600 * tuneRatio;
+    // Pitch bend descendant rapide
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sawtooth';
-    o.frequency.setValueAtTime(baseFreq * 4, t);
-    o.frequency.exponentialRampToValueAtTime(baseFreq * 0.3, t + decSec * 0.5);
-    scheduleEnvSIMIAN(g, vel * 0.7, decSec, punch);
+    o.frequency.setValueAtTime(2000 * tuneRatio, t);
+    o.frequency.exponentialRampToValueAtTime(50 * tuneRatio, t + decSec);
+    g.gain.setValueAtTime(vel * 0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Noise') {
-    const s = noiseSrc(Math.max(0.05, decSec)), gn = actx.createGain();
-    scheduleEnvSIMIAN(gn, vel * 0.4, decSec, punch);
+    const s = actx.createBufferSource(), gn = actx.createGain();
+    s.buffer = getNoiseBuffer(Math.max(0.05, decSec));
+    gn.gain.setValueAtTime(vel * 0.4, t);
+    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
 
   } else if (type === 'Click') {
-    const baseFreq = 2500 * tuneRatio;
+    // Impulsion ultra-courte
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = baseFreq;
-    scheduleEnvSIMIAN(g, vel * 0.5, Math.max(0.005, decSec * 0.08), 0);
+    o.type = 'sine'; o.frequency.value = 2500 * tuneRatio;
+    g.gain.setValueAtTime(vel * 0.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.005, decSec * 0.08));
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + 0.06);
   }
@@ -3613,12 +3565,17 @@ function drumSample(pad, vel, dest) {
 // Tracker des gainNodes actifs par groupe choke : { trackIdx: { groupN: [gainNode, ...] } }
 const _chokeNodes = {};
 
-function drumPadPlay(ti, padIdx, vel) {
+function drumPadPlay(ti, padIdx, vel, stepTune) {
   const t  = S.tracks[ti];
   const pads = t.drumPads;
   if (!pads || !pads[padIdx]) return;
   const pad = pads[padIdx];
   const vol = (pad.volume || 0.85) * t.volume;
+
+  // Si stepTune non nul, créer un pad temporaire avec tune modifié
+  const effectivePad = (stepTune && stepTune !== 0)
+    ? { ...pad, tune: (pad.tune || 0) + stepTune }
+    : pad;
 
   // Choke : couper les pads du même groupe
   const chokeGroup = pad.chokeGroup || 0;
@@ -3672,10 +3629,10 @@ function drumPadPlay(ti, padIdx, vel) {
     rSend.connect(getReverbBus());
   }
 
-  if (pad.mode === 'sample' && pad.buffer) {
-    drumSample(pad, vel, padGain);
+  if (effectivePad.mode === 'sample' && effectivePad.buffer) {
+    drumSample(effectivePad, vel, padGain);
   } else {
-    drumSynth(pad, vel, padGain);
+    drumSynth(effectivePad, vel, padGain);
   }
 }
 
@@ -3712,7 +3669,7 @@ function makeClip() {
     columnRepeats: 0, // 0=Free (manuel), 1+=nombre de répétitions pour le song mode
     drumBars: Array.from({length:16}, () =>
       Array.from({length:8}, () =>
-        Array.from({length:16}, () => ({on:false, vel:0.787}))
+        Array.from({length:16}, () => ({on:false, vel:0.787, tune:0}))
       )
     ),
     bars: Array.from({length:8}, () =>
@@ -3946,7 +3903,7 @@ function scheduler() {
           const dNoteTime = nextTime + dShift * stepDur();
           const dDelayMs = Math.max(0, (dNoteTime - actx.currentTime) * 1000);
           const capVol = st.vel * t.volume;
-          const capTi = ti, capPad = padIdx;
+          const capTi = ti, capPad = padIdx, capStepTune = st.tune || 0;
           if (t.outputMode === 'midi') {
             const durMs = Math.max(20, stepDur() * 1000 * 0.5);
             setTimeout(() => {
@@ -3956,7 +3913,7 @@ function scheduler() {
           } else {
             setTimeout(() => {
               if (!S.playing) return;
-              drumPadPlay(capTi, capPad, capVol);
+              drumPadPlay(capTi, capPad, capVol, capStepTune);
             }, dDelayMs);
           }
           setTimeout(() => {
@@ -4066,8 +4023,6 @@ function flashDrumPadNew(padIdx) {
   if (S.mode === 'session') return;
   if (S.tracks[S.currentTrack].mode !== 'drum') return;
   if (padIdx < 0 || padIdx > 7) return;
-  // Pas de flash en page avancée — ça interfère avec les drags
-  if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null) return;
   const slotToPad = [4,5,6,7,0,1,2,3];
   const slotIdx = slotToPad.indexOf(padIdx);
   if (slotIdx < 0) return;
@@ -4080,13 +4035,7 @@ function flashDrumPadNew(padIdx) {
     bg.setAttribute('stroke', '#fff');
     bg.setAttribute('stroke-width', '2');
     setTimeout(() => {
-      if (!projectModeActive && S.mode !== 'session') {
-        if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null) {
-          renderDrumPadAdvanced(drumAdvPage);
-        } else {
-          renderDrumPadSelection();
-        }
-      }
+      if (!projectModeActive && S.mode !== 'session') renderDrumPadSelection();
     }, 120);
   }
 }
@@ -5016,10 +4965,7 @@ function playPad(row, col) {
 }
 
 function renderDrumPadSelection() {
-  if (drumAdvPage !== null && typeof drumAdvPage !== 'undefined') {
-    renderDrumPadAdvanced(drumAdvPage);
-    return;
-  }
+  drumAdvPage = null; // toujours revenir à la page principale
   if (projectModeActive) return;
   const ti = S.currentTrack;
   const t  = S.tracks[ti];
@@ -5120,14 +5066,10 @@ let drumAdvPage = null; // null = page principale, sinon padIdx en cours d'édit
 // Définitions des 7 paramètres avancés par pad
 // Définitions des 7 paramètres avancés par pad (slots 0-6, slot 7 = retour)
 const DRUM_ADV_PARAMS = [
-  { key:'pitchDrop', label:'PitchDrp', min:0,   max:24,  def:0,   fmt: v => v===0?'OFF':`+${Math.round(v)}st`, step:false, comingSoon:false },
-  { key:'punch',     label:'Punch',    min:0,   max:1,   def:0,   fmt: v => v===0?'OFF':Math.round(v*100)+'%', step:false, comingSoon:false },
-  { key:'click',     label:'Click',    min:0,   max:1,   def:0,   fmt: v => v===0?'OFF':Math.round(v*100)+'%', step:false, comingSoon:false },
-  { key:'pan',       label:'Pan',      min:-1,  max:1,   def:0,   fmt: v => v===0?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
-  { key:'chokeGroup',label:'Choke',    min:0,   max:4,   def:0,   fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true, comingSoon:false },
-  { key:'filterQ',   label:'FilterQ',  min:0,   max:1,   def:0,   fmt: v => v===0?'OFF':Math.round(v*100)+'%', step:false, comingSoon:false },
-  null, // slot 6 libre
-  // slot 7 = retour (géré séparément)
+  { key:'chokeGroup', label:'Choke', min:0, max:4, def:0, fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true,  comingSoon:false },
+  { key:'pan',        label:'Pan',   min:-1,max:1, def:0, fmt: v => Math.abs(v)<0.02?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
+  null, null, null, null, null,
+  // slot 7 = retour
 ];
 
 function renderDrumPadAdvanced(padIdx) {
@@ -5186,61 +5128,54 @@ function renderDrumPadAdvanced(padIdx) {
     const p = DRUM_ADV_PARAMS[slotIdx];
     if (!p) continue;
 
-    const val = pad[p.key] ?? p.def;
-
-    // Fond (style SF2 avancé)
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
-    bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
-    bg.setAttribute('rx', 5); bg.setAttribute('fill', '#141416');
-    bg.setAttribute('stroke', col+'55'); bg.setAttribute('stroke-width', '0.5');
-    sg.appendChild(bg);
-
-    // Barre verticale (style SF2)
-    const pct = p.max > p.min ? Math.max(0, Math.min(1, (val - p.min) / (p.max - p.min))) : 0;
-    const barH = Math.round(pct * (ph - margin*2 - 30));
-    const barBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    barBg.setAttribute('x', sx+margin+8); barBg.setAttribute('y', sy+margin+10);
-    barBg.setAttribute('width', 6); barBg.setAttribute('height', ph-margin*2-30);
-    barBg.setAttribute('rx', 3); barBg.setAttribute('fill', '#1e1e22');
-    sg.appendChild(barBg);
-    const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bar.setAttribute('id', `drumadv_bar_${slotIdx}`);
-    const barTop = sy + margin + 10 + (ph-margin*2-30) - barH;
-    bar.setAttribute('x', sx+margin+8); bar.setAttribute('y', String(barTop));
-    bar.setAttribute('width', 6); bar.setAttribute('height', String(Math.max(0, barH)));
-    bar.setAttribute('rx', 3); bar.setAttribute('fill', col);
-    bar.setAttribute('pointer-events', 'none');
-    sg.appendChild(bar);
-
-    // Nom (style SF2 : en haut à droite de la barre)
+    // Label paramètre
     const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    lbl.setAttribute('x', sx+margin+20); lbl.setAttribute('y', sy+22);
+    lbl.setAttribute('x', sx+pw/2); lbl.setAttribute('y', sy+margin+20);
+    lbl.setAttribute('text-anchor', 'middle');
     lbl.setAttribute('font-family', "'DM Mono',monospace");
-    lbl.setAttribute('font-size', '13'); lbl.setAttribute('font-weight', '500');
-    lbl.setAttribute('fill', col); lbl.setAttribute('pointer-events', 'none');
+    lbl.setAttribute('font-size', '11');
+    lbl.setAttribute('fill', p.comingSoon ? '#333' : '#888');
+    lbl.setAttribute('pointer-events', 'none');
     lbl.textContent = p.label;
     sg.appendChild(lbl);
 
-    // Valeur (style SF2 : en bas à droite)
+    // Valeur
+    const val = pad[p.key] ?? p.def;
     const valTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
     valTxt.setAttribute('id', `drumadv_val_${slotIdx}`);
-    valTxt.setAttribute('x', sx + pw - margin - 6); valTxt.setAttribute('y', sy + ph - margin - 6);
-    valTxt.setAttribute('text-anchor', 'end');
+    valTxt.setAttribute('x', sx+pw/2); valTxt.setAttribute('y', sy+ph/2+8);
+    valTxt.setAttribute('text-anchor', 'middle');
     valTxt.setAttribute('font-family', "'DM Mono',monospace");
-    valTxt.setAttribute('font-size', '14'); valTxt.setAttribute('fill', '#ccc');
+    valTxt.setAttribute('font-size', '16');
+    valTxt.setAttribute('font-weight', '500');
+    valTxt.setAttribute('fill', p.comingSoon ? '#2a2a2a' : col);
     valTxt.setAttribute('pointer-events', 'none');
-    valTxt.textContent = p.fmt(val);
+    valTxt.textContent = p.comingSoon ? '—' : p.fmt(val);
     sg.appendChild(valTxt);
 
-    // Zone drag/tap
-    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    hit.setAttribute('x', sx+margin); hit.setAttribute('y', sy+margin);
-    hit.setAttribute('width', pw-margin*2); hit.setAttribute('height', ph-margin*2);
-    hit.setAttribute('fill', 'transparent');
-    hit.setAttribute('cursor', p.step ? 'pointer' : 'ns-resize');
-    hit.setAttribute('data-drumadv', slotIdx);
-    sg.appendChild(hit);
+    // "soon" label pour paramètres pas encore implémentés
+    if (p.comingSoon) {
+      const soon = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      soon.setAttribute('x', sx+pw/2); soon.setAttribute('y', sy+ph-margin-8);
+      soon.setAttribute('text-anchor', 'middle');
+      soon.setAttribute('font-family', "'DM Mono',monospace");
+      soon.setAttribute('font-size', '9');
+      soon.setAttribute('fill', '#2a2a2a');
+      soon.setAttribute('pointer-events', 'none');
+      soon.textContent = 'v2';
+      sg.appendChild(soon);
+    }
+
+    // Zone de drag (sauf comingSoon)
+    if (!p.comingSoon) {
+      const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      hit.setAttribute('x', sx+margin); hit.setAttribute('y', sy+margin);
+      hit.setAttribute('width', pw-margin*2); hit.setAttribute('height', ph-margin*2);
+      hit.setAttribute('fill', 'transparent');
+      hit.setAttribute('cursor', p.step ? 'pointer' : 'ns-resize');
+      hit.setAttribute('data-drumadv', slotIdx);
+      sg.appendChild(hit);
+    }
   }
 
   // Header OLED
@@ -5349,25 +5284,6 @@ document.addEventListener('mousemove', e => {
   pad[p.key] = newVal;
   const valEl = document.getElementById(`drumadv_val_${slotIdx}`);
   if (valEl) valEl.textContent = p.fmt(newVal);
-  // Mettre à jour la barre verticale
-  const barEl = document.getElementById(`drumadv_bar_${slotIdx}`);
-  if (barEl) {
-    const sg = document.getElementById(`fxslot_${slotIdx}`);
-    if (sg) {
-      const pct2 = p.max > p.min ? Math.max(0, Math.min(1, (newVal - p.min) / (p.max - p.min))) : 0;
-      const margin2 = 4;
-      const ph2 = FX_SH;
-      const totalH = ph2 - margin2*2 - 30;
-      const barH2 = Math.round(pct2 * totalH);
-      const barTop2 = margin2 + 10 + totalH - barH2;
-      barEl.setAttribute('height', String(Math.max(0, barH2)));
-      barEl.setAttribute('y', String(barTop2 + (parseInt(barEl.getAttribute('y').split('.')[0]) - barTop2)));
-      // Recalcul direct depuis fxslot position
-      const sx2 = fxSlotX(slotIdx), sy2 = fxSlotY(slotIdx);
-      barEl.setAttribute('y', String(sy2 + margin2 + 10 + totalH - barH2));
-      barEl.setAttribute('height', String(Math.max(0, barH2)));
-    }
-  }
   oledForce(p.label, p.fmt(newVal), `Pad ${padIdx+1}`);
 });
 
@@ -6616,6 +6532,8 @@ function pressStep(idx) {
     if (S.tracks[S.currentTrack].mode === 'master') {
       const bpmVal = bar[idx].on ? bar[idx].note : S.bpm;
       oled(count + ' STEP' + (count > 1 ? 'S' : ''), `${Math.round(bpmVal)} BPM`, 'wheel=BPM  </>=nudge');
+    } else if (S.tracks[S.currentTrack].mode === 'drum') {
+      oled(count + ' STEP' + (count > 1 ? 'S' : '') + ' TENUS', 'enc=tune/vel/offset', '+/-=oct  </>=nudge');
     } else {
       oled(count + ' STEP' + (count > 1 ? 'S' : '') + ' TENUS', 'enc=length/vel/offset', '+/-=oct  </>=nudge');
     }
@@ -8182,7 +8100,22 @@ function deserializeProject(data, slot) {
     if (td.drumPads && Array.isArray(td.drumPads)) {
       t.drumPads = td.drumPads.slice(0, 8).map((p, i) => {
         const base = makeDrumPad(i);
-        return { ...base, ...p, buffer: null }; // buffer non sérialisable
+        const pad = { ...base, ...p, buffer: null }; // buffer non sérialisable
+        // Si mode sample mais pas de fileName → fallback synth
+        if (pad.mode === 'sample' && !pad.fileName) {
+          pad.mode = 'synth';
+        }
+        // Migration : synthType supprimé → mapper vers le plus proche
+        if (pad.mode === 'synth' && pad.synthType && !DRUM_SYNTH_DEFAULTS[pad.synthType]) {
+          const MAP = {
+            'Rim':'Kick','Tom Hi':'Tom','Tom Mid':'Tom','Tom Lo':'Tom',
+            'Ride':'Crash','Shaker':'HH Cl','Tamb':'HH Op','Conga':'Tom',
+            'Bongo':'Tom','Maracas':'HH Cl','Woodblk':'Triangle',
+            'Snap':'Clap','Noise':'Clap','Click':'Zap',
+          };
+          pad.synthType = MAP[pad.synthType] || 'Kick';
+        }
+        return pad;
       });
       // Compléter si moins de 8
       while (t.drumPads.length < 8) t.drumPads.push(makeDrumPad(t.drumPads.length));
@@ -8802,6 +8735,19 @@ function updateEncArcs() {
   const hasStep = res && res.st.on;
 
   if (hasStep) {
+    // Mode drum : enc0=Tune step, enc1=Vel, enc2=Offset, enc3=Prob
+    if (t.mode === 'drum') {
+      const drumStepLabels = ['TUNE', 'VELOCITY', 'OFFSET', 'PROB'];
+      setEncRing(0, true, col); setLabel(0, 'TUNE', col);
+      setArcBipolar('encArc0', res.st.tune || 0, 12, col);
+      setEncRing(1, true, col); setLabel(1, 'VELOCITY', col);
+      setArcUni('encArc1', ((res.st.vel||0.8)*127) / 127, col);
+      setEncRing(2, true, col); setLabel(2, 'OFFSET', col);
+      setArcBipolar('encArc2', res.st.shift||0, 0.5, col);
+      setEncRing(3, true, col); setLabel(3, 'PROB', col);
+      setArcUni('encArc3', (res.st.prob!==undefined?res.st.prob:100) / 100, col);
+      return;
+    }
     ENC_DEFS.forEach((def, i) => {
       setEncRing(i, true, col);
       setLabel(i, def.label, col);
@@ -8825,9 +8771,9 @@ function updateEncArcs() {
     if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
     const pad = t.drumPads[S.selectedDrumPad];
 
-    // TUNE (enc0) — bipolaire -12..+12
+    // TUNE (enc0) — bipolaire -24..+24
     setEncRing(0, true, col); setLabel(0, 'TUNE', col);
-    setArcBipolar('encArc0', pad.tune ?? 0, 12, col);
+    setArcBipolar('encArc0', pad.tune ?? 0, 24, col);
 
     // DECAY (enc1) — unipolaire
     setEncRing(1, true, col); setLabel(1, 'DECAY', col);
@@ -8869,7 +8815,7 @@ var encDrags = [null, null, null, null];
 // Définitions des encodeurs en mode drum (indices 0..3 visibles, mais on gère 0..7 via les 4 premiers)
 const DRUM_ENC_KEYS = ['tune','decay','tone','drive']; // enc 0..3
 const DRUM_ENC_RANGES = [
-  { min:-12, max:12,  label:'TUNE',   fmt: v => (v>0?'+':'')+v.toFixed(1)+' st' },
+  { min:-24, max:24,  label:'TUNE',   fmt: v => (v>0?'+':'')+v.toFixed(1)+' st' },
   { min:0.05,max:2,   label:'DECAY',  fmt: v => v.toFixed(2)+'s' },
   { min:0,   max:1,   label:'TONE',   fmt: v => Math.round(v*100)+'%' },
   { min:0,   max:1,   label:'DRIVE',  fmt: v => Math.round(v*100)+'%' },
@@ -8888,9 +8834,30 @@ ENC_DEFS.forEach((def, i) => {
     if (encDrags[i]) return; // drag déjà actif — ignorer touch parasite
     const t = S.tracks[S.currentTrack];
 
-    // Priorité 1 : step tenu → Length/Vel/Offset/Prob
+    // Priorité 1 : step tenu
     const res = getHeldSt();
     if (res && res.st.on) {
+      // En mode drum, enc0 = Tune du step, enc1 = Velocity, enc2/3 = Offset/Prob
+      if (t.mode === 'drum') {
+        const DRUM_STEP_DEFS = [
+          { min:-12, max:12, label:'TUNE',     fmt: v => (v>0?'+':'') + Math.round(v) + ' st',
+            get: (st) => st.tune || 0, set: (st,v) => { st.tune = Math.round(Math.max(-12, Math.min(12, v))); } },
+          { min:0,   max:127,label:'VELOCITY', fmt: v => `${Math.round(v)}`,
+            get: (st) => Math.round((st.vel||0.8)*127), set: (st,v) => { st.vel = Math.max(0,Math.min(1,v/127)); } },
+          { min:-0.5,max:0.5, label:'OFFSET',  fmt: v => Math.abs(v)<0.005?'0%':(v>0?'+':'-')+Math.round(Math.abs(v)*100)+'%',
+            get: (st) => st.shift||0, set: (st,v) => { st.shift = Math.max(-0.5,Math.min(0.5,v)); } },
+          { min:0,   max:100, label:'PROB',    fmt: v => `${Math.round(v)}%`,
+            get: (st) => st.prob!==undefined?st.prob:100, set: (st,v) => { st.prob = v; } },
+        ];
+        const dsd = DRUM_STEP_DEFS[i];
+        if (!dsd) return;
+        encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
+          startVal: dsd.get(res.st), idx: res.idx, moved: false, drumStepMode: true, dsd };
+        if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+        S._oledLocked = true;
+        e.preventDefault();
+        return;
+      }
       encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, startVal: def.get(res.st), idx: res.idx, moved: false, drumMode: false };
       if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
       S._oledLocked = true;
@@ -9035,8 +9002,22 @@ document.addEventListener('mousemove', e => {
     const dx = e.clientX - prevLastX;
     const delta = dy + dx;
 
-    // Mode drum
-    if (encDrags[i].drumMode) {
+    // Mode drum step tenu
+    if (encDrags[i].drumStepMode) {
+      if (Math.abs(delta) < 0.5) return;
+      const res = getHeldSt();
+      if (!res) return;
+      const { dsd } = encDrags[i];
+      const pxPerUnit = i === 0 ? 3 : (i === 1 ? 1 : (i === 2 ? 150 : 1));
+      const newVal = Math.max(dsd.min, Math.min(dsd.max, dsd.get(res.st) + delta / pxPerUnit));
+      dsd.set(res.st, newVal);
+      encDrags[i].moved = true;
+      oledForce(dsd.label, dsd.fmt(newVal), `Step ${encDrags[i].idx + 1}`);
+      updateEncArcs();
+      return;
+    }
+
+    // Mode drum (pad global)    if (encDrags[i].drumMode) {
       if (Math.abs(delta) < 0.5) return;
       const t = S.tracks[S.currentTrack];
       if (!t.drumPads) return;
@@ -11450,14 +11431,14 @@ function createDemoProject() {
   // Drum pads par défaut — utilise makeDefaultDrumPads() pour avoir tous les champs à jour
   const demoDrumPads = makeDefaultDrumPads();
   // Ajuster quelques valeurs pour la démo
-  Object.assign(demoDrumPads[0], { decay:0.4, drive:0.3, volume:0.8 });   // Kick
-  Object.assign(demoDrumPads[1], { decay:0.3, drive:0.2, volume:0.8 });   // Snare
+  Object.assign(demoDrumPads[0], { decay:0.4, drive:0.3, volume:0.8  });  // Kick
+  Object.assign(demoDrumPads[1], { decay:0.3, drive:0.2, volume:0.8  });  // Snare
   Object.assign(demoDrumPads[2], { decay:0.25,drive:0.2, volume:0.75 });  // Clap
-  Object.assign(demoDrumPads[3], { decay:0.15,drive:0.1, volume:0.7 });   // HH Cl
-  Object.assign(demoDrumPads[4], { volume:0.7 });                          // HH Op
-  Object.assign(demoDrumPads[5], { decay:0.2, drive:0.1, volume:0.7 });   // Rim
-  Object.assign(demoDrumPads[6], { decay:0.3, drive:0.2, volume:0.8 });   // Tom Hi
-  Object.assign(demoDrumPads[7], { decay:0.3, drive:0.1, volume:0.7 });   // Tom Mid
+  Object.assign(demoDrumPads[3], { decay:0.15,drive:0.1, volume:0.7  });  // HH Cl
+  Object.assign(demoDrumPads[4], { volume:0.7  });                         // HH Op
+  Object.assign(demoDrumPads[5], { decay:0.35, drive:0.1, volume:0.75 }); // Tom
+  Object.assign(demoDrumPads[6], { decay:0.8,  drive:0.0, volume:0.65 }); // Crash
+  Object.assign(demoDrumPads[7], { decay:0.5,  tone:0.9,  volume:0.6  }); // Triangle
 
   demo.tracks = [
     makeTrackData('drum', t3clips, demoDrumPads),    // T1 drums (toujours T1)
