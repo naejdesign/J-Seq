@@ -9017,7 +9017,8 @@ document.addEventListener('mousemove', e => {
       return;
     }
 
-    // Mode drum (pad global)    if (encDrags[i].drumMode) {
+    // Mode drum (pad global)
+    if (encDrags[i].drumMode) {
       if (Math.abs(delta) < 0.5) return;
       const t = S.tracks[S.currentTrack];
       if (!t.drumPads) return;
