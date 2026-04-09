@@ -7321,7 +7321,7 @@ svg('encVol').addEventListener('mouseup', e => {
   if (anyStepHeld()) { e.stopPropagation(); volDrag = null; }
 });
 svg('encVol').addEventListener('mousedown', e => {
-  if (volDrag) return; // drag déjà actif — ignorer touch parasite
+  if (volDrag) return;
   S._oledLocked = true;
   svg('encVol').setAttribute('stroke', '#aaa');
   svg('encVol').setAttribute('stroke-width', '2.5');
@@ -7341,12 +7341,15 @@ svg('encVol').addEventListener('mousedown', e => {
 document.addEventListener('mousemove', e => {
   if (!volDrag) return;
   const distFromLast = Math.abs(e.clientY - volDrag.lastY) + Math.abs(e.clientX - volDrag.lastX);
-  if (distFromLast > 60) return;
-  const dy = volDrag.lastY - e.clientY;
-  const dx = e.clientX - volDrag.lastX;
-  const delta = dy + dx;
+  // Toujours mettre à jour lastY pour éviter le deadlock du filtre
+  const prevLastY = volDrag.lastY;
+  const prevLastX = volDrag.lastX;
   volDrag.lastY = e.clientY;
   volDrag.lastX = e.clientX;
+  if (distFromLast > 60) return; // saut trop grand = doigt parasite, mais lastY est mis à jour
+  const dy = prevLastY - e.clientY;
+  const dx = e.clientX - prevLastX;
+  const delta = dy + dx;
   if (volDrag.type === 'master') {
     volDrag.moved = true;
     setMasterVolume(S.masterVolume + delta / 150);
@@ -8364,12 +8367,14 @@ document.addEventListener('mousemove', e => {
     const drag = encSendDrags[si];
     if (!drag) return;
     const distFromLast = Math.abs(e.clientY - drag.lastY) + Math.abs(e.clientX - drag.lastX);
-    if (distFromLast > 60) return;
-    const dy = drag.lastY - e.clientY;
-    const dx = e.clientX - drag.lastX;
-    const delta = dy + dx;
+    const prevLastY = drag.lastY;
+    const prevLastX = drag.lastX;
     drag.lastY = e.clientY;
     drag.lastX = e.clientX;
+    if (distFromLast > 60) return;
+    const dy = prevLastY - e.clientY;
+    const dx = e.clientX - prevLastX;
+    const delta = dy + dx;
     if (Math.abs(delta) < 1) return;
     const t = S.tracks[S.currentTrack];
     const curVal = t.mode === 'drum'
@@ -8434,14 +8439,15 @@ function updateSendArcs() {
 document.addEventListener('mousemove', e => {
   ENC_DEFS.forEach((def, i) => {
     if (!encDrags[i]) return;
-    // Filtre de proximité : ignorer si le mousemove vient d'un doigt trop loin
     const distFromLast = Math.abs(e.clientY - encDrags[i].lastY) + Math.abs(e.clientX - encDrags[i].lastX);
-    if (distFromLast > 60) return;
-    const dy = encDrags[i].lastY - e.clientY;
-    const dx = e.clientX - encDrags[i].lastX;
-    const delta = dy + dx;
+    const prevLastY = encDrags[i].lastY;
+    const prevLastX = encDrags[i].lastX;
     encDrags[i].lastY = e.clientY;
     encDrags[i].lastX = e.clientX;
+    if (distFromLast > 60) return;
+    const dy = prevLastY - e.clientY;
+    const dx = e.clientX - prevLastX;
+    const delta = dy + dx;
 
     // Mode drum
     if (encDrags[i].drumMode) {
