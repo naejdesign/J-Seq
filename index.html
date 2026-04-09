@@ -1045,12 +1045,66 @@ const FX_DEFS = [
     },
   },
   {
-    id: 'cabinet', name: 'Cabinet', color: '#f84',
+    id: 'bitcrusher', name: 'Bitcrush', color: '#f84',
     params: [
-      { name: 'Mix', key: '_mix', min: 0, max: 1, def: 0.5, log: false },
+      { name: 'Bits',  key: '_bits',    min: 1,  max: 16, def: 16,  log: false },
+      { name: 'Rate',  key: '_rate',    min: 0.01, max: 1, def: 1,  log: false },
+      { name: 'Mix',   key: '_mix',     min: 0,  max: 1,  def: 0.8, log: false },
     ],
-    mainParams: [0],
-    create: () => new tuna.Cabinet({ makeupGain: 1, impulsePath: 'https://cdn.jsdelivr.net/gh/Theodeus/tuna@master/impulses/ir_rev_short.wav', bypass: 1 }),
+    mainParams: [0, 1],
+    create: () => {
+      const input    = actx.createGain();
+      const output   = actx.createGain();
+      const dryGain  = actx.createGain(); dryGain.gain.value  = 0.2;
+      const wetGain  = actx.createGain(); wetGain.gain.value  = 0.8;
+
+      // ScriptProcessor pour le traitement sample-by-sample
+      const bufSize  = 4096;
+      const crusher  = actx.createScriptProcessor(bufSize, 1, 1);
+      let _bits = 16, _rate = 1;
+      let _phase = 0, _lastSample = 0;
+
+      crusher.onaudioprocess = (e) => {
+        const inp = e.inputBuffer.getChannelData(0);
+        const out = e.outputBuffer.getChannelData(0);
+        const step = Math.pow(0.5, _bits - 1); // quantum step pour N bits
+        for (let i = 0; i < bufSize; i++) {
+          _phase += _rate;
+          if (_phase >= 1.0) {
+            _phase -= 1.0;
+            // Quantification : arrondi au step le plus proche
+            _lastSample = step * Math.round(inp[i] / step);
+          }
+          out[i] = _lastSample;
+        }
+      };
+
+      // Wet path : input → crusher → wetGain → output
+      input.connect(crusher);
+      crusher.connect(wetGain);
+      wetGain.connect(output);
+      // Dry path
+      input.connect(dryGain);
+      dryGain.connect(output);
+
+      return {
+        input, output,
+        _dryGain: dryGain, _wetGain: wetGain,
+        _mixVal: 0.8,
+        get bypass()  { return false; },
+        set bypass(v) {},
+        get _bits()   { return _bits; },
+        set _bits(v)  { _bits = Math.max(1, Math.min(16, Math.round(v))); },
+        get _rate()   { return _rate; },
+        set _rate(v)  { _rate = Math.max(0.01, Math.min(1, v)); },
+        get _mix()    { return this._mixVal; },
+        set _mix(v)   {
+          this._mixVal = v;
+          wetGain.gain.setTargetAtTime(v,     actx.currentTime, 0.01);
+          dryGain.gain.setTargetAtTime(1 - v, actx.currentTime, 0.01);
+        },
+      };
+    },
   },
 ];
 
