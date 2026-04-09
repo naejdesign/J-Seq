@@ -2071,7 +2071,10 @@ function fxHandleDown(e) {
   if (!panel || panel.getAttribute('visibility') === 'hidden') return false;
 
   // Page avancée drum active → router vers son handler
-  if (drumAdvPage !== null) return drumAdvHandleDown(e);
+  if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null
+      && S.tracks[S.currentTrack]?.mode === 'drum') {
+    return drumAdvHandleDown(e);
+  }
 
   const now = Date.now();
 
@@ -2153,6 +2156,13 @@ function fxHandleDown(e) {
       if (t.mode === 'drum') {
         ensureAudio();
         if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
+        // Shift + tap → page avancée
+        if (S.shiftHeld) {
+          S.selectedDrumPad = padIdx;
+          renderDrumPadAdvanced(padIdx);
+          e.stopPropagation(); e.preventDefault();
+          return true;
+        }
         S.selectedDrumPad = padIdx;
         triggerDrumPad(padIdx, 0.85);
         renderSteps();
@@ -2160,11 +2170,6 @@ function fxHandleDown(e) {
         updateEncArcs();
         updateSendArcs();
         oled('DRUM', getDrumPadName(S.currentTrack, padIdx), `pad ${padIdx+1} · seq`);
-        // Long press → page avancée
-        _fxPressTimer = setTimeout(() => {
-          _fxPressTimer = null;
-          renderDrumPadAdvanced(padIdx);
-        }, 500);
         e.stopPropagation(); e.preventDefault();
         return true;
       }
@@ -5073,6 +5078,7 @@ function renderDrumPadSelection() {
 let drumAdvPage = null; // null = page principale, sinon padIdx en cours d'édition
 
 // Définitions des 7 paramètres avancés par pad
+// Définitions des 7 paramètres avancés par pad (slots 0-6, slot 7 = retour)
 const DRUM_ADV_PARAMS = [
   { key:'pitchDrop', label:'PitchDrp', min:0,   max:24,  def:0,   fmt: v => `+${Math.round(v)}st`,  step:false, comingSoon:true  },
   { key:'punch',     label:'Punch',    min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
@@ -5080,7 +5086,8 @@ const DRUM_ADV_PARAMS = [
   { key:'pan',       label:'Pan',      min:-1,  max:1,   def:0,   fmt: v => v===0?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
   { key:'chokeGroup',label:'Choke',    min:0,   max:4,   def:0,   fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true, comingSoon:false },
   { key:'filterQ',   label:'FilterQ',  min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
-  { key:'_back',     label:'← BACK',   min:0,   max:0,   def:0,   fmt: v => '',                      step:false, comingSoon:false },
+  null, // slot 6 libre
+  // slot 7 = retour (géré séparément)
 ];
 
 function renderDrumPadAdvanced(padIdx) {
@@ -5099,32 +5106,23 @@ function renderDrumPadAdvanced(padIdx) {
     const sx = fxSlotX(slotIdx), sy = fxSlotY(slotIdx);
     const pw = FX_SW, ph = FX_SH, margin = 4;
 
-    const isBack = slotIdx === 7;
-    const p = DRUM_ADV_PARAMS[slotIdx];
-    if (!p) continue;
-
-    // Fond
-    const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
-    bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
-    bg.setAttribute('rx', 6);
-    bg.setAttribute('fill', isBack ? '#1a1a1a' : (p.comingSoon ? '#111' : '#141416'));
-    bg.setAttribute('stroke', isBack ? '#444' : (p.comingSoon ? '#1a1a1a' : col+'55'));
-    bg.setAttribute('stroke-width', '0.8');
-    if (!isBack) bg.setAttribute('data-drumadv', slotIdx);
-    sg.appendChild(bg);
-
-    if (isBack) {
-      // Bouton retour
-      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      txt.setAttribute('x', sx+pw/2); txt.setAttribute('y', sy+ph/2+5);
-      txt.setAttribute('text-anchor', 'middle');
-      txt.setAttribute('font-family', "'DM Mono',monospace");
-      txt.setAttribute('font-size', '14');
-      txt.setAttribute('fill', '#888');
-      txt.setAttribute('pointer-events', 'none');
-      txt.textContent = '← BACK';
-      sg.appendChild(txt);
+    // Slot 7 = bouton retour (même style que SF2 advanced page)
+    if (slotIdx === 7) {
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
+      bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
+      bg.setAttribute('rx', 5); bg.setAttribute('fill', '#1a1a1a');
+      bg.setAttribute('stroke', '#333'); bg.setAttribute('stroke-width', '0.5');
+      sg.appendChild(bg);
+      const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      arrow.setAttribute('x', sx+pw/2); arrow.setAttribute('y', sy+ph/2+5);
+      arrow.setAttribute('text-anchor', 'middle');
+      arrow.setAttribute('font-family', "'DM Mono',monospace");
+      arrow.setAttribute('font-size', '20');
+      arrow.setAttribute('fill', '#666');
+      arrow.setAttribute('pointer-events', 'none');
+      arrow.textContent = '←';
+      sg.appendChild(arrow);
       const hitBack = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       hitBack.setAttribute('x', sx+margin); hitBack.setAttribute('y', sy+margin);
       hitBack.setAttribute('width', pw-margin*2); hitBack.setAttribute('height', ph-margin*2);
@@ -5133,6 +5131,20 @@ function renderDrumPadAdvanced(padIdx) {
       sg.appendChild(hitBack);
       continue;
     }
+
+    // Slot 6 = vide
+    if (slotIdx === 6) {
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
+      bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
+      bg.setAttribute('rx', 5); bg.setAttribute('fill', '#0d0d0f');
+      bg.setAttribute('stroke', '#1a1a1a'); bg.setAttribute('stroke-width', '0.5');
+      sg.appendChild(bg);
+      continue;
+    }
+
+    const p = DRUM_ADV_PARAMS[slotIdx];
+    if (!p) continue;
 
     // Label paramètre
     const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
