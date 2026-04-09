@@ -9191,8 +9191,13 @@ function midiCC(cc, value) {
     }
     if (!list || !list.length) return;
 
-    let curIdx = list.findIndex(s => s.file === ts.sfName);
-    if (curIdx < 0) curIdx = delta > 0 ? -1 : list.length;
+    let curIdx;
+    if (browserOpen && sf2Browser.activeSoundIdx !== undefined) {
+      curIdx = sf2Browser.activeSoundIdx;
+    } else {
+      curIdx = list.findIndex(s => s.file === ts.sfName);
+      if (curIdx < 0) curIdx = delta > 0 ? -1 : list.length;
+    }
     const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
     if (newIdx === curIdx) return; // déjà au bout
 
