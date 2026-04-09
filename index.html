@@ -2720,21 +2720,22 @@ function getMasterNodes() {
   const limGain = actx.createGain();
   limGain.gain.value  = Math.pow(10, masterFX.lim.gain / 20);
 
-  // ── MASTER GAIN ───────────────────────────────────────────
+  // ── MASTER GAIN — en toute fin de chaîne (après comp+lim+sends) ──
   masterGain = actx.createGain();
   masterGain.gain.value = (typeof S !== 'undefined' && S.masterVolume) ? S.masterVolume : 0.80;
 
-  // ── CÂBLAGE : input → masterGain → mixBus → comp → lim → limGain → destination
+  // ── CÂBLAGE : input → mixBus → comp → lim → limGain → masterGain → destination
+  // Les sends (delay/reverb) arrivent aussi dans mixBus, donc masterGain les contrôle tous
   const mixBus = actx.createGain(); mixBus.gain.value = 1;
-  input.connect(masterGain);
-  masterGain.connect(mixBus);
+  input.connect(mixBus);
   delayWet.connect(mixBus);
   convReverb.output.connect(reverbWet);
-  reverbWet.connect(mixBus); // connexion reverb après déclaration mixBus
+  reverbWet.connect(mixBus);
   mixBus.connect(comp);
   comp.connect(lim);
   lim.connect(limGain);
-  limGain.connect(actx.destination);
+  limGain.connect(masterGain);
+  masterGain.connect(actx.destination);
 
   _masterNodes = {
     input, masterGain, mixBus,
@@ -11100,6 +11101,7 @@ function drumBrRenderFileList() {
 }
 
 async function drumBrPreviewFile(idx) {
+  drumBr.activeSoundIdx = idx;
   drumBrStopPreview();
   const f = drumBr.filteredFiles[idx];
   if (!f) return;
@@ -11603,20 +11605,33 @@ function moveBarInsert(fromIdx, direction) {
 
 function dpadAction(name) {
       // Priorité 0 : SF2 browser ouvert → navigation presets
-      const sf2Open = document.getElementById('sf2Browser').classList.contains('open');
-      if (sf2Open) {
+      const sf2Open  = document.getElementById('sf2Browser').classList.contains('open');
+      const drumOpen = document.getElementById('drumBrowser').classList.contains('open');
+
+      if (sf2Open || drumOpen) {
         const delta = name === 'up' ? -1 : name === 'down' ? 1
-                    : name === 'left' ? -10 : name === 'right' ? 10 : 0;
+                    : name === 'left' ? -8 : name === 'right' ? 8 : 0;
         if (delta !== 0) {
-          const ti = sf2Browser.trackIdx ?? S.currentTrack;
-          const list = sf2Browser.currentFiltered;
-          if (!list || !list.length) return;
-          const curIdx = sf2Browser.activeSoundIdx ?? 0;
-          const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
-          if (newIdx !== curIdx) {
-            sf2SoundClick(newIdx);
-            const items = document.querySelectorAll('#sf2PresetList .brItem');
-            if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+          if (sf2Open) {
+            const list = sf2Browser.currentFiltered;
+            if (!list || !list.length) return;
+            const curIdx = sf2Browser.activeSoundIdx ?? 0;
+            const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
+            if (newIdx !== curIdx) {
+              sf2SoundClick(newIdx);
+              const items = document.querySelectorAll('#sf2PresetList .brItem');
+              if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+            }
+          } else {
+            const files = drumBr.filteredFiles;
+            if (!files || !files.length) return;
+            const curIdx = drumBr.activeSoundIdx ?? 0;
+            const newIdx = Math.max(0, Math.min(files.length - 1, curIdx + delta));
+            if (newIdx !== curIdx) {
+              drumBrPreviewFile(newIdx);
+              const items = document.querySelectorAll('#drumBrFileList .brItem');
+              if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+            }
           }
         }
         return; // bloquer toute action sous-jacente
