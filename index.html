@@ -1047,11 +1047,10 @@ const FX_DEFS = [
   {
     id: 'saturation', name: 'Saturate', color: '#f84',
     params: [
-      { name: 'Drive', key: '_drive', min: -12, max: 24,  def: 0,   log: false },
-      { name: 'Type',  key: '_type',  min: 0,   max: 7,   def: 0,   log: false, labels: ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'], cycle: true },
-      { name: 'Mix',   key: '_mix',   min: 0,   max: 1,   def: 0.8, log: false },
+      { name: 'Drive', key: '_drive', min: -12, max: 24, def: 0, log: false },
+      { name: 'Type',  key: '_type',  min: 0,   max: 7,  def: 0, log: false, labels: ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'], cycle: true },
     ],
-    mainParams: [0, 2],
+    mainParams: [0, 1],
     create: () => {
       const input    = actx.createGain();
       const output   = actx.createGain();
@@ -1059,10 +1058,8 @@ const FX_DEFS = [
       const shaper   = actx.createWaveShaper();
       shaper.oversample = '4x';
       const postGain = actx.createGain();
-      const wetGain  = actx.createGain();
-      const dryGain  = actx.createGain();
 
-      let _driveVal = 0, _typeVal = 0, _mixVal = 0.8;
+      let _driveVal = 0, _typeVal = 0, _bypassed = false;
 
       function dBtoLin(db) { return Math.pow(10, db / 20); }
 
@@ -1070,86 +1067,77 @@ const FX_DEFS = [
         const n = 1024;
         const curve = new Float32Array(n);
         for (let i = 0; i < n; i++) {
-          let x = (i * 2) / n - 1; // -1..+1, représente le signal après preGain
-          // Amplifier pour activer la saturation (les algos opèrent sur des valeurs > 1)
+          let x = (i * 2) / n - 1;
           x *= 8;
           let y;
           const sign = x >= 0 ? 1 : -1;
           const ax = Math.abs(x);
           switch (type) {
-            case 0: // tanh
-              y = Math.tanh(x);
-              break;
-            case 1: // sine
-              y = Math.sin(x);
-              break;
-            case 2: // hard — x / (1+x^8)^(1/8)
-              y = x / Math.pow(1 + Math.pow(ax, 8), 1/8);
-              break;
-            case 3: // log
+            case 0: y = Math.tanh(x); break;
+            case 1: y = Math.sin(x); break;
+            case 2: y = x / Math.pow(1 + Math.pow(ax, 8), 1/8); break;
+            case 3:
               y = Math.log(1 + ax) * sign * 0.6;
               y = y / Math.pow(1 + Math.pow(Math.abs(y), 8), 1/8);
               break;
-            case 4: // sqrt
+            case 4:
               y = Math.sqrt(ax) * sign * 0.6;
               y = y / Math.pow(1 + Math.pow(Math.abs(y), 8), 1/8);
               break;
-            case 5: // cube — sin(cbrt(x) * 0.5)
-              y = Math.sin(Math.cbrt(x) * 0.5);
-              break;
-            case 6: // fold
-              { const t = 0.9;
-                let s = x % (2 * t);
-                if (s > t) s = 2*t - s;
-                else if (s < -t) s = -2*t - s;
-                y = s; }
-              break;
-            case 7: // squaredSine — sin(x²·sign)
-              y = Math.sin(ax * ax * sign);
-              break;
-            default:
-              y = Math.tanh(x);
+            case 5: y = Math.sin(Math.cbrt(x) * 0.5); break;
+            case 6: {
+              const t = 0.9;
+              let s = x % (2 * t);
+              if (s > t) s = 2*t - s;
+              else if (s < -t) s = -2*t - s;
+              y = s; break;
+            }
+            case 7: y = Math.sin(ax * ax * sign); break;
+            default: y = Math.tanh(x);
           }
-          // Limiter à -1/+1
           curve[i] = Math.max(-1, Math.min(1, y));
         }
         return curve;
       }
 
-      function update() {
-        shaper.curve = makeCurve(_typeVal);
+      function applyDrive() {
+        if (_bypassed) return;
         const lin = dBtoLin(_driveVal);
         preGain.gain.setTargetAtTime(lin, actx.currentTime, 0.02);
-        // Compensation niveau : plus on pousse le drive plus on atténue la sortie
         postGain.gain.setTargetAtTime(1 / Math.max(1, Math.sqrt(lin)), actx.currentTime, 0.02);
-        wetGain.gain.setTargetAtTime(_mixVal,     actx.currentTime, 0.01);
-        dryGain.gain.setTargetAtTime(1 - _mixVal, actx.currentTime, 0.01);
       }
 
+      // Chaîne : input → preGain → shaper → postGain → output
       input.connect(preGain);
       preGain.connect(shaper);
       shaper.connect(postGain);
-      postGain.connect(wetGain);
-      wetGain.connect(output);
-      input.connect(dryGain);
-      dryGain.connect(output);
+      postGain.connect(output);
 
-      update();
+      shaper.curve = makeCurve(0);
+      applyDrive();
 
       return {
         input, output,
-        _dryGain: dryGain, _wetGain: wetGain,
-        get bypass() { return false; },
-        set bypass(v) {},
+        get bypass() { return _bypassed; },
+        set bypass(v) {
+          _bypassed = !!v;
+          if (_bypassed) {
+            // Bypass : court-circuiter le shaper en mettant preGain=1 et une courbe identité
+            preGain.gain.setTargetAtTime(1, actx.currentTime, 0.01);
+            postGain.gain.setTargetAtTime(1, actx.currentTime, 0.01);
+            const id = new Float32Array(2); id[0] = -1; id[1] = 1;
+            shaper.curve = id;
+          } else {
+            shaper.curve = makeCurve(_typeVal);
+            applyDrive();
+          }
+        },
         get _drive() { return _driveVal; },
-        set _drive(v){ _driveVal = v; update(); },
+        set _drive(v){ _driveVal = v; applyDrive(); },
         get _type()  { return _typeVal; },
-        set _type(v) { _typeVal = Math.round(v) % 8; update(); },
-        get _mix()   { return _mixVal; },
-        set _mix(v)  {
-          _mixVal = Math.max(0, Math.min(1, v));
-          wetGain.gain.setTargetAtTime(_mixVal,     actx.currentTime, 0.01);
-          dryGain.gain.setTargetAtTime(1 - _mixVal, actx.currentTime, 0.01);
+        set _type(v) {
+          _typeVal = Math.round(v) % 8;
+          if (!_bypassed) shaper.curve = makeCurve(_typeVal);
         },
       };
     },
