@@ -3194,31 +3194,93 @@ function drumSynth(pad, vel, dest) {
   const decSec    = 0.05 + (pad.decay || 0.5) * 1.95;
   const tone      = Math.max(0, Math.min(1, pad.tone ?? 0.5));
   const drv       = Math.max(0, Math.min(1, pad.drive || 0));
-  const pitchDrop = pad.pitchDrop ?? 0;
-  const punch     = pad.punch     ?? 0;
-  const clickAmt  = pad.click     ?? 0;
-  const filterQ   = pad.filterQ   ?? 0;
+  const pitchDrop = Math.max(0, Math.min(24, pad.pitchDrop ?? 0));
+  const punch     = Math.max(0, Math.min(1,  pad.punch     ?? 0));
+  const clickAmt  = Math.max(0, Math.min(1,  pad.click     ?? 0));
+  const filterQ   = Math.max(0, Math.min(1,  pad.filterQ   ?? 0));
 
   const masterOut = dest || getMaster();
 
-  // Enveloppe avec Punch : 0=exponentielle douce, 1=attaque tres marquee (inspire SIMIAN)
-  function applyEnv(gainNode, peakVel, duration) {
-    if (punch < 0.05) {
-      gainNode.gain.setValueAtTime(peakVel, t);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
-      gainNode.gain.linearRampToValueAtTime(0, t + duration + 0.02);
-    } else {
-      const attackTime = 0.001 + (1 - punch) * 0.008;
-      const peakMult   = 1 + punch * 1.5;
-      gainNode.gain.setValueAtTime(0.001, t);
-      gainNode.gain.linearRampToValueAtTime(peakVel * peakMult, t + attackTime);
-      gainNode.gain.exponentialRampToValueAtTime(peakVel * 0.6, t + attackTime + 0.01);
-      gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
-      gainNode.gain.linearRampToValueAtTime(0, t + duration + 0.02);
+  // ── SIMIAN ar_running_slope : falloff curve ──────────────────────
+  // halfwayValue=0.5 → linéaire, 0.9 → convexe (explosif), 0.1 → concave (doux)
+  // Punch 0→1 mappe halfwayValue 0.5→0.92
+  function slope(t, hw) {
+    const hwC = Math.max(0.001, Math.min(0.999, hw));
+    return t / ((1.0 / hwC - 2.0) * (1.0 - t) + 1.0);
+  }
+
+  // Enveloppe AR avec courbe SIMIAN
+  // Retourne la valeur de l'enveloppe à un instant donné (pour scheduling WebAudio)
+  // On génère une courbe WebAudio en la discrétisant en N points
+  function scheduleEnvSIMIAN(gainNode, peakVel, duration, punchVal) {
+    const hw = 0.5 + punchVal * 0.42; // 0.5 (linéaire) → 0.92 (très convexe)
+    const N = 32; // points de courbe
+    gainNode.gain.setValueAtTime(0.001, t);
+    for (let i = 1; i <= N; i++) {
+      const frac = i / N;
+      const tCurve = slope(frac, hw);
+      const gainVal = Math.max(0.001, peakVel * (1.0 - tCurve));
+      gainNode.gain.linearRampToValueAtTime(gainVal, t + frac * duration);
+    }
+    gainNode.gain.linearRampToValueAtTime(0, t + duration + 0.02);
+  }
+
+  // ── PitchDrop : la fréquence suit l'enveloppe (style SIMIAN oscEnvBend * toneEnv) ──
+  // pitchDrop en demi-tons. La fréquence part de f0*2^(drop/12) et descend vers f0
+  // en suivant la même courbe que l'enveloppe → sweep très musical
+  function schedulePitchDrop(oscNode, baseFreq, dropSemitones, duration) {
+    if (dropSemitones < 0.1) {
+      oscNode.frequency.setValueAtTime(baseFreq, t);
+      return;
+    }
+    const hw = 0.5 + punch * 0.42;
+    const startFreq = baseFreq * Math.pow(2, dropSemitones / 12);
+    const N = 32;
+    oscNode.frequency.setValueAtTime(startFreq, t);
+    for (let i = 1; i <= N; i++) {
+      const frac = i / N;
+      const tCurve = slope(frac, hw); // suit la même courbe que l'enveloppe
+      const sweepDuration = Math.min(duration, decSec * 0.4); // sweep = 40% de la decay max
+      const freq = startFreq + (baseFreq - startFreq) * tCurve;
+      oscNode.frequency.linearRampToValueAtTime(Math.max(freq, 15), t + frac * sweepDuration);
     }
   }
 
-  // buildChain : sourceNode -> preGain -> comp/saturateur -> tone filter (+filterQ) -> gOut -> masterOut
+  // ── Click spécifique par type ─────────────────────────────────────
+  // Un vrai transient d'attaque, pas un bruit générique
+  function addClick(baseFreq, isNoise) {
+    if (clickAmt < 0.02) return;
+    const clickDur = 0.019; // 19ms SIMIAN
+    if (isNoise) {
+      // Click bruit filtré passe-haut pour snare/clap/HH
+      const len = Math.round(actx.sampleRate * clickDur);
+      const buf = actx.createBuffer(1, len, actx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+      const s = actx.createBufferSource();
+      const g = actx.createGain();
+      const hp = actx.createBiquadFilter();
+      hp.type = 'highpass'; hp.frequency.value = 2000; hp.Q.value = 0.7;
+      s.buffer = buf;
+      g.gain.setValueAtTime(vel * clickAmt * 2.0, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
+      s.connect(hp); hp.connect(g); g.connect(masterOut);
+      s.start(t);
+    } else {
+      // Click tonal pour kick/tom : sinus court à fréquence haute accordée
+      // = attaque physique de la peau à sa fréquence de résonance haute
+      const clickFreq = baseFreq * 4; // harmonique 4 = très percussif
+      const o = actx.createOscillator();
+      const g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = Math.min(clickFreq, 3000);
+      g.gain.setValueAtTime(vel * clickAmt * 1.8, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
+      o.connect(g); g.connect(masterOut);
+      o.start(t); o.stop(t + clickDur + 0.005);
+    }
+  }
+
+  // buildChain : preGain → comp/sat → tone filter (+filterQ) → gOut → masterOut
   function buildChain(sourceNode) {
     const g = actx.createGain();
     g.gain.value = drv > 0.02 ? Math.pow(100, drv) : 1;
@@ -3232,8 +3294,7 @@ function drumSynth(pad, vel, dest) {
       comp.ratio.value     = 4 + drv * 16;
       comp.attack.value    = 0.001;
       comp.release.value   = 0.05;
-      g.connect(comp);
-      node = comp;
+      g.connect(comp); node = comp;
     }
 
     const f = actx.createBiquadFilter();
@@ -3241,14 +3302,12 @@ function drumSynth(pad, vel, dest) {
     const freq = 200 * Math.pow(90, tone);
     f.frequency.setValueAtTime(freq, t);
     const baseQ  = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
-    const extraQ = filterQ * 15;
-    f.Q.setValueAtTime(baseQ + extraQ, t);
+    f.Q.setValueAtTime(baseQ + filterQ * 15, t);
     node.connect(f);
 
     const gOut = actx.createGain();
     gOut.gain.value = 1;
-    f.connect(gOut);
-    gOut.connect(masterOut);
+    f.connect(gOut); gOut.connect(masterOut);
 
     const chainNodes = drv > 0.02 ? [g, node, f, gOut] : [g, f, gOut];
     const prevOnEnded = sourceNode.onended;
@@ -3265,22 +3324,6 @@ function drumSynth(pad, vel, dest) {
     return chainNodes;
   }
 
-  // Click : burst de bruit court 19ms (inspire SIMIAN simianClickSeconds)
-  function addClick() {
-    if (clickAmt < 0.02) return;
-    const clickDur = 0.019;
-    const len = Math.round(actx.sampleRate * clickDur);
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const s = actx.createBufferSource(), g = actx.createGain();
-    s.buffer = buf;
-    g.gain.setValueAtTime(vel * clickAmt * 1.5, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
-    s.connect(g); g.connect(masterOut);
-    s.start(t);
-  }
-
   function noiseSrc(durSec) {
     const buf = getNoiseBuffer(Math.max(0.01, durSec));
     const s = actx.createBufferSource();
@@ -3290,251 +3333,206 @@ function drumSynth(pad, vel, dest) {
 
   if (type === 'Kick') {
     const o = actx.createOscillator(), g = actx.createGain();
-    const f0 = 150 * tuneRatio;
-    const f1 = 30 * tuneRatio * Math.pow(2, -pitchDrop / 12);
-    o.frequency.setValueAtTime(f0, t);
-    o.frequency.exponentialRampToValueAtTime(Math.max(f1, 15), t + decSec * 0.3);
-    applyEnv(g, vel, decSec);
+    const baseFreq = 60 * tuneRatio; // fréquence fondamentale du kick
+    // PitchDrop : à 0 → descente de 150→50Hz (kick classique)
+    //             à max → descente de 800→50Hz (808 profond)
+    const startFreq = baseFreq * (2.5 + pitchDrop * 0.8); // 150Hz → 800Hz selon pitchDrop
+    const endFreq   = baseFreq * 0.83; // ~50Hz
+    o.frequency.setValueAtTime(startFreq, t);
+    o.frequency.exponentialRampToValueAtTime(endFreq, t + decSec * (0.15 + pitchDrop * 0.012));
+    scheduleEnvSIMIAN(g, vel, decSec, punch);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
-    addClick();
+    addClick(baseFreq, false); // click tonal accordé
 
   } else if (type === 'Snare') {
-    const s = noiseSrc(decSec * 0.8), gn = actx.createGain();
-    applyEnv(gn, vel * 0.7, decSec * 0.8);
+    const baseFreq = 180 * tuneRatio;
+    // Bruit : corps principal
+    const s = noiseSrc(decSec * 0.9), gn = actx.createGain();
+    scheduleEnvSIMIAN(gn, vel * 0.65, decSec * 0.8, punch);
     s.connect(gn); buildChain(gn); s.start(t);
+    // Corps oscillateur avec pitchDrop
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'triangle';
-    const snFreq = 180 * tuneRatio;
-    o.frequency.setValueAtTime(snFreq, t);
-    if (pitchDrop > 0) o.frequency.exponentialRampToValueAtTime(
-      Math.max(snFreq * Math.pow(2, -pitchDrop / 12), 40), t + decSec * 0.2);
-    applyEnv(og, vel * 0.4, decSec * 0.4);
+    schedulePitchDrop(o, baseFreq, pitchDrop * 0.5, decSec); // snare = drop plus subtil
+    scheduleEnvSIMIAN(og, vel * 0.45, decSec * 0.35, punch);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec * 0.4 + 0.04);
-    addClick();
+    addClick(baseFreq, true); // click bruit HP = mordant/snap
 
   } else if (type === 'Clap') {
-    [0, 0.008, 0.018].forEach(dly => {
-      const len2 = Math.round(actx.sampleRate * Math.max(0.04, decSec * 0.5));
+    [0, 0.009, 0.020].forEach((dly, i) => {
+      const len2 = Math.round(actx.sampleRate * Math.max(0.04, decSec * (0.3 + i * 0.1)));
       const buf2 = actx.createBuffer(1, len2, actx.sampleRate);
       const d2   = buf2.getChannelData(0);
-      for (let i = 0; i < len2; i++) d2[i] = Math.random() * 2 - 1;
+      for (let j = 0; j < len2; j++) d2[j] = Math.random() * 2 - 1;
       const s2 = actx.createBufferSource(), g2 = actx.createGain();
       s2.buffer = buf2;
-      applyEnv(g2, vel * 0.55, decSec * 0.6);
+      scheduleEnvSIMIAN(g2, vel * (0.7 - i * 0.1), decSec * (0.4 + i * 0.15), punch);
       s2.connect(g2); buildChain(g2); s2.start(t + dly);
     });
-    addClick();
+    addClick(1000, true);
 
   } else if (type === 'HH Cl') {
-    const len3 = Math.round(actx.sampleRate * Math.max(0.02, decSec * 0.4));
-    const buf3 = actx.createBuffer(1, len3, actx.sampleRate);
-    const d3   = buf3.getChannelData(0);
-    for (let i = 0; i < len3; i++) d3[i] = Math.random() * 2 - 1;
-    const s3 = actx.createBufferSource(), g3 = actx.createGain();
-    s3.buffer = buf3;
-    applyEnv(g3, vel * 0.5, decSec * 0.4);
+    const s3 = noiseSrc(Math.max(0.02, decSec * 0.35)), g3 = actx.createGain();
+    scheduleEnvSIMIAN(g3, vel * 0.5, decSec * 0.35, punch);
     s3.connect(g3); buildChain(g3); s3.start(t);
 
   } else if (type === 'HH Op') {
-    const len4 = Math.round(actx.sampleRate * Math.max(0.05, decSec));
-    const buf4 = actx.createBuffer(1, len4, actx.sampleRate);
-    const d4   = buf4.getChannelData(0);
-    for (let i = 0; i < len4; i++) d4[i] = Math.random() * 2 - 1;
-    const s4 = actx.createBufferSource(), g4 = actx.createGain();
-    s4.buffer = buf4;
-    applyEnv(g4, vel * 0.45, decSec);
+    const s4 = noiseSrc(Math.max(0.05, decSec)), g4 = actx.createGain();
+    scheduleEnvSIMIAN(g4, vel * 0.45, decSec, punch);
     s4.connect(g4); buildChain(g4); s4.start(t);
 
   } else if (type === 'Rim') {
+    const baseFreq = 1600 * tuneRatio;
     const o5 = actx.createOscillator(), g5 = actx.createGain();
-    o5.type = 'triangle'; o5.frequency.value = 1600 * tuneRatio;
-    applyEnv(g5, vel * 0.45, decSec * 0.5);
+    o5.type = 'triangle'; o5.frequency.value = baseFreq;
+    scheduleEnvSIMIAN(g5, vel * 0.5, decSec * 0.45, punch);
     o5.connect(g5); buildChain(g5);
     o5.start(t); o5.stop(t + decSec * 0.5 + 0.05);
-    addClick();
+    addClick(baseFreq, true);
 
   } else if (type === 'Tom Hi') {
+    const baseFreq = 220 * tuneRatio;
     const o6 = actx.createOscillator(), g6 = actx.createGain();
     o6.type = 'sine';
-    const f0t = 220 * tuneRatio;
-    const f1t = 90 * tuneRatio * Math.pow(2, -pitchDrop / 12);
-    o6.frequency.setValueAtTime(f0t, t);
-    o6.frequency.exponentialRampToValueAtTime(Math.max(f1t, 20), t + decSec);
-    applyEnv(g6, vel, decSec);
+    schedulePitchDrop(o6, baseFreq, 5 + pitchDrop * 1.5, decSec); // toms avec drop prononcé
+    scheduleEnvSIMIAN(g6, vel, decSec, punch);
     o6.connect(g6); buildChain(g6);
     o6.start(t); o6.stop(t + decSec + 0.05);
-
-  } else if (type === 'Tom Lo') {
-    const o7 = actx.createOscillator(), g7 = actx.createGain();
-    o7.type = 'sine';
-    const f0lo = 100 * tuneRatio;
-    const f1lo = 42 * tuneRatio * Math.pow(2, -pitchDrop / 12);
-    o7.frequency.setValueAtTime(f0lo, t);
-    o7.frequency.exponentialRampToValueAtTime(Math.max(f1lo, 15), t + decSec);
-    applyEnv(g7, vel, decSec);
-    o7.connect(g7); buildChain(g7);
-    o7.start(t); o7.stop(t + decSec + 0.05);
+    addClick(baseFreq, false);
 
   } else if (type === 'Tom Mid') {
+    const baseFreq = 150 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
-    const f0m = 160 * tuneRatio;
-    const f1m = 65 * tuneRatio * Math.pow(2, -pitchDrop / 12);
-    o.frequency.setValueAtTime(f0m, t);
-    o.frequency.exponentialRampToValueAtTime(Math.max(f1m, 15), t + decSec);
-    applyEnv(g, vel, decSec);
+    schedulePitchDrop(o, baseFreq, 6 + pitchDrop * 1.5, decSec);
+    scheduleEnvSIMIAN(g, vel, decSec, punch);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
+    addClick(baseFreq, false);
+
+  } else if (type === 'Tom Lo') {
+    const baseFreq = 90 * tuneRatio;
+    const o7 = actx.createOscillator(), g7 = actx.createGain();
+    o7.type = 'sine';
+    schedulePitchDrop(o7, baseFreq, 7 + pitchDrop * 1.5, decSec);
+    scheduleEnvSIMIAN(g7, vel, decSec, punch);
+    o7.connect(g7); buildChain(g7);
+    o7.start(t); o7.stop(t + decSec + 0.05);
+    addClick(baseFreq, false);
 
   } else if (type === 'Crash') {
-    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
-    applyEnv(gn, vel * 0.6, decSec);
+    const s = noiseSrc(Math.max(0.1, decSec)), gn = actx.createGain();
+    scheduleEnvSIMIAN(gn, vel * 0.55, decSec, 0);
     s.connect(gn); buildChain(gn); s.start(t);
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'square'; o.frequency.value = 3200 * tuneRatio;
-    applyEnv(og, vel * 0.15, decSec * 0.6);
+    scheduleEnvSIMIAN(og, vel * 0.12, decSec * 0.5, 0);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Ride') {
-    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec * 0.8));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
-    applyEnv(gn, vel * 0.35, decSec * 0.8);
+    const s = noiseSrc(Math.max(0.1, decSec * 0.7)), gn = actx.createGain();
+    scheduleEnvSIMIAN(gn, vel * 0.3, decSec * 0.7, 0);
     s.connect(gn); buildChain(gn); s.start(t);
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'triangle'; o.frequency.value = 4800 * tuneRatio;
-    applyEnv(og, vel * 0.2, decSec);
+    scheduleEnvSIMIAN(og, vel * 0.18, decSec, 0);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Shaker') {
-    const len = Math.round(actx.sampleRate * Math.max(0.01, decSec * 0.3));
-    const buf = actx.createBuffer(1, len, actx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = buf;
-    applyEnv(gn, vel * 0.4, decSec * 0.3);
+    const s = noiseSrc(Math.max(0.01, decSec * 0.25)), gn = actx.createGain();
+    scheduleEnvSIMIAN(gn, vel * 0.4, decSec * 0.25, punch);
     s.connect(gn); buildChain(gn); s.start(t);
 
   } else if (type === 'Tamb') {
-    [0, 0.005, 0.012].forEach(dly => {
-      const len = Math.round(actx.sampleRate * Math.max(0.03, decSec * 0.5));
+    [0, 0.005, 0.013].forEach(dly => {
+      const len = Math.round(actx.sampleRate * Math.max(0.03, decSec * 0.4));
       const buf = actx.createBuffer(1, len, actx.sampleRate);
       const d = buf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       const s = actx.createBufferSource(), g = actx.createGain();
       s.buffer = buf;
-      applyEnv(g, vel * 0.35, decSec * 0.5);
+      scheduleEnvSIMIAN(g, vel * 0.35, decSec * 0.4, punch);
       s.connect(g); buildChain(g); s.start(t + dly);
     });
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'square'; o.frequency.value = 5500 * tuneRatio;
-    applyEnv(og, vel * 0.1, decSec * 0.4);
+    scheduleEnvSIMIAN(og, vel * 0.08, decSec * 0.35, 0);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec * 0.4 + 0.04);
 
   } else if (type === 'Conga') {
+    const baseFreq = 200 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
-    o.frequency.setValueAtTime(280 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(180 * tuneRatio, t + decSec * 0.3);
-    g.gain.setValueAtTime(vel * 0.9, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    schedulePitchDrop(o, baseFreq, 3 + pitchDrop, decSec);
+    scheduleEnvSIMIAN(g, vel * 0.85, decSec, punch);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
+    addClick(baseFreq, false);
 
   } else if (type === 'Bongo') {
+    const baseFreq = 320 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
-    o.frequency.setValueAtTime(420 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(280 * tuneRatio, t + decSec * 0.2);
-    g.gain.setValueAtTime(vel * 0.85, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    schedulePitchDrop(o, baseFreq, 2 + pitchDrop * 0.8, decSec);
+    scheduleEnvSIMIAN(g, vel * 0.85, decSec, punch);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
+    addClick(baseFreq, false);
 
   } else if (type === 'Maracas') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.15));
-    gn.gain.setValueAtTime(vel * 0.35, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.15);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.15 + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
+    const s = noiseSrc(Math.max(0.01, decSec * 0.18)), g = actx.createGain();
+    scheduleEnvSIMIAN(g, vel * 0.35, decSec * 0.18, punch);
+    s.connect(g); buildChain(g); s.start(t);
 
   } else if (type === 'Woodblk') {
+    const baseFreq = 800 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'triangle'; o.frequency.value = 900 * tuneRatio;
-    g.gain.setValueAtTime(vel * 0.6, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.03, decSec * 0.3));
+    o.type = 'square';
+    o.frequency.setValueAtTime(baseFreq, t);
+    scheduleEnvSIMIAN(g, vel * 0.5, decSec * 0.5, punch);
     o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec * 0.3 + 0.04);
+    o.start(t); o.stop(t + decSec * 0.5 + 0.04);
 
   } else if (type === 'Triangle') {
+    const baseFreq = 2500 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = 6000 * tuneRatio;
-    g.gain.setValueAtTime(vel * 0.3, t);
-    g.gain.setValueAtTime(vel * 0.3, t + 0.001);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.type = 'sine'; o.frequency.value = baseFreq;
+    scheduleEnvSIMIAN(g, vel * 0.4, decSec, 0);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Snap') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.12));
-    gn.gain.setValueAtTime(vel * 0.6, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.12);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.12 + 0.02);
+    const baseFreq = 1200 * tuneRatio;
+    const s = noiseSrc(Math.max(0.01, decSec * 0.2)), gn = actx.createGain();
+    scheduleEnvSIMIAN(gn, vel * 0.5, decSec * 0.2, 0.8); // snap = toujours très punchy
     s.connect(gn); buildChain(gn); s.start(t);
-    // Petit clic tonal
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'sine'; o.frequency.value = 1800 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.3, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
-    og.gain.linearRampToValueAtTime(0, t + 0.02 + 0.02);
-    o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + 0.06);
+    addClick(baseFreq, true);
 
   } else if (type === 'Zap') {
-    // Pitch bend descendant rapide
+    const baseFreq = 600 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sawtooth';
-    o.frequency.setValueAtTime(2000 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(50 * tuneRatio, t + decSec);
-    g.gain.setValueAtTime(vel * 0.5, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.frequency.setValueAtTime(baseFreq * 4, t);
+    o.frequency.exponentialRampToValueAtTime(baseFreq * 0.3, t + decSec * 0.5);
+    scheduleEnvSIMIAN(g, vel * 0.7, decSec, punch);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Noise') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.05, decSec));
-    gn.gain.setValueAtTime(vel * 0.4, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    const s = noiseSrc(Math.max(0.05, decSec)), gn = actx.createGain();
+    scheduleEnvSIMIAN(gn, vel * 0.4, decSec, punch);
     s.connect(gn); buildChain(gn); s.start(t);
 
   } else if (type === 'Click') {
-    // Impulsion ultra-courte
+    const baseFreq = 2500 * tuneRatio;
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = 2500 * tuneRatio;
-    g.gain.setValueAtTime(vel * 0.5, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.005, decSec * 0.08));
+    o.type = 'sine'; o.frequency.value = baseFreq;
+    scheduleEnvSIMIAN(g, vel * 0.5, Math.max(0.005, decSec * 0.08), 0);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + 0.06);
   }
