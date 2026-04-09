@@ -9696,8 +9696,6 @@ function midiPitchBend(lsb, msb) {
       out.send([0xe0 | mch, lsb & 0x7f, msb & 0x7f]);
     }
   } else if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
-    // FluidSynth attend 0..16383 (0x0000=min, 0x2000=centre, 0x3FFF=max)
-    const raw = (msb << 7) | lsb;  // valeur 14 bits brute, déjà dans la bonne plage
     jsSynths[ti].midiPitchBend(SF2_CHANNEL, raw);
   }
 }
