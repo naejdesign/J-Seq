@@ -3194,50 +3194,63 @@ function drumSynth(pad, vel, dest) {
   const decSec    = 0.05 + (pad.decay || 0.5) * 1.95;
   const tone      = Math.max(0, Math.min(1, pad.tone ?? 0.5));
   const drv       = Math.max(0, Math.min(1, pad.drive || 0));
+  const pitchDrop = pad.pitchDrop ?? 0;
+  const punch     = pad.punch     ?? 0;
+  const clickAmt  = pad.click     ?? 0;
+  const filterQ   = pad.filterQ   ?? 0;
 
   const masterOut = dest || getMaster();
 
-  // Nœud intermédiaire : sourceNode → preGain → compresseur/saturateur → tone filter → gOut → masterOut
-  // Le drive est implémenté via preGain fort + DynamicsCompressor (ratio élevé = saturation douce).
-  // DynamicsCompressor est un nœud permanent de WebAudio, sans discontinuité, sans clic.
+  // Enveloppe avec Punch : 0=exponentielle douce, 1=attaque tres marquee (inspire SIMIAN)
+  function applyEnv(gainNode, peakVel, duration) {
+    if (punch < 0.05) {
+      gainNode.gain.setValueAtTime(peakVel, t);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      gainNode.gain.linearRampToValueAtTime(0, t + duration + 0.02);
+    } else {
+      const attackTime = 0.001 + (1 - punch) * 0.008;
+      const peakMult   = 1 + punch * 1.5;
+      gainNode.gain.setValueAtTime(0.001, t);
+      gainNode.gain.linearRampToValueAtTime(peakVel * peakMult, t + attackTime);
+      gainNode.gain.exponentialRampToValueAtTime(peakVel * 0.6, t + attackTime + 0.01);
+      gainNode.gain.exponentialRampToValueAtTime(0.001, t + duration);
+      gainNode.gain.linearRampToValueAtTime(0, t + duration + 0.02);
+    }
+  }
+
+  // buildChain : sourceNode -> preGain -> comp/saturateur -> tone filter (+filterQ) -> gOut -> masterOut
   function buildChain(sourceNode) {
     const g = actx.createGain();
-    // preGain exponentiel : drv=0→1, drv=0.3→~8, drv=0.6→~32, drv=1→100
     g.gain.value = drv > 0.02 ? Math.pow(100, drv) : 1;
     sourceNode.connect(g);
-
     let node = g;
 
     if (drv > 0.02) {
-      // DynamicsCompressor comme saturateur : threshold bas, ratio très élevé = écrêtage doux
       const comp = actx.createDynamicsCompressor();
-      comp.threshold.value = -6 - drv * 30; // drv=0.3→-15dB, drv=1→-36dB
+      comp.threshold.value = -6 - drv * 30;
       comp.knee.value      = 10;
-      comp.ratio.value     = 4 + drv * 16;  // drv=0.3→~9, drv=1→20
+      comp.ratio.value     = 4 + drv * 16;
       comp.attack.value    = 0.001;
       comp.release.value   = 0.05;
       g.connect(comp);
       node = comp;
     }
 
-    // Tone filter
     const f = actx.createBiquadFilter();
     f.type = 'lowpass';
     const freq = 200 * Math.pow(90, tone);
-    f.frequency.setValueAtTime(freq, actx.currentTime);
-    const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
-    f.Q.setValueAtTime(q, actx.currentTime);
+    f.frequency.setValueAtTime(freq, t);
+    const baseQ  = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+    const extraQ = filterQ * 15;
+    f.Q.setValueAtTime(baseQ + extraQ, t);
     node.connect(f);
 
-    // Gain de sortie — fade-out propre avant déconnexion
     const gOut = actx.createGain();
     gOut.gain.value = 1;
     f.connect(gOut);
     gOut.connect(masterOut);
 
     const chainNodes = drv > 0.02 ? [g, node, f, gOut] : [g, f, gOut];
-
-    // Cleanup via onended : fade-out 20ms puis déconnexion propre, sans clic
     const prevOnEnded = sourceNode.onended;
     sourceNode.onended = () => {
       if (prevOnEnded) prevOnEnded();
@@ -3252,6 +3265,22 @@ function drumSynth(pad, vel, dest) {
     return chainNodes;
   }
 
+  // Click : burst de bruit court 19ms (inspire SIMIAN simianClickSeconds)
+  function addClick() {
+    if (clickAmt < 0.02) return;
+    const clickDur = 0.019;
+    const len = Math.round(actx.sampleRate * clickDur);
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+    const s = actx.createBufferSource(), g = actx.createGain();
+    s.buffer = buf;
+    g.gain.setValueAtTime(vel * clickAmt * 1.5, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + clickDur);
+    s.connect(g); g.connect(masterOut);
+    s.start(t);
+  }
+
   function noiseSrc(durSec) {
     const buf = getNoiseBuffer(Math.max(0.01, durSec));
     const s = actx.createBufferSource();
@@ -3261,156 +3290,158 @@ function drumSynth(pad, vel, dest) {
 
   if (type === 'Kick') {
     const o = actx.createOscillator(), g = actx.createGain();
-    const f0 = 150 * tuneRatio, f1 = 30 * tuneRatio;
+    const f0 = 150 * tuneRatio;
+    const f1 = 30 * tuneRatio * Math.pow(2, -pitchDrop / 12);
     o.frequency.setValueAtTime(f0, t);
-    o.frequency.exponentialRampToValueAtTime(f1, t + decSec * 0.3);
-    g.gain.setValueAtTime(vel, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    o.frequency.exponentialRampToValueAtTime(Math.max(f1, 15), t + decSec * 0.3);
+    applyEnv(g, vel, decSec);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
+    addClick();
 
   } else if (type === 'Snare') {
-    // Bruit
     const s = noiseSrc(decSec * 0.8), gn = actx.createGain();
-    gn.gain.setValueAtTime(vel * 0.7, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
+    applyEnv(gn, vel * 0.7, decSec * 0.8);
     s.connect(gn); buildChain(gn); s.start(t);
-    // Corps
     const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'triangle'; o.frequency.value = 180 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.4, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
-    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
+    o.type = 'triangle';
+    const snFreq = 180 * tuneRatio;
+    o.frequency.setValueAtTime(snFreq, t);
+    if (pitchDrop > 0) o.frequency.exponentialRampToValueAtTime(
+      Math.max(snFreq * Math.pow(2, -pitchDrop / 12), 40), t + decSec * 0.2);
+    applyEnv(og, vel * 0.4, decSec * 0.4);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec * 0.4 + 0.04);
+    addClick();
 
   } else if (type === 'Clap') {
     [0, 0.008, 0.018].forEach(dly => {
-      const durC  = Math.max(0.04, decSec * 0.5);
-      const buf2  = getNoiseBuffer(durC);
+      const len2 = Math.round(actx.sampleRate * Math.max(0.04, decSec * 0.5));
+      const buf2 = actx.createBuffer(1, len2, actx.sampleRate);
+      const d2   = buf2.getChannelData(0);
+      for (let i = 0; i < len2; i++) d2[i] = Math.random() * 2 - 1;
       const s2 = actx.createBufferSource(), g2 = actx.createGain();
       s2.buffer = buf2;
-      g2.gain.setValueAtTime(vel * 0.55, t + dly);
-      g2.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.6);
-      g2.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.6 + 0.02);
+      applyEnv(g2, vel * 0.55, decSec * 0.6);
       s2.connect(g2); buildChain(g2); s2.start(t + dly);
     });
+    addClick();
 
   } else if (type === 'HH Cl') {
+    const len3 = Math.round(actx.sampleRate * Math.max(0.02, decSec * 0.4));
+    const buf3 = actx.createBuffer(1, len3, actx.sampleRate);
+    const d3   = buf3.getChannelData(0);
+    for (let i = 0; i < len3; i++) d3[i] = Math.random() * 2 - 1;
     const s3 = actx.createBufferSource(), g3 = actx.createGain();
-    s3.buffer = getNoiseBuffer(Math.max(0.02, decSec * 0.4));
-    g3.gain.setValueAtTime(vel * 0.5, t);
-    g3.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
-    g3.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
+    s3.buffer = buf3;
+    applyEnv(g3, vel * 0.5, decSec * 0.4);
     s3.connect(g3); buildChain(g3); s3.start(t);
 
   } else if (type === 'HH Op') {
+    const len4 = Math.round(actx.sampleRate * Math.max(0.05, decSec));
+    const buf4 = actx.createBuffer(1, len4, actx.sampleRate);
+    const d4   = buf4.getChannelData(0);
+    for (let i = 0; i < len4; i++) d4[i] = Math.random() * 2 - 1;
     const s4 = actx.createBufferSource(), g4 = actx.createGain();
-    s4.buffer = getNoiseBuffer(Math.max(0.05, decSec));
-    g4.gain.setValueAtTime(vel * 0.45, t);
-    g4.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g4.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    s4.buffer = buf4;
+    applyEnv(g4, vel * 0.45, decSec);
     s4.connect(g4); buildChain(g4); s4.start(t);
 
   } else if (type === 'Rim') {
     const o5 = actx.createOscillator(), g5 = actx.createGain();
     o5.type = 'triangle'; o5.frequency.value = 1600 * tuneRatio;
-    g5.gain.setValueAtTime(vel * 0.45, t);
-    g5.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.04, decSec * 0.5));
+    applyEnv(g5, vel * 0.45, decSec * 0.5);
     o5.connect(g5); buildChain(g5);
     o5.start(t); o5.stop(t + decSec * 0.5 + 0.05);
+    addClick();
 
   } else if (type === 'Tom Hi') {
     const o6 = actx.createOscillator(), g6 = actx.createGain();
     o6.type = 'sine';
-    o6.frequency.setValueAtTime(220 * tuneRatio, t);
-    o6.frequency.exponentialRampToValueAtTime(90 * tuneRatio, t + decSec);
-    g6.gain.setValueAtTime(vel, t);
-    g6.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g6.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    const f0t = 220 * tuneRatio;
+    const f1t = 90 * tuneRatio * Math.pow(2, -pitchDrop / 12);
+    o6.frequency.setValueAtTime(f0t, t);
+    o6.frequency.exponentialRampToValueAtTime(Math.max(f1t, 20), t + decSec);
+    applyEnv(g6, vel, decSec);
     o6.connect(g6); buildChain(g6);
     o6.start(t); o6.stop(t + decSec + 0.05);
 
   } else if (type === 'Tom Lo') {
     const o7 = actx.createOscillator(), g7 = actx.createGain();
     o7.type = 'sine';
-    o7.frequency.setValueAtTime(100 * tuneRatio, t);
-    o7.frequency.exponentialRampToValueAtTime(42 * tuneRatio, t + decSec);
-    g7.gain.setValueAtTime(vel, t);
-    g7.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g7.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    const f0lo = 100 * tuneRatio;
+    const f1lo = 42 * tuneRatio * Math.pow(2, -pitchDrop / 12);
+    o7.frequency.setValueAtTime(f0lo, t);
+    o7.frequency.exponentialRampToValueAtTime(Math.max(f1lo, 15), t + decSec);
+    applyEnv(g7, vel, decSec);
     o7.connect(g7); buildChain(g7);
     o7.start(t); o7.stop(t + decSec + 0.05);
 
   } else if (type === 'Tom Mid') {
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
-    o.frequency.setValueAtTime(160 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(65 * tuneRatio, t + decSec);
-    g.gain.setValueAtTime(vel, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    const f0m = 160 * tuneRatio;
+    const f1m = 65 * tuneRatio * Math.pow(2, -pitchDrop / 12);
+    o.frequency.setValueAtTime(f0m, t);
+    o.frequency.exponentialRampToValueAtTime(Math.max(f1m, 15), t + decSec);
+    applyEnv(g, vel, decSec);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Crash') {
-    // Bruit long filtré haut + composante métallique
+    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.1, decSec));
-    gn.gain.setValueAtTime(vel * 0.6, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    s.buffer = buf;
+    applyEnv(gn, vel * 0.6, decSec);
     s.connect(gn); buildChain(gn); s.start(t);
-    // Composante métallique
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'square'; o.frequency.value = 3200 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.15, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.6);
-    og.gain.linearRampToValueAtTime(0, t + decSec * 0.6 + 0.02);
+    applyEnv(og, vel * 0.15, decSec * 0.6);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Ride') {
-    // Bruit medium + sinusoïde métallique haute
+    const len = Math.round(actx.sampleRate * Math.max(0.1, decSec * 0.8));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.1, decSec * 0.8));
-    gn.gain.setValueAtTime(vel * 0.35, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
+    s.buffer = buf;
+    applyEnv(gn, vel * 0.35, decSec * 0.8);
     s.connect(gn); buildChain(gn); s.start(t);
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'triangle'; o.frequency.value = 4800 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.2, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    og.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    applyEnv(og, vel * 0.2, decSec);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Shaker') {
+    const len = Math.round(actx.sampleRate * Math.max(0.01, decSec * 0.3));
+    const buf = actx.createBuffer(1, len, actx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.01, decSec * 0.3));
-    gn.gain.setValueAtTime(vel * 0.4, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.3);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.3 + 0.02);
+    s.buffer = buf;
+    applyEnv(gn, vel * 0.4, decSec * 0.3);
     s.connect(gn); buildChain(gn); s.start(t);
 
   } else if (type === 'Tamb') {
-    // Bruit + cliquetis métalliques (multi-burst)
     [0, 0.005, 0.012].forEach(dly => {
+      const len = Math.round(actx.sampleRate * Math.max(0.03, decSec * 0.5));
+      const buf = actx.createBuffer(1, len, actx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
       const s = actx.createBufferSource(), g = actx.createGain();
-      s.buffer = getNoiseBuffer(Math.max(0.03, decSec * 0.5));
-      g.gain.setValueAtTime(vel * 0.35, t + dly);
-      g.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.5);
-      g.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.5 + 0.02);
+      s.buffer = buf;
+      applyEnv(g, vel * 0.35, decSec * 0.5);
       s.connect(g); buildChain(g); s.start(t + dly);
     });
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'square'; o.frequency.value = 5500 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.1, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
-    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
+    applyEnv(og, vel * 0.1, decSec * 0.4);
     o.connect(og); buildChain(og);
     o.start(t); o.stop(t + decSec * 0.4 + 0.04);
 
@@ -4049,7 +4080,13 @@ function flashDrumPadNew(padIdx) {
     bg.setAttribute('stroke', '#fff');
     bg.setAttribute('stroke-width', '2');
     setTimeout(() => {
-      if (!projectModeActive && S.mode !== 'session') renderDrumPadSelection();
+      if (!projectModeActive && S.mode !== 'session') {
+        if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null) {
+          renderDrumPadAdvanced(drumAdvPage);
+        } else {
+          renderDrumPadSelection();
+        }
+      }
     }, 120);
   }
 }
@@ -4979,7 +5016,10 @@ function playPad(row, col) {
 }
 
 function renderDrumPadSelection() {
-  drumAdvPage = null; // toujours revenir à la page principale
+  if (drumAdvPage !== null && typeof drumAdvPage !== 'undefined') {
+    renderDrumPadAdvanced(drumAdvPage);
+    return;
+  }
   if (projectModeActive) return;
   const ti = S.currentTrack;
   const t  = S.tracks[ti];
@@ -5080,12 +5120,12 @@ let drumAdvPage = null; // null = page principale, sinon padIdx en cours d'édit
 // Définitions des 7 paramètres avancés par pad
 // Définitions des 7 paramètres avancés par pad (slots 0-6, slot 7 = retour)
 const DRUM_ADV_PARAMS = [
-  { key:'pitchDrop', label:'PitchDrp', min:0,   max:24,  def:0,   fmt: v => `+${Math.round(v)}st`,  step:false, comingSoon:true  },
-  { key:'punch',     label:'Punch',    min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
-  { key:'click',     label:'Click',    min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
+  { key:'pitchDrop', label:'PitchDrp', min:0,   max:24,  def:0,   fmt: v => v===0?'OFF':`+${Math.round(v)}st`, step:false, comingSoon:false },
+  { key:'punch',     label:'Punch',    min:0,   max:1,   def:0,   fmt: v => v===0?'OFF':Math.round(v*100)+'%', step:false, comingSoon:false },
+  { key:'click',     label:'Click',    min:0,   max:1,   def:0,   fmt: v => v===0?'OFF':Math.round(v*100)+'%', step:false, comingSoon:false },
   { key:'pan',       label:'Pan',      min:-1,  max:1,   def:0,   fmt: v => v===0?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
   { key:'chokeGroup',label:'Choke',    min:0,   max:4,   def:0,   fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true, comingSoon:false },
-  { key:'filterQ',   label:'FilterQ',  min:0,   max:1,   def:0,   fmt: v => Math.round(v*100)+'%',   step:false, comingSoon:true  },
+  { key:'filterQ',   label:'FilterQ',  min:0,   max:1,   def:0,   fmt: v => v===0?'OFF':Math.round(v*100)+'%', step:false, comingSoon:false },
   null, // slot 6 libre
   // slot 7 = retour (géré séparément)
 ];
