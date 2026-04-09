@@ -9192,7 +9192,7 @@ function midiCC(cc, value) {
     if (!list || !list.length) return;
 
     let curIdx;
-    if (browserOpen && sf2Browser.activeSoundIdx !== undefined) {
+    if (sf2Browser.activeSoundIdx !== undefined && sf2Browser.activeSoundIdx >= 0) {
       curIdx = sf2Browser.activeSoundIdx;
     } else {
       curIdx = list.findIndex(s => s.file === ts.sfName);
@@ -9212,6 +9212,8 @@ function midiCC(cc, value) {
       if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
     } else {
       // Browser fermé : feedback OLED immédiat + chargement debounced
+      // Mettre à jour activeSoundIdx immédiatement pour que la navigation continue soit fluide
+      sf2Browser.activeSoundIdx = newIdx;
       oledForce(`T${ti+1}`, (sound.displayName || sound.name).slice(0, 12),
                 (sound.category || '').slice(0, 12));
       clearTimeout(sf2Browser.previewDebounce);
@@ -11600,6 +11602,26 @@ function moveBarInsert(fromIdx, direction) {
 }
 
 function dpadAction(name) {
+      // Priorité 0 : SF2 browser ouvert → navigation presets
+      const sf2Open = document.getElementById('sf2Browser').classList.contains('open');
+      if (sf2Open) {
+        const delta = name === 'up' ? -1 : name === 'down' ? 1
+                    : name === 'left' ? -10 : name === 'right' ? 10 : 0;
+        if (delta !== 0) {
+          const ti = sf2Browser.trackIdx ?? S.currentTrack;
+          const list = sf2Browser.currentFiltered;
+          if (!list || !list.length) return;
+          const curIdx = sf2Browser.activeSoundIdx ?? 0;
+          const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
+          if (newIdx !== curIdx) {
+            sf2SoundClick(newIdx);
+            const items = document.querySelectorAll('#sf2PresetList .brItem');
+            if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+          }
+        }
+        return; // bloquer toute action sous-jacente
+      }
+
       // Si bouton A maintenu mais timer pas encore expiré → forcer le hold
       if (_gamepadBHeld && !_gamepadBLong) gamepadForceHold();
 
