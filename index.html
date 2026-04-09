@@ -3282,6 +3282,7 @@ function drumSynth(pad, vel, dest) {
   } else if (type === 'HH Cl') {
     const s3 = actx.createBufferSource(), g3 = actx.createGain();
     s3.buffer = getNoiseBuffer(Math.max(0.02, decSec * 0.4));
+    s3.playbackRate.value = tuneRatio; // tune = vitesse = caractère aigu/grave
     g3.gain.setValueAtTime(vel * 0.5, t);
     g3.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
     g3.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
@@ -3290,6 +3291,7 @@ function drumSynth(pad, vel, dest) {
   } else if (type === 'HH Op') {
     const s4 = actx.createBufferSource(), g4 = actx.createGain();
     s4.buffer = getNoiseBuffer(Math.max(0.05, decSec));
+    s4.playbackRate.value = tuneRatio;
     g4.gain.setValueAtTime(vel * 0.45, t);
     g4.gain.exponentialRampToValueAtTime(0.001, t + decSec);
     g4.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
@@ -3309,6 +3311,7 @@ function drumSynth(pad, vel, dest) {
   } else if (type === 'Crash') {
     const sC = actx.createBufferSource(), gnC = actx.createGain();
     sC.buffer = getNoiseBuffer(Math.max(0.1, decSec));
+    sC.playbackRate.value = tuneRatio;
     gnC.gain.setValueAtTime(vel * 0.6, t);
     gnC.gain.exponentialRampToValueAtTime(0.001, t + decSec);
     gnC.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
@@ -3350,30 +3353,56 @@ function drumSample(pad, vel, dest) {
   if (!pad.buffer) return;
   const t         = actx.currentTime;
   const tuneRatio = Math.pow(2, ((pad.tune || 0) + (pad._stepTune || 0)) / 12);
+  const tone      = Math.max(0, Math.min(1, pad.tone ?? 0.5));
+  const drv       = Math.max(0, Math.min(1, pad.drive || 0));
   const masterOut = dest || getMaster();
 
   const s = actx.createBufferSource();
   s.buffer = pad.buffer;
   s.playbackRate.value = tuneRatio;
-
   const startSec = (pad.startPoint || 0) * pad.buffer.duration;
 
-  // Gain simple = vélocité, sans enveloppe — le sample joue naturellement
+  // Gain vélocité
   const g = actx.createGain();
   g.gain.value = vel;
   s.connect(g);
-  g.connect(masterOut);
+  let lastNode = g;
 
-  // Decay : 1.0 = sample entier (naturel), < 1.0 = coupe à ce pourcentage de la durée
-  const decayVal  = Math.max(0, Math.min(1, pad.decay ?? 1.0));
+  // Drive — seulement si activé
+  if (drv > 0.02) {
+    const ws = actx.createWaveShaper();
+    const k = drv * 80, n = 256, c = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      const x = (i * 2) / n - 1;
+      c[i] = ((Math.PI + k) * x) / (Math.PI + k * Math.abs(x));
+    }
+    ws.curve = c; ws.oversample = '2x';
+    lastNode.connect(ws); lastNode = ws;
+  }
+
+  // Tone filter — seulement si éloigné du centre (0.5 = transparent)
+  if (Math.abs(tone - 0.5) > 0.04) {
+    const filt = actx.createBiquadFilter();
+    filt.type = 'lowpass';
+    // tone=0 → 200Hz (très sombre), tone=0.5 → pas de filtre, tone=1 → 18kHz+résonance
+    const normTone = tone < 0.5 ? tone * 2 : 1;
+    filt.frequency.setValueAtTime(200 * Math.pow(90, normTone), t);
+    const q = tone > 0.55 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+    filt.Q.setValueAtTime(q, t);
+    lastNode.connect(filt); lastNode = filt;
+  }
+
+  lastNode.connect(masterOut);
+
+  // Decay : 1.0 = sample entier, < 1.0 = coupe à ce pourcentage
+  const decayVal = Math.max(0, Math.min(1, pad.decay ?? 1.0));
   const sampleDur = pad.buffer.duration / (tuneRatio || 1);
-  const stopTime  = decayVal < 0.99
+  const stopTime = decayVal < 0.99
     ? t + Math.max(0.02, decayVal * sampleDur)
-    : undefined; // laisser le sample finir naturellement
+    : undefined;
 
   s.start(t, startSec);
   if (stopTime !== undefined) {
-    // Petit fade-out avant la coupure pour éviter les clics
     g.gain.setValueAtTime(vel, stopTime - 0.01);
     g.gain.linearRampToValueAtTime(0, stopTime);
     s.stop(stopTime + 0.01);
