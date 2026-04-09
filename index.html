@@ -1045,14 +1045,14 @@ const FX_DEFS = [
     },
   },
   {
-    id: 'bitcrusher', name: 'Bitcrush', color: '#ff8',
+    id: 'overdrive', name: 'Overdrive', color: '#ff8',
     params: [
-      { name: 'Bits', key: 'processor.bits',     min: 1,   max: 16, def: 16,  log: false },
-      { name: 'Rate', key: 'processor.normfreq', min: 0.1, max: 1,  def: 1,   log: false },
-      { name: 'Mix',  key: '_mix',               min: 0,   max: 1,  def: 0.5, log: false },
+      { name: 'Drive', key: 'processor.drive',       min: 0,   max: 1,   def: 0.5, log: false },
+      { name: 'Color', key: 'processor.color',       min: 0,   max: 22050, def: 800, log: true  },
+      { name: 'Mix',   key: '_mix',                  min: 0,   max: 1,   def: 0.8, log: false },
     ],
-    mainParams: [0, 1],
-    create: () => new tuna.Bitcrusher({ bits: 16, normfreq: 1, bufferSize: 4096, bypass: 1 }),
+    mainParams: [0, 2],
+    create: () => new tuna.Overdrive({ drive: 0.5, color: 800, preBand: 0.5, postCut: 22050, oversample: '2x', bypass: 1 }),
   },
 ];
 
@@ -1241,16 +1241,20 @@ function fxToggle(ti, slotIdx) {
   }
   if (slot.node) {
     const active = slot.active;
-    // BiquadFilter natif
+    // BiquadFilter natif — bypass via type allpass (transparent) au lieu de fréquence
     if (slot.node.frequency && slot.node.frequency.setValueAtTime) {
       if (!active) {
-        slot.node.frequency.setValueAtTime(20000, actx.currentTime);
-        slot.node.Q.setValueAtTime(0.001, actx.currentTime);
+        // allpass = transparent, laisse tout passer sans coloration
+        slot.node.type = 'allpass';
       } else {
+        // Restaurer le vrai type depuis les params sauvegardés
+        const typeIdx = Math.round(slot.params['_typeIdx'] ?? 0);
+        const types = ['lowpass','highpass','bandpass','notch'];
+        slot.node.type = types[typeIdx & 3];
         const freqP = def.params.find(p => p.key === 'frequency');
-        const qP = def.params.find(p => p.key === 'Q');
+        const qP    = def.params.find(p => p.key === 'Q');
         if (freqP) slot.node.frequency.setValueAtTime(slot.params['frequency'] ?? freqP.def, actx.currentTime);
-        if (qP) slot.node.Q.setValueAtTime(slot.params['Q'] ?? qP.def, actx.currentTime);
+        if (qP)    slot.node.Q.setValueAtTime(slot.params['Q'] ?? qP.def, actx.currentTime);
       }
     }
     // Chorus natif ou tout nœud avec _wetGain
@@ -10910,7 +10914,12 @@ async function restoreSF2Dir() {
 function createDemoProject() {
   const demo = {
     version: 2, bpm: 110, masterVolume: 0.80, octave: 0,
-    masterFX: JSON.parse(JSON.stringify(masterFX)),
+    masterFX: {
+      delay:  { time: 0.375, feedback: 0.35, filter: 4000, sync: true, syncDiv: 4 },
+      reverb: { decay: 4.0, brightness: 0.55, predelay: 0.0, type: 'atmos' },
+      comp:   { threshold: -18, ratio: 3, attack: 0.010, release: 0.15 },
+      lim:    { threshold: -1, release: 0.05, knee: 2, gain: 0 },
+    },
     tracks: [],
     _meta: { savedAt: Date.now(), name: 'DemoSong', color: '#3ddc84', demoVersion: 12 }
   };
