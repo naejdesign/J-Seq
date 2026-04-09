@@ -6126,7 +6126,19 @@ function pressStep(idx) {
   if (heldSteps.has(idx)) return;
   const obj = { timer: null, noteLenTimer: null, isLong: false, didAction: false, fromKeyboard: false };
   const bar = currentStepBar();
-  setStepAppearance(idx, bar[idx].on, false);
+  const st = bar[idx];
+  setStepAppearance(idx, st.on, false);
+
+  // Jouer les notes du step si actif et piste mélodique
+  const t = S.tracks[S.currentTrack];
+  if (st && st.on && t.mode !== 'drum' && t.mode !== 'master') {
+    ensureAudio();
+    const notes = [st.note, ...(st.extraNotes || [])];
+    notes.forEach(n => {
+      playTrackNote(S.currentTrack, n, st.vel || 0.65);
+      if (t.outputMode === 'sf2') setTimeout(() => sf2NoteOff(S.currentTrack, n), 300);
+    });
+  }
   obj.timer = setTimeout(() => {
     if (!heldSteps.has(idx)) return;
     heldSteps.get(idx).isLong = true;
