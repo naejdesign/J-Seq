@@ -10557,10 +10557,10 @@ function renderSF2SoundList(sounds) {
 // ── Clic sur un son : debounce 300ms avant preview ────────────────────────
 
 function sf2SoundClick(idx) {
-  // Mettre en évidence immédiatement (feedback visuel instantané)
-  document.querySelectorAll('#sf2PresetList .brItem').forEach((el, i) =>
-    el.classList.toggle('active', i === idx)
-  );
+  document.querySelectorAll('#sf2PresetList .brItem').forEach((el, i) => {
+    el.classList.toggle('active-preset', i === idx);
+    el.classList.remove('active');
+  });
   const sound = sf2Browser.currentFiltered[idx];
   if (sound) {
     document.getElementById('sf2CurrentPreset').textContent = sound.displayName || sound.name;
