@@ -800,14 +800,14 @@ const FX_DEFS = [
     params: [
       { name: 'Cutoff', key: 'frequency', min: 20,  max: 20000, def: 18000, log: true  },
       { name: 'Res',    key: 'Q',         min: 0.1, max: 20,    def: 0.7,   log: false },
-      { name: 'Type',   key: '_typeIdx',  min: 0,   max: 3,     def: 0,     log: false, labels: ['LP','HP','BP','Notch'], cycle: true },
+      { name: 'Type',   key: '_typeIdx',  min: 0,   max: 2,     def: 0,     log: false, labels: ['LP','HP','BP'], cycle: true },
     ],
     mainParams: [0, 1],
     create: () => {
       const node = actx.createBiquadFilter();
       node.type = 'lowpass'; node.frequency.value = 18000; node.Q.value = 0.7;
       node.input = node; node.output = node;
-      const types = ['lowpass','highpass','bandpass','notch'];
+      const types = ['lowpass','highpass','bandpass'];
       node._typeIdx = 0;
       Object.defineProperty(node, '_typeIdx', {
         get: () => node.__typeIdx || 0,
@@ -1045,14 +1045,14 @@ const FX_DEFS = [
     },
   },
   {
-    id: 'overdrive', name: 'Overdrive', color: '#ff8',
+    id: 'moogfilter', name: 'MoogFilter', color: '#f84',
     params: [
-      { name: 'Drive', key: 'processor.drive',       min: 0,   max: 1,   def: 0.5, log: false },
-      { name: 'Color', key: 'processor.color',       min: 0,   max: 22050, def: 800, log: true  },
-      { name: 'Mix',   key: '_mix',                  min: 0,   max: 1,   def: 0.8, log: false },
+      { name: 'Cutoff', key: 'processor.cutoff',    min: 0,   max: 1,   def: 0.5, log: false },
+      { name: 'Res',    key: 'processor.resonance', min: 0,   max: 4,   def: 1.0, log: false },
+      { name: 'Mix',    key: '_mix',                min: 0,   max: 1,   def: 1.0, log: false },
     ],
-    mainParams: [0, 2],
-    create: () => new tuna.Overdrive({ drive: 0.5, color: 800, preBand: 0.5, postCut: 22050, oversample: '2x', bypass: 1 }),
+    mainParams: [0, 1],
+    create: () => new tuna.MoogFilter({ cutoff: 0.5, resonance: 1.0, bufferSize: 4096, bypass: 1 }),
   },
 ];
 
@@ -1249,7 +1249,7 @@ function fxToggle(ti, slotIdx) {
       } else {
         // Restaurer le vrai type depuis les params sauvegardés
         const typeIdx = Math.round(slot.params['_typeIdx'] ?? 0);
-        const types = ['lowpass','highpass','bandpass','notch'];
+        const types = ['lowpass','highpass','bandpass'];
         slot.node.type = types[typeIdx & 3];
         const freqP = def.params.find(p => p.key === 'frequency');
         const qP    = def.params.find(p => p.key === 'Q');
