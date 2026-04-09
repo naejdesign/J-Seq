@@ -8101,20 +8101,31 @@ function clearProjectLabels() {
     oledForce(name, `${data.bpm} BPM`, '2x=charger · Play=écouter');
 
   } else {
-    // ── Slot vide → créer un nouveau projet vierge ──
-    const name  = generateProjectName();
-    const color = randomSetColor();
-    currentProject = { slot, name, color };
-    resetStateToEmpty();
-    projectSave(slot);
-    exitProjectMode();
-    clearProjectLabels();
-    renderTrackButtons();
-    renderPads();
-    renderSteps();
-    saveUndo();
-    oledForce('NEW', name, `P${projectPage+1}·${slotNum}`);
-    setTimeout(() => { S._oledLocked = false; }, 2000);
+    // ── Slot vide ──
+    // 1er clic → sélectionner le slot (highlight), sans créer de projet
+    // Double-clic → créer un nouveau projet vierge et entrer dedans
+    if (_projectLastClick.slot === slot && now - _projectLastClick.time < PROJECT_DBLCLICK_MS) {
+      _projectLastClick = { slot: -1, time: 0 };
+      const name  = generateProjectName();
+      const color = randomSetColor();
+      currentProject = { slot, name, color };
+      resetStateToEmpty();
+      projectSave(slot);
+      exitProjectMode();
+      clearProjectLabels();
+      renderTrackButtons();
+      renderPads();
+      renderSteps();
+      saveUndo();
+      oledForce('NEW', name, `P${projectPage+1}·${slotNum}`);
+      setTimeout(() => { S._oledLocked = false; }, 2000);
+    } else {
+      // 1er clic : juste sélectionner visuellement
+      _projectLastClick = { slot, time: now };
+      projectSelected = { slot, row, col };
+      renderProjectMode();
+      oledForce(`SLOT VIDE`, `P${projectPage+1}·${slotNum}`, '2x=nouveau projet');
+    }
   }
 }
 
