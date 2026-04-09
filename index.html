@@ -7321,7 +7321,7 @@ svg('encVol').addEventListener('mouseup', e => {
   if (anyStepHeld()) { e.stopPropagation(); volDrag = null; }
 });
 svg('encVol').addEventListener('mousedown', e => {
-  if (volDrag) return;
+  volDrag = null; // reset propre avant nouvelle initialisation
   S._oledLocked = true;
   svg('encVol').setAttribute('stroke', '#aaa');
   svg('encVol').setAttribute('stroke-width', '2.5');
@@ -10284,14 +10284,18 @@ function openSF2Browser(ti) {
   document.getElementById('sf2Browser').classList.add('open');
 
   if (sf2Browser.catalogue.length) {
-    // Catalogue déjà chargé → afficher directement
-    renderSF2CategoryList();
-    // Rouvrir sur la catégorie du son actif si possible
-    if (ts.sfName && !sf2Browser.activeCategory) {
+    // Toujours aller à la catégorie du son actif si possible
+    if (ts.sfName) {
       const entry = sf2Browser.catalogue.find(e => e.file === ts.sfName);
-      if (entry) sf2SelectCategory(entry.category, false);
-    } else if (sf2Browser.activeCategory) {
+      if (entry) {
+        sf2Browser.activeCategory = entry.category;
+      }
+    }
+    renderSF2CategoryList();
+    if (sf2Browser.activeCategory) {
       sf2SelectCategory(sf2Browser.activeCategory, false);
+    } else if (sf2Browser.categories.length) {
+      sf2SelectCategory(sf2Browser.categories[0], false);
     }
   } else if (sf2Browser.dirHandle) {
     // Handle dispo mais catalogue pas encore chargé
