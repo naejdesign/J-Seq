@@ -3295,37 +3295,7 @@ function drumSynth(pad, vel, dest) {
     g4.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     s4.connect(g4); buildChain(g4); s4.start(t);
 
-  } else if (type === 'Rim') {
-    const o5 = actx.createOscillator(), g5 = actx.createGain();
-    o5.type = 'triangle'; o5.frequency.value = 1600 * tuneRatio;
-    g5.gain.setValueAtTime(vel * 0.45, t);
-    g5.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.04, decSec * 0.5));
-    o5.connect(g5); buildChain(g5);
-    o5.start(t); o5.stop(t + decSec * 0.5 + 0.05);
-
-  } else if (type === 'Tom Hi') {
-    const o6 = actx.createOscillator(), g6 = actx.createGain();
-    o6.type = 'sine';
-    o6.frequency.setValueAtTime(220 * tuneRatio, t);
-    o6.frequency.exponentialRampToValueAtTime(90 * tuneRatio, t + decSec);
-    g6.gain.setValueAtTime(vel, t);
-    g6.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g6.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o6.connect(g6); buildChain(g6);
-    o6.start(t); o6.stop(t + decSec + 0.05);
-
-  } else if (type === 'Tom Lo') {
-    const o7 = actx.createOscillator(), g7 = actx.createGain();
-    o7.type = 'sine';
-    o7.frequency.setValueAtTime(100 * tuneRatio, t);
-    o7.frequency.exponentialRampToValueAtTime(42 * tuneRatio, t + decSec);
-    g7.gain.setValueAtTime(vel, t);
-    g7.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g7.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o7.connect(g7); buildChain(g7);
-    o7.start(t); o7.stop(t + decSec + 0.05);
-
-  } else if (type === 'Tom Mid') {
+  } else if (type === 'Tom') {
     const o = actx.createOscillator(), g = actx.createGain();
     o.type = 'sine';
     o.frequency.setValueAtTime(160 * tuneRatio, t);
@@ -3337,156 +3307,40 @@ function drumSynth(pad, vel, dest) {
     o.start(t); o.stop(t + decSec + 0.04);
 
   } else if (type === 'Crash') {
-    // Bruit long filtré haut + composante métallique
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.1, decSec));
-    gn.gain.setValueAtTime(vel * 0.6, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
-    // Composante métallique
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'square'; o.frequency.value = 3200 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.15, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.6);
-    og.gain.linearRampToValueAtTime(0, t + decSec * 0.6 + 0.02);
-    o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + decSec + 0.04);
-
-  } else if (type === 'Ride') {
-    // Bruit medium + sinusoïde métallique haute
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.1, decSec * 0.8));
-    gn.gain.setValueAtTime(vel * 0.35, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'triangle'; o.frequency.value = 4800 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.2, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    og.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + decSec + 0.04);
-
-  } else if (type === 'Shaker') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.01, decSec * 0.3));
-    gn.gain.setValueAtTime(vel * 0.4, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.3);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.3 + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
-
-  } else if (type === 'Tamb') {
-    // Bruit + cliquetis métalliques (multi-burst)
-    [0, 0.005, 0.012].forEach(dly => {
-      const s = actx.createBufferSource(), g = actx.createGain();
-      s.buffer = getNoiseBuffer(Math.max(0.03, decSec * 0.5));
-      g.gain.setValueAtTime(vel * 0.35, t + dly);
-      g.gain.exponentialRampToValueAtTime(0.001, t + dly + decSec * 0.5);
-      g.gain.linearRampToValueAtTime(0, t + dly + decSec * 0.5 + 0.02);
-      s.connect(g); buildChain(g); s.start(t + dly);
-    });
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'square'; o.frequency.value = 5500 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.1, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
-    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
-    o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + decSec * 0.4 + 0.04);
-
-  } else if (type === 'Conga') {
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(280 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(180 * tuneRatio, t + decSec * 0.3);
-    g.gain.setValueAtTime(vel * 0.9, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec + 0.04);
-
-  } else if (type === 'Bongo') {
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine';
-    o.frequency.setValueAtTime(420 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(280 * tuneRatio, t + decSec * 0.2);
-    g.gain.setValueAtTime(vel * 0.85, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec + 0.04);
-
-  } else if (type === 'Maracas') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.15));
-    gn.gain.setValueAtTime(vel * 0.35, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.15);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.15 + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
-
-  } else if (type === 'Woodblk') {
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'triangle'; o.frequency.value = 900 * tuneRatio;
-    g.gain.setValueAtTime(vel * 0.6, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.03, decSec * 0.3));
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec * 0.3 + 0.04);
+    const sC = actx.createBufferSource(), gnC = actx.createGain();
+    sC.buffer = getNoiseBuffer(Math.max(0.1, decSec));
+    gnC.gain.setValueAtTime(vel * 0.6, t);
+    gnC.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gnC.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    sC.connect(gnC); buildChain(gnC); sC.start(t);
+    const oC = actx.createOscillator(), ogC = actx.createGain();
+    oC.type = 'square'; oC.frequency.value = 3200 * tuneRatio;
+    ogC.gain.setValueAtTime(vel * 0.12, t);
+    ogC.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.5);
+    ogC.gain.linearRampToValueAtTime(0, t + decSec * 0.5 + 0.02);
+    oC.connect(ogC); buildChain(ogC);
+    oC.start(t); oC.stop(t + decSec + 0.04);
 
   } else if (type === 'Triangle') {
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = 6000 * tuneRatio;
-    g.gain.setValueAtTime(vel * 0.3, t);
-    g.gain.setValueAtTime(vel * 0.3, t + 0.001);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec + 0.04);
-
-  } else if (type === 'Snap') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.005, decSec * 0.12));
-    gn.gain.setValueAtTime(vel * 0.6, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.12);
-    gn.gain.linearRampToValueAtTime(0, t + decSec * 0.12 + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
-    // Petit clic tonal
-    const o = actx.createOscillator(), og = actx.createGain();
-    o.type = 'sine'; o.frequency.value = 1800 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.3, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
-    og.gain.linearRampToValueAtTime(0, t + 0.02 + 0.02);
-    o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + 0.06);
+    const oTri = actx.createOscillator(), gTri = actx.createGain();
+    oTri.type = 'sine'; oTri.frequency.value = 2500 * tuneRatio;
+    gTri.gain.setValueAtTime(vel * 0.4, t);
+    gTri.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gTri.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    oTri.connect(gTri); buildChain(gTri);
+    oTri.start(t); oTri.stop(t + decSec + 0.04);
 
   } else if (type === 'Zap') {
-    // Pitch bend descendant rapide
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(2000 * tuneRatio, t);
-    o.frequency.exponentialRampToValueAtTime(50 * tuneRatio, t + decSec);
-    g.gain.setValueAtTime(vel * 0.5, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + decSec + 0.04);
+    const oZ = actx.createOscillator(), gZ = actx.createGain();
+    oZ.type = 'sawtooth';
+    oZ.frequency.setValueAtTime(600 * tuneRatio * 4, t);
+    oZ.frequency.exponentialRampToValueAtTime(600 * tuneRatio * 0.3, t + decSec * 0.5);
+    gZ.gain.setValueAtTime(vel * 0.7, t);
+    gZ.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gZ.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    oZ.connect(gZ); buildChain(gZ);
+    oZ.start(t); oZ.stop(t + decSec + 0.04);
 
-  } else if (type === 'Noise') {
-    const s = actx.createBufferSource(), gn = actx.createGain();
-    s.buffer = getNoiseBuffer(Math.max(0.05, decSec));
-    gn.gain.setValueAtTime(vel * 0.4, t);
-    gn.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-    gn.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
-    s.connect(gn); buildChain(gn); s.start(t);
-
-  } else if (type === 'Click') {
-    // Impulsion ultra-courte
-    const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = 2500 * tuneRatio;
-    g.gain.setValueAtTime(vel * 0.5, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t + Math.max(0.005, decSec * 0.08));
-    o.connect(g); buildChain(g);
-    o.start(t); o.stop(t + 0.06);
   }
 }
 
@@ -3513,39 +3367,50 @@ function drumSample(pad, vel, dest) {
   const startSec = (pad.startPoint || 0) * pad.buffer.duration;
 
   const g = actx.createGain();
-  g.gain.value = vel * (drv > 0.02 ? Math.pow(100, drv) : 1);
-  // Enveloppe decay sur le gain
-  g.gain.setValueAtTime(g.gain.value, t);
-  g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
-  g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+  g.gain.value = vel;
   s.connect(g);
 
-  let driveNode = g;
+  let lastNode = g;
+
+  // Drive — seulement si > 0
   if (drv > 0.02) {
+    const preG = actx.createGain();
+    preG.gain.value = Math.pow(100, drv);
+    g.connect(preG);
     const comp = actx.createDynamicsCompressor();
     comp.threshold.value = -6 - drv * 30;
     comp.knee.value      = 10;
     comp.ratio.value     = 4 + drv * 16;
     comp.attack.value    = 0.001;
     comp.release.value   = 0.05;
-    g.connect(comp);
-    driveNode = comp;
+    preG.connect(comp);
+    lastNode = comp;
   }
 
-  const filt = actx.createBiquadFilter();
-  filt.type = 'lowpass';
-  filt.frequency.setValueAtTime(200 * Math.pow(90, tone), t);
-  const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
-  filt.Q.setValueAtTime(q, t);
-  driveNode.connect(filt);
+  // Tone filter — seulement si éloigné de la valeur neutre (0.5)
+  // tone < 0.45 → coupe les aigus, tone > 0.55 → boost résonance
+  if (Math.abs(tone - 0.5) > 0.04) {
+    const filt = actx.createBiquadFilter();
+    filt.type = 'lowpass';
+    // Remapper : tone=0→200Hz, tone=0.5→20000Hz (transparent), tone=1→20000Hz+résonance
+    const normTone = tone < 0.5 ? tone * 2 : 1; // 0..1 pour la fréquence
+    filt.frequency.setValueAtTime(200 * Math.pow(100, normTone), t);
+    const q = tone > 0.5 ? Math.pow((tone - 0.5) * 2, 1.5) * 12 : 0.1;
+    filt.Q.setValueAtTime(q, t);
+    lastNode.connect(filt);
+    lastNode = filt;
+  }
 
+  // Enveloppe decay
   const gOut = actx.createGain();
-  gOut.gain.value = 1;
-  filt.connect(gOut);
+  gOut.gain.setValueAtTime(1, t);
+  gOut.gain.setValueAtTime(1, t);
+  gOut.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+  gOut.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+  lastNode.connect(gOut);
   gOut.connect(masterOut);
 
   s.start(t, startSec);
-  // Stopper le sample à la fin du decay (évite de lire inutilement)
   s.stop(t + decSec + 0.04);
 
   s.onended = () => {
@@ -3555,8 +3420,6 @@ function drumSample(pad, vel, dest) {
     setTimeout(() => {
       try { s.disconnect(); } catch(e) {}
       try { g.disconnect(); } catch(e) {}
-      if (drv > 0.02) { try { driveNode.disconnect(); } catch(e) {} }
-      try { filt.disconnect(); } catch(e) {}
       try { gOut.disconnect(); } catch(e) {}
     }, 30);
   };
@@ -5066,7 +4929,7 @@ let drumAdvPage = null; // null = page principale, sinon padIdx en cours d'édit
 // Définitions des 7 paramètres avancés par pad
 // Définitions des 7 paramètres avancés par pad (slots 0-6, slot 7 = retour)
 const DRUM_ADV_PARAMS = [
-  { key:'chokeGroup', label:'Choke', min:0, max:4, def:0, fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true,  comingSoon:false },
+  { key:'chokeGroup', label:'Choke', min:0, max:3, def:0, fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true,  comingSoon:false },
   { key:'pan',        label:'Pan',   min:-1,max:1, def:0, fmt: v => Math.abs(v)<0.02?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
   null, null, null, null, null,
   // slot 7 = retour
