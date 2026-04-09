@@ -7321,7 +7321,8 @@ svg('encVol').addEventListener('mouseup', e => {
   if (anyStepHeld()) { e.stopPropagation(); volDrag = null; }
 });
 svg('encVol').addEventListener('mousedown', e => {
-  volDrag = null; // reset propre avant nouvelle initialisation
+  volDrag = null;
+  console.log('[VOL] mousedown OK, clientY=', e.clientY);
   S._oledLocked = true;
   svg('encVol').setAttribute('stroke', '#aaa');
   svg('encVol').setAttribute('stroke-width', '2.5');
@@ -7340,6 +7341,7 @@ svg('encVol').addEventListener('mousedown', e => {
 });
 document.addEventListener('mousemove', e => {
   if (!volDrag) return;
+  console.log('[VOL] mousemove clientY=', e.clientY, 'lastY=', volDrag.lastY);
   const distFromLast = Math.abs(e.clientY - volDrag.lastY) + Math.abs(e.clientX - volDrag.lastX);
   // Toujours mettre à jour lastY pour éviter le deadlock du filtre
   const prevLastY = volDrag.lastY;
