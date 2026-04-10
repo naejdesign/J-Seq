@@ -9232,6 +9232,8 @@ document.addEventListener('keydown', e=>{
 // ═══════════════════════════════════════════════════════════════
 // MIDI INPUT
 // ═══════════════════════════════════════════════════════════════
+// Molette visuelle pitchbend/modwheel (null = pas d'élément SVG présent)
+var notch = null;
 var midiState = {
   access: null,
   inputs: [],
@@ -9302,9 +9304,6 @@ function midiOnMessage(e) {
   const [status, data1, data2] = e.data;
   const cmd = status & 0xf0;
   const ch  = (status & 0x0f) + 1;
-  // Debug temporaire pitchbend + modwheel
-  if (cmd === 0xe0) console.log('[MIDI] PitchBend', data1, data2, 'raw=', (data2<<7)|data1);
-  if (cmd === 0xb0 && data1 === 1) console.log('[MIDI] ModWheel CC1=', data2, 'ch=', ch);
   if (cmd === 0x90) midiNoteOn(data1, data2, ch);
   else if (cmd === 0x80) midiNoteOff(data1, ch);
   else if (cmd === 0xb0) {
