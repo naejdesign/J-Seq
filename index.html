@@ -547,6 +547,22 @@ body {
   </div>
 </div>
 
+<!-- ══ JUNOX PRESET BROWSER ════════════════════════════════════ -->
+<div id="junoxBrowser" class="brOverlay" style="z-index:102">
+  <div id="junoxBrHeader" class="brHeader">
+    <span class="brTrackLabel" style="color:#4cf">JUNOX T2</span>
+    <span id="junoxBrCurrent" class="brCurrentLabel">—</span>
+    <button id="junoxBrCloseBtn" class="brCloseBtn">✕</button>
+  </div>
+  <div class="brBody" style="flex-direction:column">
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 14px 4px;flex-shrink:0">
+      <span style="font-size:11px;color:#444;text-transform:uppercase;letter-spacing:1px">Presets Juno-60</span>
+      <span id="junoxBrCount" class="brCount"></span>
+    </div>
+    <div id="junoxBrList" class="brList" style="flex:1"></div>
+  </div>
+</div>
+
 </div>
 
 
@@ -1453,9 +1469,9 @@ const JUNOX_SECTIONS = [
       { key:'chorus', name:'Chorus', min:0, max:3, def:1, log:false, color:'#4cf',
         cycle:true, labels:['Off','I','II','I+II'], fmt: v => ['Off','I','II','I+II'][Math.round(v)]||'Off' },
       // Delay Viktor (filtre LP 2kHz dans la boucle feedback)
-      { key:'_dlyTime', name:'Dly Time', min:20, max:1000, def:150, log:false, color:'#4fa',
+      { key:'_dlyTime', name:'Dly Time', min:20, max:1000, def:500, log:false, color:'#4fa',
         fmt: v => Math.round(v)+'ms' },
-      { key:'_dlyFeedback', name:'Dly Fdbk', min:0, max:0.9, def:0.3, log:false, color:'#4fa',
+      { key:'_dlyFeedback', name:'Dly Fdbk', min:0, max:0.9, def:0.45, log:false, color:'#4fa',
         fmt: v => (v*100).toFixed(0)+'%' },
       { key:'_dlyMix', name:'Dly Mix', min:0, max:1, def:0, log:false, color:'#4fa',
         fmt: v => v < 0.01 ? 'Off' : (v*100).toFixed(0)+'%' },
@@ -1472,7 +1488,7 @@ const JUNOX_SECTIONS = [
   },
   {
     id: 'arp', name: 'ARP', color: '#f44',
-    icon: 'M 2 14 L 2 10 L 8 10 L 8 6 L 14 6 L 14 2 L 18 2 L 18 6 L 22 6 L 22 10 L 28 10 L 28 14 L 30 14',
+    icon: 'M 1 14 L 1 10 L 7 10 L 7 6 L 13 6 L 13 2 L 19 2 L 19 6 L 25 6 L 25 10 L 31 10 L 31 14',
     params: [
       { key:'_arpEnabled', name:'ARP', min:0, max:1, def:0, log:false,
         cycle:true, labels:['OFF','ON'], fmt: v => Math.round(v) ? 'ON' : 'OFF' },
@@ -3010,7 +3026,8 @@ function renderJunoxPageMain(ti) {
     const iconW = 32 * iconScale;
     const iconX = sx + FX_SW/2 - iconW/2;
     const iconY = sy + 19 + (i === 5 ? 3 : i === 3 ? -1 : i === 6 ? 1 : 0);
-    iconG.setAttribute('transform', `translate(${iconX},${iconY}) scale(${iconScale})`);
+    const iconXOffset = (i === 6 ? 1 : 0);
+    iconG.setAttribute('transform', `translate(${iconX + iconXOffset},${iconY}) scale(${iconScale})`);
     iconG.setAttribute('pointer-events', 'none');
 
     const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -13245,7 +13262,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (S.mode === 'session') return;
     const ti = S.tracks[S.currentTrack];
     if (ti.mode === 'master') return;
-    if (ti.outputMode === 'junox') return; // T2 Junox — pas de browser SF2
+    if (ti.outputMode === 'junox') { openJunoxBrowser(); return; }
     if (ti.mode === 'drum') {
       openDrumBrowser();
     } else {
@@ -13254,9 +13271,108 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   restoreSF2Dir();
   restoreDrumDir();
+  initJunoxBrowserUI();
   buildFXPanel();
   renderFXPanel();
 });
+
+
+// ═══════════════════════════════════════════════════════════════
+// JUNOX PRESET BROWSER
+// ═══════════════════════════════════════════════════════════════
+const junoxBr = {
+  activeIdx: null,   // index du preset sélectionné
+};
+
+function openJunoxBrowser() {
+  const list = Junox.Juno60FactoryPatchesA;
+  if (!list || !list.length) return;
+
+  // Trouver le preset actif
+  const ti = JUNOX_TRACK;
+  const curName = junoxPatches[ti]?.name || null;
+  junoxBr.activeIdx = list.findIndex(p => p.name === curName);
+  if (junoxBr.activeIdx < 0) junoxBr.activeIdx = 0;
+
+  // Mettre à jour le header
+  document.getElementById('junoxBrCurrent').textContent = curName || '—';
+  document.getElementById('junoxBrCount').textContent = list.length + ' presets';
+
+  // Rendre la liste
+  junoxBrRenderList();
+
+  // Ouvrir
+  document.getElementById('junoxBrowser').classList.add('open');
+
+  // Scroller vers le preset actif
+  setTimeout(() => {
+    const items = document.querySelectorAll('#junoxBrList .brItem');
+    if (items[junoxBr.activeIdx]) items[junoxBr.activeIdx].scrollIntoView({ block: 'center' });
+  }, 50);
+}
+
+function closeJunoxBrowser() {
+  document.getElementById('junoxBrowser').classList.remove('open');
+}
+
+function junoxBrRenderList() {
+  const list = Junox.Juno60FactoryPatchesA;
+  const container = document.getElementById('junoxBrList');
+  container.innerHTML = '';
+
+  const lastTap = {};
+
+  list.forEach((preset, idx) => {
+    const el = document.createElement('div');
+    el.className = 'brItem' + (idx === junoxBr.activeIdx ? ' active-preset' : '');
+    el.innerHTML = `<span class="brName">${preset.name}</span><span class="brSub">${idx + 1}</span>`;
+
+    // Single tap → sélectionner + prévisualiser
+    el.addEventListener('click', () => {
+      junoxBrSelect(idx);
+    });
+
+    // Double-tap → confirmer et fermer
+    el.addEventListener('dblclick', () => {
+      junoxBrConfirm(idx);
+    });
+
+    container.appendChild(el);
+  });
+}
+
+function junoxBrSelect(idx) {
+  const list = Junox.Juno60FactoryPatchesA;
+  if (!list[idx]) return;
+  junoxBr.activeIdx = idx;
+
+  // Mettre à jour le style actif
+  document.querySelectorAll('#junoxBrList .brItem').forEach((el, i) => {
+    el.classList.toggle('active-preset', i === idx);
+  });
+  document.getElementById('junoxBrCurrent').textContent = list[idx].name;
+
+  // Prévisualiser : charger le patch sans fermer
+  const ti = JUNOX_TRACK;
+  junoxPatches[ti] = list[idx];
+  if (junoxNodes[ti]) junoxNodes[ti].setPatch(list[idx]);
+  renderFXPanel();
+  oledForce(list[idx].name, 'JUNOX T2', 'double-tap=OK');
+}
+
+function junoxBrConfirm(idx) {
+  const list = Junox.Juno60FactoryPatchesA;
+  if (!list[idx]) return;
+
+  junoxBrSelect(idx);
+  closeJunoxBrowser();
+  oled('JUNOX T2', list[idx].name, 'chargé');
+}
+
+// Init bouton fermer (appelé depuis le DOMContentLoaded principal)
+function initJunoxBrowserUI() {
+  document.getElementById('junoxBrCloseBtn')?.addEventListener('click', closeJunoxBrowser);
+}
 
 // ═══════════════════════════════════════════════════════════════
 // DRUM BROWSER
@@ -13644,6 +13760,23 @@ var _gamepadBHeldIdx = -1; // index du step pressé via gamepad
 
 function gamepadBDown() {
   if (_gamepadBHeld) return;
+  // Junox browser ouvert → bouton A = confirmer le preset sélectionné
+  if (document.getElementById('junoxBrowser').classList.contains('open')) {
+    junoxBrConfirm(junoxBr.activeIdx ?? 0);
+    return;
+  }
+  // SF2 browser ouvert → bouton A = confirmer le son sélectionné
+  if (document.getElementById('sf2Browser').classList.contains('open')) {
+    const idx = sf2Browser.activeSoundIdx;
+    if (idx !== null && idx >= 0) sf2SoundConfirm(idx);
+    return;
+  }
+  // Drum browser ouvert → bouton A = confirmer le fichier sélectionné
+  if (document.getElementById('drumBrowser').classList.contains('open')) {
+    const idx = drumBr.activeSoundIdx;
+    if (idx !== null && idx >= 0) drumBrConfirmFile(idx);
+    return;
+  }
   // Mode Project → naviguer les pages avec le curseur
   if (projectModeActive) {
     projectPage = stepCursorPos;
@@ -13810,6 +13943,22 @@ function pollGamepad() {
     const bPressed = btns[1]?.pressed || false;
     const bWas = _gpPrevButtons[gp.index + '_1'] || false;
     if (bPressed && !bWas) {
+      // Browser ouvert → bouton B = fermer sans confirmer
+      if (document.getElementById('junoxBrowser').classList.contains('open')) {
+        closeJunoxBrowser();
+        _gpPrevButtons[gp.index + '_1'] = bPressed;
+        continue;
+      }
+      if (document.getElementById('sf2Browser').classList.contains('open')) {
+        closeSF2Browser();
+        _gpPrevButtons[gp.index + '_1'] = bPressed;
+        continue;
+      }
+      if (document.getElementById('drumBrowser').classList.contains('open')) {
+        closeDrumBrowser();
+        _gpPrevButtons[gp.index + '_1'] = bPressed;
+        continue;
+      }
       _gpLoopPressTime = Date.now();
       _gpLoopLongFired = false;
       setLoopHeld(true); // activer immédiatement pour les combos
@@ -13934,7 +14083,25 @@ function moveBarInsert(fromIdx, direction) {
 }
 
 function dpadAction(name) {
-      // Priorité 0 : SF2 browser ouvert → navigation presets
+      // Priorité 0 : Junox browser ouvert → navigation presets
+      const junoxOpen = document.getElementById('junoxBrowser').classList.contains('open');
+      if (junoxOpen) {
+        const delta = name === 'up' ? -1 : name === 'down' ? 1
+                    : name === 'left' ? -8 : name === 'right' ? 8 : 0;
+        if (delta !== 0) {
+          const list = Junox.Juno60FactoryPatchesA;
+          const curIdx = junoxBr.activeIdx ?? 0;
+          const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
+          if (newIdx !== curIdx) {
+            junoxBrSelect(newIdx);
+            const items = document.querySelectorAll('#junoxBrList .brItem');
+            if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+          }
+        }
+        return;
+      }
+
+      // Priorité 0b : SF2 browser ouvert → navigation presets
       const sf2Open  = document.getElementById('sf2Browser').classList.contains('open');
       const drumOpen = document.getElementById('drumBrowser').classList.contains('open');
 
