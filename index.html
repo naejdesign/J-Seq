@@ -1362,37 +1362,47 @@ let junoxPage = 'main';
 const JUNOX_SECTIONS = [
   {
     id: 'modulation', name: 'MODULATION', color: '#fa4',
-    icon: 'M 0 8 Q 8 0 16 8 Q 24 16 32 8', // sinus
+    icon: 'M 0 8 Q 8 0 16 8 Q 24 16 32 8',
     params: [
-      { key:'dco.lfo',   name:'DCO Bend', min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'vcf.lfoMod',name:'VCF Bend', min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'lfo.frequency', name:'LFO Rate', min:0, max:1, def:0.3, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'lfo.delay',     name:'LFO Delay',min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      // DCO bend = dco.lfo depth (profondeur LFO sur le pitch du DCO)
+      { key:'dco.lfo',      name:'DCO LFO', min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      // VCF bend = vcf.lfoMod (profondeur LFO sur le filtre)
+      { key:'vcf.lfoMod',   name:'VCF LFO', min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'lfo.frequency',name:'LFO Rate', min:0, max:1, def:0.3, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'lfo.delay',    name:'LFO Delay',min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
       { key:'lfo.autoTrigger', name:'LFO Trig', min:0, max:1, def:1, log:false,
         cycle:true, labels:['Free','Auto'], fmt: v => v ? 'Auto' : 'Free' },
     ],
   },
   {
     id: 'oscillators', name: 'OSCILLATORS', color: '#4fa',
-    icon: 'M 0 12 L 8 12 L 8 4 L 16 4 L 16 12 L 24 12 L 24 4 L 32 4', // pulse/saw
+    icon: 'M 0 12 L 8 12 L 8 4 L 16 4 L 16 12 L 24 12 L 24 4 L 32 4',
     params: [
-      { key:'dco.range', name:'Range',    min:0,  max:3,   def:1, log:false,
-        cycle:true, labels:['4\'','8\'','16\'','32\''], fmt: v => ["4'","8'","16'","32'"][Math.round(v)]||"8'" },
-      { key:'dco.pwm',   name:'PWM Depth',min:0,  max:1,   def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'dco.pwmMod',name:'PWM Mod',  min:0,  max:2,   def:0, log:false,
+      // Range : 0.5=16'(grave), 1=8'(médium), 2=4'(aigu) — valeurs exactes du patch officiel
+      { key:'dco.range', name:'Range', min:0, max:2, def:1, log:false,
+        cycle:true,
+        cycleVals:[0.5, 1, 2],
+        labels:["16'","8'","4'"],
+        fmt: v => { const r = Math.round(v*10)/10; return r<=0.5?"16'": r<=1?"8'":"4'"; },
+        map: v => [0.5, 1, 2][Math.round(v)] ?? 1,
+      },
+      // LFO depth sur pitch (slider 0→1)
+      { key:'dco.lfo',   name:'LFO',      min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      // PWM depth (slider 0→1)
+      { key:'dco.pwm',   name:'PWM Depth',min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      // PWM source : l=LFO m=Manual e=Envelope
+      { key:'dco.pwmMod',name:'PWM Mod',  min:0, max:2, def:0, log:false,
         cycle:true, labels:['LFO','Man','Env'], fmt: v => ['LFO','Man','Env'][Math.round(v)]||'LFO',
         map: v => ['l','m','e'][Math.round(v)] },
-      { key:'dco.pulse', name:'Pulse',    min:0,  max:1,   def:0, log:false,
-        cycle:true, labels:['Off','On'],  fmt: v => v ? 'On' : 'Off' },
-      { key:'dco.saw',   name:'Saw',      min:0,  max:1,   def:1, log:false,
-        cycle:true, labels:['Off','On'],  fmt: v => v ? 'On' : 'Off' },
-      { key:'dco.sub',   name:'Sub Osc',  min:0,  max:1,   def:0, log:false,
-        cycle:true, labels:['Off','On'],  fmt: v => v ? 'On' : 'Off' },
+      // Pulse level (slider 0→1, pas on/off)
+      { key:'dco.pulse', name:'Pulse',    min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      // Saw level (slider 0→1, pas on/off)
+      { key:'dco.saw',   name:'Saw',      min:0, max:1, def:1, log:false, fmt: v => (v*100).toFixed(0)+'%' },
     ],
   },
   {
     id: 'subnoise', name: 'SUB/NOISE', color: '#a4f',
-    icon: 'M 0 8 L 4 4 L 8 12 L 12 6 L 16 10 L 20 4 L 24 12 L 28 8 L 32 8', // bruit
+    icon: 'M 0 8 L 4 4 L 8 12 L 12 6 L 16 10 L 20 4 L 24 12 L 28 8 L 32 8',
     params: [
       { key:'dco.subAmount', name:'Sub Amt', min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
       { key:'dco.noise',     name:'Noise',   min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
@@ -1400,36 +1410,38 @@ const JUNOX_SECTIONS = [
   },
   {
     id: 'filter', name: 'FILTER', color: '#58f',
-    icon: 'M 2 4 L 16 16 L 30 4', // triangle/entonnoir
+    icon: 'M 2 4 L 16 16 L 30 4',
     params: [
-      { key:'hpf',          name:'HPF Freq', min:0,  max:1,    def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'vcf.frequency',name:'VCF Freq', min:0,  max:1,    def:0.7, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'vcf.resonance',name:'Resonance',min:0,  max:1,    def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'vcf.modPositive',name:'Mod Dir',min:0,  max:1,    def:1,   log:false,
-        cycle:true, labels:['-','+'], fmt: v => v ? '+' : '−' },
-      { key:'vcf.envMod',   name:'Env Mod',  min:0,  max:1,    def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'vcf.lfoMod',   name:'LFO Mod',  min:0,  max:1,    def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'vcf.keyMod',   name:'Key Mod',  min:0,  max:1,    def:1,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'hpf',           name:'HPF Freq', min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'vcf.frequency', name:'VCF Freq', min:0, max:1, def:0.7, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'vcf.resonance', name:'Resonance',min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      // modPositive : true='+' false='-' — boolean dans le patch
+      { key:'vcf.modPositive', name:'Mod Dir', min:0, max:1, def:1, log:false,
+        cycle:true, labels:['−','+'], fmt: v => v >= 0.5 ? '+' : '−' },
+      { key:'vcf.envMod',    name:'Env Mod',  min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'vcf.lfoMod',    name:'LFO Mod',  min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'vcf.keyMod',    name:'Key Mod',  min:0, max:1, def:1,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
     ],
   },
   {
     id: 'amplitude', name: 'AMPLITUDE', color: '#f84',
-    icon: 'M 0 14 L 4 14 L 8 4 L 14 4 L 18 10 L 22 10 L 26 14 L 32 14', // ADSR
+    icon: 'M 0 14 L 4 14 L 8 4 L 14 4 L 18 10 L 22 10 L 26 14 L 32 14',
     params: [
       { key:'vcaType', name:'VCA Type', min:0, max:1, def:1, log:false,
-        cycle:true, labels:['Gate','Env'], fmt: v => v ? 'Env' : 'Gate',
-        map: v => v ? 'env' : 'gate' },
-      { key:'vca',     name:'VCA Level',min:0, max:1, def:0.5, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'env.attack', name:'Attack',  min:0, max:1, def:0.4, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'env.decay',  name:'Decay',   min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'env.sustain',name:'Sustain', min:0, max:1, def:1,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'env.release',name:'Release', min:0, max:1, def:0.45,log:false, fmt: v => (v*100).toFixed(0)+'%' },
+        cycle:true, labels:['Gate','Env'], fmt: v => v >= 0.5 ? 'Env' : 'Gate',
+        map: v => v >= 0.5 ? 'env' : 'gate' },
+      { key:'vca',        name:'VCA Level',min:0, max:1, def:0.5, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'env.attack', name:'Attack',   min:0, max:1, def:0.4, log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'env.decay',  name:'Decay',    min:0, max:1, def:0,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'env.sustain',name:'Sustain',  min:0, max:1, def:1,   log:false, fmt: v => (v*100).toFixed(0)+'%' },
+      { key:'env.release',name:'Release',  min:0, max:1, def:0.45,log:false, fmt: v => (v*100).toFixed(0)+'%' },
     ],
   },
   {
     id: 'effects', name: 'EFFECTS', color: '#4cf',
-    icon: 'M 16 8 m -6 0 a 6 6 0 1 0 12 0 a 6 6 0 1 0 -12 0 M 16 8 m -11 0 a 11 11 0 1 0 22 0 a 11 11 0 1 0 -22 0', // cercles conc.
+    icon: 'M 16 8 m -6 0 a 6 6 0 1 0 12 0 a 6 6 0 1 0 -12 0 M 16 8 m -11 0 a 11 11 0 1 0 22 0 a 11 11 0 1 0 -22 0',
     params: [
+      // chorus : 0=Off, 1=I, 2=II, 3=I+II — entier dans le patch
       { key:'chorus', name:'Chorus', min:0, max:3, def:1, log:false,
         cycle:true, labels:['Off','I','II','I+II'], fmt: v => ['Off','I','II','I+II'][Math.round(v)]||'Off' },
     ],
@@ -1458,11 +1470,13 @@ function junoxSetPatchVal(patch, key, value) {
 // Convertir la valeur UI → valeur patch (pour les params avec map)
 function junoxMapVal(param, uiVal) {
   if (param.map) return param.map(uiVal);
-  // cycle boolean : garder comme booléen si la cible est bool
-  if (param.key === 'dco.pulse' || param.key === 'dco.saw' || param.key === 'dco.sub'
-      || param.key === 'vcf.modPositive' || param.key === 'lfo.autoTrigger') {
-    return Boolean(Math.round(uiVal));
+  // Booleans : vcf.modPositive, lfo.autoTrigger
+  if (param.key === 'vcf.modPositive' || param.key === 'lfo.autoTrigger') {
+    return uiVal >= 0.5;
   }
+  // dco.saw et dco.pulse : floats 0→1 (pas de boolean, le moteur accepte les deux)
+  // dco.subAmount : float
+  // Tout le reste : float direct
   return uiVal;
 }
 
@@ -1474,6 +1488,15 @@ function junoxUiVal(param, patchVal) {
     if (param.key === 'dco.pwmMod') return {'l':0,'m':1,'e':2}[patchVal] ?? 0;
     // vcaType : 'env'→1, 'gate'→0
     if (param.key === 'vcaType') return patchVal === 'env' ? 1 : 0;
+  }
+  // dco.range : les valeurs patch sont 0.5/1/2 → index 0/1/2 pour l'UI cycleVals
+  if (param.key === 'dco.range' && param.cycleVals) {
+    const idx = param.cycleVals.indexOf(patchVal);
+    return idx >= 0 ? idx : 1; // défaut = 8' (index 1)
+  }
+  // dco.saw et dco.pulse peuvent être true/false (anciens patchs) → 1 ou 0
+  if ((param.key === 'dco.saw' || param.key === 'dco.pulse') && typeof patchVal === 'boolean') {
+    return patchVal ? 1 : 0;
   }
   return typeof patchVal === 'number' ? patchVal : param.def;
 }
@@ -1562,12 +1585,20 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
   const patch = junoxPatches[ti];
   if (!patch) return;
 
-  const patchValue = junoxMapVal(param, value);
+  let patchValue;
+  if (param.cycleVals) {
+    // Range : la valeur UI est l'index dans cycleVals
+    patchValue = param.cycleVals[Math.round(value)] ?? param.cycleVals[1] ?? value;
+  } else if (param.key === 'chorus') {
+    // Chorus : entier 0-3
+    patchValue = Math.round(value);
+  } else {
+    patchValue = junoxMapVal(param, value);
+  }
   junoxSetPatchVal(patch, paramKey, patchValue);
 
   const node = junoxNodes[ti];
   if (!node) return;
-  // setPatch recharge tout le patch (simple et sûr)
   node.setPatch(patch);
 }
 
@@ -2723,7 +2754,10 @@ function renderJunoxPageAdvanced(ti, secIdx) {
     const p = sec.params[i];
     const rawVal = patch ? junoxGetPatchVal(patch, p.key) : undefined;
     const uiVal  = junoxUiVal(p, rawVal !== undefined ? rawVal : p.def);
-    const pct    = Math.max(0, Math.min(1, (uiVal - p.min) / (p.max - p.min)));
+    // Pour cycleVals (Range) : uiVal est l'index 0/1/2, max = nb entrées - 1
+    const uiMax  = p.cycleVals ? p.cycleVals.length - 1 : p.max;
+    const uiMin  = p.cycleVals ? 0 : p.min;
+    const pct    = Math.max(0, Math.min(1, (uiVal - uiMin) / (uiMax - uiMin || 1)));
 
     // Fond
     const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
@@ -2768,7 +2802,11 @@ function renderJunoxPageAdvanced(ti, secIdx) {
     valEl.setAttribute('font-family', "'DM Mono',monospace");
     valEl.setAttribute('font-size', '14'); valEl.setAttribute('fill', '#ccc');
     valEl.setAttribute('pointer-events', 'none');
-    valEl.textContent = p.fmt(uiVal);
+    // Pour cycleVals (Range) : fmt reçoit la vraie valeur patch, pas l'index UI
+    const displayVal = p.cycleVals
+      ? p.fmt(p.cycleVals[Math.round(uiVal)] ?? uiVal)
+      : p.fmt(uiVal);
+    valEl.textContent = displayVal;
     sg.appendChild(valEl);
 
     // Zone drag / tap
@@ -3328,11 +3366,19 @@ function fxHandleDown(e) {
         const patch  = junoxPatches[S.currentTrack];
         const rawVal = patch ? junoxGetPatchVal(patch, p.key) : p.def;
         const uiVal  = junoxUiVal(p, rawVal !== undefined ? rawVal : p.def);
-        const base   = p.min;
-        const nextUi = ((Math.round(uiVal) - base + 1) % (Math.round(p.max) - base + 1)) + base;
+        let nextUi;
+        if (p.cycleVals) {
+          // Range : uiVal est déjà l'index 0/1/2
+          const idx = Math.round(uiVal);
+          nextUi = (idx + 1) % p.cycleVals.length;
+        } else {
+          const base = p.min;
+          nextUi = ((Math.round(uiVal) - base + 1) % (Math.round(p.max) - base + 1)) + base;
+        }
         junoxSetParam(S.currentTrack, secIdx, p.key, nextUi);
         renderJunoxPageAdvanced(S.currentTrack, secIdx);
-        oledForce(sec.name, p.name, p.fmt(nextUi));
+        const displayVal = p.cycleVals ? p.fmt(p.cycleVals[nextUi] ?? nextUi) : p.fmt(nextUi);
+        oledForce(sec.name, p.name, displayVal);
         e.stopPropagation(); e.preventDefault();
         return true;
       }
@@ -3359,27 +3405,26 @@ function fxHandleDown(e) {
       return true;
     }
 
-    // ── JUNOX : slot page principale → long press = page avancée
+    // ── JUNOX : slot page principale → tap = page avancée (immédiat)
     if (n.getAttribute('data-junoxslot') !== null) {
       const secIdx = parseInt(n.getAttribute('data-junoxslot'));
       if (secIdx >= JUNOX_SECTIONS.length) return false;
-      _fxPressTimer = setTimeout(() => {
-        _fxPressTimer = null;
-        // Flash visuel du slot
-        const sg = document.getElementById(`fxslot_${secIdx}`);
-        if (sg) {
-          const bg = sg.querySelector('rect');
-          if (bg) {
-            const origStroke = bg.getAttribute('stroke');
-            bg.setAttribute('stroke', '#fff'); bg.setAttribute('stroke-width', '2');
-            setTimeout(() => { bg.setAttribute('stroke', origStroke); bg.setAttribute('stroke-width', '1'); }, 150);
-          }
+      // Flash visuel immédiat
+      const sg = document.getElementById(`fxslot_${secIdx}`);
+      if (sg) {
+        const bg = sg.querySelector('rect');
+        if (bg) {
+          const origStroke = bg.getAttribute('stroke');
+          bg.setAttribute('stroke', '#fff'); bg.setAttribute('stroke-width', '2');
+          setTimeout(() => { bg.setAttribute('stroke', origStroke); bg.setAttribute('stroke-width', '1'); }, 120);
         }
+      }
+      setTimeout(() => {
         junoxPage = secIdx;
         renderFXPanel();
-        oledForce('JUNOX', JUNOX_SECTIONS[secIdx].name, 'edit');
-        setTimeout(() => { S._oledLocked = false; }, 1500);
-      }, 400);
+        oledForce('JUNOX', JUNOX_SECTIONS[secIdx].name, 'params');
+        setTimeout(() => { S._oledLocked = false; }, 1200);
+      }, 80);
       e.stopPropagation(); e.preventDefault();
       return true;
     }
@@ -3582,13 +3627,14 @@ function fxHandleUp(e) {
   }
   if (_fxPressTimer !== null) {
     clearTimeout(_fxPressTimer);
-    // Tap court sur junoxslot = rien (long press seulement)
+    // Rechercher le slot cliqué pour toggler les FX SF2 (pas Junox)
     let el2 = e.target;
     for (let n = el2; n && n !== document; n = n.parentNode) {
       if (!n.getAttribute) continue;
+      // junoxslot : la navigation est déjà faite dans fxHandleDown (tap immédiat)
       if (n.getAttribute('data-junoxslot') !== null) {
         _fxPressTimer = null;
-        return; // tap court ignoré sur junox
+        return;
       }
       // Ne pas toggler si c'est une zone de param (encodeur Arp)
       if (n.getAttribute('data-fxslot') !== null && n.getAttribute('data-fxparam') === null && fxPage === 'main') {
@@ -3710,13 +3756,18 @@ function fxHandleMove(e) {
     const dy = _fxDrag.startY - e.clientY;
     const dx = e.clientX - (_fxDrag.startX || e.clientX);
     const delta = dy + dx;
-    let newUiVal = _fxDrag.startVal + (delta / 150) * (p.max - p.min);
-    newUiVal = Math.max(p.min, Math.min(p.max, newUiVal));
+
+    const uiMax = p.cycleVals ? p.cycleVals.length - 1 : p.max;
+    const uiMin = p.cycleVals ? 0 : p.min;
+    let newUiVal = _fxDrag.startVal + (delta / 150) * (uiMax - uiMin);
+    newUiVal = Math.max(uiMin, Math.min(uiMax, newUiVal));
+    // Params cyclables : arrondir à l'entier
+    if (p.cycle) newUiVal = Math.round(newUiVal);
 
     junoxSetParam(ti, secIdx, p.key, newUiVal);
 
     // Mettre à jour barre verticale
-    const pct = (newUiVal - p.min) / (p.max - p.min);
+    const pct = (newUiVal - uiMin) / (uiMax - uiMin || 1);
     const totalH = FX_SH - 5*2 - 30;
     const barH = Math.max(0, Math.round(pct * totalH));
     const barEl = document.getElementById(`junoxbar_${secIdx}_${paramIdx}`);
@@ -3725,9 +3776,10 @@ function fxHandleMove(e) {
       barEl.setAttribute('height', String(barH));
       barEl.setAttribute('y', String(sy + 5 + 10 + totalH - barH));
     }
+    const displayVal = p.cycleVals ? p.fmt(p.cycleVals[Math.round(newUiVal)] ?? newUiVal) : p.fmt(newUiVal);
     const valEl = document.getElementById(`junoxval_${secIdx}_${paramIdx}`);
-    if (valEl) valEl.textContent = p.fmt(newUiVal);
-    oledForce(JUNOX_SECTIONS[secIdx].name, p.name, p.fmt(newUiVal));
+    if (valEl) valEl.textContent = displayVal;
+    oledForce(JUNOX_SECTIONS[secIdx].name, p.name, displayVal);
     return;
   }
 
