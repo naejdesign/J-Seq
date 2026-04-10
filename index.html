@@ -1479,8 +1479,8 @@ const JUNOX_SECTIONS = [
       { key:'_revLevel', name:'Reverb', min:0, max:1, def:0, log:false, color:'#e4f',
         fmt: v => v < 0.01 ? 'Off' : (v*100).toFixed(0)+'%' },
       // Saturateur (insert après delay+reverb)
-      { key:'_satDrive', name:'Sat Drive', min:-13, max:24, def:-13, log:false, color:'#f74',
-        fmt: v => v <= -13 ? 'OFF' : (v >= 0 ? '+' : '') + v.toFixed(1)+'dB' },
+      { key:'_satDrive', name:'Sat Drive', min:-13, max:12, def:-13, step:1, log:false, color:'#f74',
+        fmt: v => v <= -13 ? 'OFF' : (v > 0 ? '+' : '') + Math.round(v)+'dB' },
       { key:'_satType', name:'Sat Type', min:0, max:7, def:0, log:false, color:'#f74',
         labels:['tanh','sine','hard','log','sqrt','cube','fold','sqSin'],
         cycle:true, fmt: v => ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'][Math.round(v)]||'tanh' },
@@ -1894,8 +1894,10 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
     return;
   }
   if (paramKey === '_satDrive') {
-    junoxRuntime[ti].satDrive = value;
-    junoxSetSat(ti, value <= -13 ? null : value, undefined);
+    // Snap à l'entier (plage -12/+12 en pas de 1dB, plus OFF à -13)
+    const snapped = value <= -13 ? -13 : Math.round(Math.max(-12, Math.min(12, value)));
+    junoxRuntime[ti].satDrive = snapped;
+    junoxSetSat(ti, snapped <= -13 ? null : snapped, undefined);
     return;
   }
   if (paramKey === '_satType') {
@@ -2457,7 +2459,7 @@ const FX_DEFS = [
   {
     id: 'saturation', name: 'Saturate', color: '#f84',
     params: [
-      { name: 'Drive', key: '_drive', min: -12, max: 24, def: 0, log: false },
+      { name: 'Drive', key: '_drive', min: -12, max: 12, def: 0, step: 1, log: false },
       { name: 'Type',  key: '_type',  min: 0,   max: 7,  def: 0, log: false, labels: ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'], cycle: true },
     ],
     mainParams: [0, 1],
@@ -2543,7 +2545,7 @@ const FX_DEFS = [
           }
         },
         get _drive() { return _driveVal; },
-        set _drive(v){ _driveVal = v; applyDrive(); },
+        set _drive(v){ _driveVal = Math.round(Math.max(-12, Math.min(12, v))); applyDrive(); },
         get _type()  { return _typeVal; },
         set _type(v) {
           _typeVal = Math.round(v) % 8;
