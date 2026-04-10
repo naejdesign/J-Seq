@@ -11361,6 +11361,23 @@ function midiCC(cc, value) {
       }
     } else if (tMod.outputMode === 'sf2' && sf2Ready && jsSynths[tiMod]) {
       jsSynths[tiMod].midiControl(SF2_CHANNEL, 1, value & 0x7f);
+    } else if (tMod.outputMode === 'junox' && junoxReady && junoxNodes[tiMod]) {
+      // Modwheel expressive : contrôle dco.lfo en temps réel (0 → valeur max du patch)
+      // La molette module la profondeur du vibrato entre 0 et la valeur LFO→Pitch du patch
+      const patch = junoxPatches[tiMod];
+      if (patch) {
+        const MOD_LFO_MAX = 0.5; // plage fixe : molette à fond = dco.lfo 0.5 (vibrato intense)
+        if (value > 0) {
+          const depth = (value / 127) * MOD_LFO_MAX;
+          junoxNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: depth });
+          junoxNodes[tiMod].lfoTrigger();
+        } else {
+          // Retour à zéro : restaurer la valeur originale du patch
+          const patchLfoDepth = patch.dco?.lfo ?? 0;
+          junoxNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: patchLfoDepth });
+          junoxNodes[tiMod].lfoRelease();
+        }
+      }
     }
     return;
   }
