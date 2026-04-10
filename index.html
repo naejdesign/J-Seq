@@ -9675,6 +9675,33 @@ function midiCC(cc, value) {
   }
 }
 
+// ── Interpolation pitchbend ─────────────────────────────────────
+// Évite les "paliers" audibles quand l'Akai envoie des valeurs par salves
+const _pbInterp = {
+  current: 8192,  // valeur courante interpolée (centre)
+  target:  8192,  // valeur cible reçue du contrôleur
+  ti: -1,         // track index courant
+  timer: null,
+};
+function _pbTick() {
+  if (Math.abs(_pbInterp.current - _pbInterp.target) < 4) {
+    // Arrivé à destination — arrêter
+    _pbInterp.current = _pbInterp.target;
+    clearInterval(_pbInterp.timer);
+    _pbInterp.timer = null;
+  } else {
+    // Rampe : avancer de 30% vers la cible par tick (10ms)
+    _pbInterp.current = Math.round(_pbInterp.current + (_pbInterp.target - _pbInterp.current) * 0.3);
+  }
+  const ti = _pbInterp.ti;
+  if (ti < 0) return;
+  const t = S.tracks[ti];
+  if (!t) return;
+  if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
+    jsSynths[ti].midiPitchBend(SF2_CHANNEL, _pbInterp.current);
+  }
+}
+
 function midiPitchBend(lsb, msb) {
   // Valeur 14 bits : 0=min, 8192=centre, 16383=max
   const raw = (msb << 7) | lsb;
@@ -9698,7 +9725,12 @@ function midiPitchBend(lsb, msb) {
       out.send([0xe0 | mch, lsb & 0x7f, msb & 0x7f]);
     }
   } else if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
-    jsSynths[ti].midiPitchBend(SF2_CHANNEL, raw);
+    // Interpolation douce : mettre à jour la cible et laisser le timer ramper
+    _pbInterp.target = raw;
+    _pbInterp.ti = ti;
+    if (!_pbInterp.timer) {
+      _pbInterp.timer = setInterval(_pbTick, 10);
+    }
   }
 }
 
