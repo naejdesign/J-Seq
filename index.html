@@ -1479,7 +1479,7 @@ const JUNOX_SECTIONS = [
       { key:'_revLevel', name:'Reverb', min:0, max:1, def:0, log:false, color:'#e4f',
         fmt: v => v < 0.01 ? 'Off' : (v*100).toFixed(0)+'%' },
       // Saturateur (insert après delay+reverb)
-      { key:'_satDrive', name:'Sat Drive', min:-13, max:12, def:-13, step:1, log:false, color:'#f74',
+      { key:'_satDrive', name:'Sat Drive', min:-12, max:12, def:-13, step:1, log:false, color:'#f74',
         fmt: v => v <= -13 ? 'OFF' : (v > 0 ? '+' : '') + Math.round(v)+'dB' },
       { key:'_satType', name:'Sat Type', min:0, max:7, def:0, log:false, color:'#f74',
         labels:['tanh','sine','hard','log','sqrt','cube','fold','sqSin'],
