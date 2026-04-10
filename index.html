@@ -11539,6 +11539,43 @@ function midiCC(cc, value) {
     const t  = S.tracks[ti];
     // Pas d'action sur drum (T1) ni master (T8)
     if (t.mode === 'drum' || t.mode === 'master') return;
+
+    // ── Track Junox ──────────────────────────────────────────────
+    if (t.outputMode === 'junox') {
+      const list = Junox.Juno60FactoryPatchesA;
+      if (!list || !list.length) return;
+      const delta = (cc === 115) ? -1 : 1;
+      const curName = junoxPatches[ti]?.name || null;
+      const curIdx  = curName ? list.findIndex(p => p.name === curName) : 0;
+      const newIdx  = Math.max(0, Math.min(list.length - 1, (curIdx < 0 ? 0 : curIdx) + delta));
+      if (newIdx === curIdx) return;
+
+      const junoxBrowserOpen = document.getElementById('junoxBrowser').classList.contains('open');
+      if (junoxBrowserOpen) {
+        // Browser ouvert : mettre à jour la sélection visuellement + preview
+        junoxBr.activeIdx = newIdx;
+        junoxBrSelect(newIdx);
+        const items = document.querySelectorAll('#junoxBrList .brItem');
+        if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
+      } else {
+        // Browser fermé : charger directement le preset
+        junoxPatches[ti] = list[newIdx];
+        if (junoxNodes[ti]) {
+          junoxNodes[ti].setPatch(list[newIdx]);
+          junoxNodes[ti].lfoTrigger();
+          const rt = junoxRuntime[ti];
+          junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+          junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+          junoxSetReverb(ti, rt.revLevel);
+        }
+        renderFXPanel();
+        oledForce(`T${ti+1}`, list[newIdx].name.slice(0, 12), `${newIdx + 1}/${list.length}`);
+        scheduleAutosave();
+      }
+      return;
+    }
+
+    // ── Track SF2 ─────────────────────────────────────────────────
     if (!sf2Browser.catalogue || !sf2Browser.catalogue.length) {
       oledForce('SF2', 'Pas de catalogue', 'charger un dossier');
       return;
