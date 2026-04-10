@@ -1319,7 +1319,7 @@ var Junox = (() => {
   };
   var defaultProcessorOptions = {
     patch: defaultPatch,
-    polyphony: 6
+    polyphony: 16
   };
   function base64DataToBlob(dataUrl, contentType = "application/javascript; charset=utf-8") {
     var byteString = atob(dataUrl.split(",")[1]);
@@ -1371,7 +1371,7 @@ const junoxSatNodes    = Array(8).fill(null);
 const junoxPatches = [null, null, null, null, null, null, null, null];
 // État runtime (hors patch) par track
 const junoxRuntime = Array.from({length:8}, () => ({
-  poly: 2, notePrio: 0, subOct: 0, noiseType: 0,
+  poly: 1, notePrio: 0, subOct: 0, noiseType: 0,
   dlyTime: 500, dlyFeedback: 0.5, dlyMix: 0, revLevel: 0,
   satDrive: -13, satType: 0,
   arpEnabled: 0, arpRate: 2, arpMode: 0, arpOctaves: 1,
@@ -1415,9 +1415,9 @@ const JUNOX_SECTIONS = [
         cycle:true, cycleVals:[0.5, 1, 2], labels:["16'","8'","4'"],
         fmt: v => { const r = Math.round(v*10)/10; return r<=0.5?"16'": r<=1?"8'":"4'"; },
         map: v => [0.5, 1, 2][Math.round(v)] ?? 1 },
-      { key:'_poly', name:'Polyphony', min:0, max:2, def:2, log:false,
-        cycle:true, cycleVals:[1, 4, 6], labels:['1','4','6'], fmtIsIndex:true,
-        fmt: v => ['1','4','6'][Math.round(v)] ?? '6' },
+      { key:'_poly', name:'Polyphony', min:0, max:1, def:1, log:false,
+        cycle:true, cycleVals:[1, 16], labels:['MONO','POLY'], fmtIsIndex:true,
+        fmt: v => ['MONO','POLY'][Math.round(v)] ?? 'POLY' },
     ],
   },
   {
@@ -1569,7 +1569,7 @@ async function initJunox() {
     const patch = { ...Junox.defaultPatch, dco: { ...Junox.defaultPatch.dco, sub: true } };
     junoxPatches[ti] = patch;
 
-    const node = await Junox.createJuno60(actx, patch, { polyphony: 6 });
+    const node = await Junox.createJuno60(actx, patch, { polyphony: 16 });
     junoxNodes[ti] = node;
 
     // Connecter dans la chaîne FX / sends (même logique que fxRebuildChain)
@@ -1856,10 +1856,11 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
 
   // Paramètres hors-patch (runtime seulement)
   if (paramKey === '_poly') {
-    const voices = param.cycleVals[Math.round(value)] ?? 6;
-    junoxRuntime[ti].poly = Math.round(value); // stocker l'index UI
+    const idx = Math.round(value);
+    const voices = param.cycleVals[idx] ?? 16;
+    junoxRuntime[ti].poly = idx;
     junoxSetPolyphony(ti, voices);
-    // Mono (1 voix) → forcer Last note priority
+    // MONO → forcer Last note priority
     if (voices === 1) {
       junoxRuntime[ti].notePrio = 0;
       junoxSetNotePrio(ti, 0);
@@ -9681,7 +9682,7 @@ function resetStateToEmpty() {
   const rt = junoxRuntime[JUNOX_TRACK];
   rt.dlyTime = 500; rt.dlyFeedback = 0.5; rt.dlyMix = 0; rt.revLevel = 0;
   rt.satDrive = -13; rt.satType = 0;
-  rt.poly = 2; rt.notePrio = 0; rt.subOct = 0; rt.noiseType = 0;
+  rt.poly = 1; rt.notePrio = 0; rt.subOct = 0; rt.noiseType = 0;
   rt.arpEnabled = 0; rt.arpRate = 2; rt.arpMode = 0; rt.arpOctaves = 1;
   junoxSetDelay(JUNOX_TRACK, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
   junoxSetReverb(JUNOX_TRACK, rt.revLevel);
@@ -13469,7 +13470,19 @@ function junoxBrConfirm(idx) {
   const list = Junox.Juno60FactoryPatchesA;
   if (!list[idx]) return;
 
-  junoxBrSelect(idx);
+  junoxBr.activeIdx = idx;
+  const ti = JUNOX_TRACK;
+  junoxPatches[ti] = list[idx];
+  if (junoxNodes[ti]) {
+    // Envoyer le VRAI patch complet (avec dco.lfo intact, pas la version muée preview)
+    junoxNodes[ti].setPatch(list[idx]);
+    junoxNodes[ti].lfoTrigger();
+    const rt = junoxRuntime[ti];
+    junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+    junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+    junoxSetReverb(ti, rt.revLevel);
+  }
+  renderFXPanel();
   closeJunoxBrowser();
   oled('JUNOX T2', list[idx].name, 'chargé');
 }
