@@ -1372,7 +1372,7 @@ const junoxPatches = [null, null, null, null, null, null, null, null];
 // État runtime (hors patch) par track
 const junoxRuntime = Array.from({length:8}, () => ({
   poly: 2, notePrio: 0, subOct: 0, noiseType: 0,
-  dlyTime: 150, dlyFeedback: 0.3, dlyMix: 0, revLevel: 0,
+  dlyTime: 500, dlyFeedback: 0.5, dlyMix: 0, revLevel: 0,
   satDrive: -13, satType: 0,
   arpEnabled: 0, arpRate: 2, arpMode: 0, arpOctaves: 1,
 }));
@@ -1471,7 +1471,7 @@ const JUNOX_SECTIONS = [
       // Delay Viktor (filtre LP 2kHz dans la boucle feedback)
       { key:'_dlyTime', name:'Dly Time', min:20, max:1000, def:500, log:false, color:'#4fa',
         fmt: v => Math.round(v)+'ms' },
-      { key:'_dlyFeedback', name:'Dly Fdbk', min:0, max:0.9, def:0.45, log:false, color:'#4fa',
+      { key:'_dlyFeedback', name:'Dly Fdbk', min:0, max:0.9, def:0.5, log:false, color:'#4fa',
         fmt: v => (v*100).toFixed(0)+'%' },
       { key:'_dlyMix', name:'Dly Mix', min:0, max:1, def:0, log:false, color:'#4fa',
         fmt: v => v < 0.01 ? 'Off' : (v*100).toFixed(0)+'%' },
@@ -9671,7 +9671,15 @@ function resetStateToEmpty() {
   undoStack.history = [];
   undoStack.cursor  = -1;
   undoStack.lastSaveTime = null;
-}
+  // Remettre junoxRuntime aux valeurs par défaut
+  const rt = junoxRuntime[JUNOX_TRACK];
+  rt.dlyTime = 500; rt.dlyFeedback = 0.5; rt.dlyMix = 0; rt.revLevel = 0;
+  rt.satDrive = -13; rt.satType = 0;
+  rt.poly = 2; rt.notePrio = 0; rt.subOct = 0; rt.noiseType = 0;
+  rt.arpEnabled = 0; rt.arpRate = 2; rt.arpMode = 0; rt.arpOctaves = 1;
+  junoxSetDelay(JUNOX_TRACK, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+  junoxSetReverb(JUNOX_TRACK, rt.revLevel);
+  junoxSetSat(JUNOX_TRACK, null); // OFF
 
 // ── Générateur de noms procéduraux ────────────────────────────
 const NAME_ADJ = [
@@ -9765,6 +9773,22 @@ function serializeProject() {
       junoxPatch: (t.outputMode === 'junox' && junoxPatches[ti]) 
                   ? JSON.parse(JSON.stringify(junoxPatches[ti])) 
                   : null,
+      junoxRuntime: (t.outputMode === 'junox') ? {
+        dlyTime:     junoxRuntime[ti].dlyTime,
+        dlyFeedback: junoxRuntime[ti].dlyFeedback,
+        dlyMix:      junoxRuntime[ti].dlyMix,
+        revLevel:    junoxRuntime[ti].revLevel,
+        satDrive:    junoxRuntime[ti].satDrive,
+        satType:     junoxRuntime[ti].satType,
+        poly:        junoxRuntime[ti].poly,
+        notePrio:    junoxRuntime[ti].notePrio,
+        subOct:      junoxRuntime[ti].subOct,
+        noiseType:   junoxRuntime[ti].noiseType,
+        arpEnabled:  junoxRuntime[ti].arpEnabled,
+        arpRate:     junoxRuntime[ti].arpRate,
+        arpMode:     junoxRuntime[ti].arpMode,
+        arpOctaves:  junoxRuntime[ti].arpOctaves,
+      } : null,
       drumSoundMap: [...t.drumSoundMap],  // conservé pour compatibilité v2
       drumPads: t.drumPads ? t.drumPads.map(p => ({
         mode: p.mode, synthType: p.synthType,
@@ -9860,6 +9884,29 @@ function deserializeProject(data, slot) {
       junoxPatches[ti] = td.junoxPatch;
       // Appliquer au nœud si déjà prêt
       if (junoxNodes[ti]) junoxNodes[ti].setPatch(td.junoxPatch);
+    }
+    // Restaurer junoxRuntime (delay, sat, arp...) — avec fallback sur les defaults
+    if (t.outputMode === 'junox') {
+      const jr = td.junoxRuntime || {};
+      const rt = junoxRuntime[ti];
+      rt.dlyTime     = jr.dlyTime     ?? 500;
+      rt.dlyFeedback = jr.dlyFeedback ?? 0.5;
+      rt.dlyMix      = jr.dlyMix      ?? 0;
+      rt.revLevel    = jr.revLevel    ?? 0;
+      rt.satDrive    = jr.satDrive    ?? -13;
+      rt.satType     = jr.satType     ?? 0;
+      rt.poly        = jr.poly        ?? 2;
+      rt.notePrio    = jr.notePrio    ?? 0;
+      rt.subOct      = jr.subOct      ?? 0;
+      rt.noiseType   = jr.noiseType   ?? 0;
+      rt.arpEnabled  = jr.arpEnabled  ?? 0;
+      rt.arpRate     = jr.arpRate     ?? 2;
+      rt.arpMode     = jr.arpMode     ?? 0;
+      rt.arpOctaves  = jr.arpOctaves  ?? 1;
+      // Appliquer aux nodes audio si déjà initialisés
+      junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+      junoxSetReverb(ti, rt.revLevel);
+      junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
     }
     t.drumSoundMap = td.drumSoundMap
       ? td.drumSoundMap.slice(0, 8)
@@ -13355,7 +13402,12 @@ function junoxBrSelect(idx) {
   // Prévisualiser : charger le patch sans fermer
   const ti = JUNOX_TRACK;
   junoxPatches[ti] = list[idx];
-  if (junoxNodes[ti]) junoxNodes[ti].setPatch(list[idx]);
+  if (junoxNodes[ti]) {
+    junoxNodes[ti].setPatch(list[idx]);
+    // Réinitialiser la phase du LFO à zéro pour éviter un vibrato résiduel
+    // hérité du LFO tournant du preset précédent
+    junoxNodes[ti].lfoTrigger();
+  }
   renderFXPanel();
   oledForce(list[idx].name, 'JUNOX T2', 'double-tap=OK');
 }
