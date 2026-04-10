@@ -1718,16 +1718,17 @@ function junoxSetSat(ti, drive, type) {
   if (!s) return;
   if (drive !== undefined) {
     if (drive === null) {
-      // OFF : bypass complet — preGain=1, postGain=1, courbe linéaire
-      s.preGain.gain.setTargetAtTime(1, actx.currentTime, 0.02);
-      s.postGain.gain.setTargetAtTime(1, actx.currentTime, 0.02);
-      s.shaper.curve = null; // courbe nulle = passthrough
+      // OFF : bypass actif, chemin saturé coupé
+      s.bypass.gain.setTargetAtTime(1, actx.currentTime, 0.02);
+      s.preGain.gain.setTargetAtTime(0, actx.currentTime, 0.02);
+      s.postGain.gain.setTargetAtTime(0, actx.currentTime, 0.02);
     } else {
+      // ON : bypass coupé, chemin saturé actif
       const lin = Math.pow(10, drive / 20);
+      s.bypass.gain.setTargetAtTime(0, actx.currentTime, 0.02);
       s.preGain.gain.setTargetAtTime(lin, actx.currentTime, 0.02);
       s.postGain.gain.setTargetAtTime(1 / Math.max(1, Math.sqrt(lin)), actx.currentTime, 0.02);
-      if (s.shaper.curve === null) {
-        // Réappliquer la courbe si on repasse de OFF à ON
+      if (!s.shaper.curve) {
         s.shaper.curve = junoxMakeSatCurve(junoxRuntime[ti].satType || 0);
       }
     }
@@ -1767,11 +1768,15 @@ function junoxCreateSat(ti) {
   const rt = junoxRuntime[ti];
   const input    = actx.createGain();
   const output   = actx.createGain();
+  const bypass   = actx.createGain(); // chemin direct quand sat OFF
   const preGain  = actx.createGain();
   const shaper   = actx.createWaveShaper();
   shaper.oversample = '4x';
   const postGain = actx.createGain();
 
+  // Deux chemins parallèles : bypass direct et chaîne saturée
+  input.connect(bypass);
+  bypass.connect(output);
   input.connect(preGain);
   preGain.connect(shaper);
   shaper.connect(postGain);
@@ -1780,16 +1785,17 @@ function junoxCreateSat(ti) {
   shaper.curve = junoxMakeSatCurve(rt.satType || 0);
   const isOff = (rt.satDrive ?? -13) <= -13;
   if (isOff) {
-    preGain.gain.value  = 1;
-    postGain.gain.value = 1;
-    shaper.curve = null;
+    bypass.gain.value   = 1;   // chemin direct actif
+    preGain.gain.value  = 0;   // chemin saturé coupé
+    postGain.gain.value = 0;
   } else {
-    const lin = Math.pow(10, (rt.satDrive || 0) / 20);
+    bypass.gain.value   = 0;   // chemin direct coupé
+    const lin = Math.pow(10, rt.satDrive / 20);
     preGain.gain.value  = lin;
     postGain.gain.value = 1 / Math.max(1, Math.sqrt(lin));
   }
 
-  junoxSatNodes[ti] = { input, output, preGain, shaper, postGain };
+  junoxSatNodes[ti] = { input, output, bypass, preGain, shaper, postGain };
 }
 
 // ── API note Junox ────────────────────────────────────────────
@@ -9883,8 +9889,11 @@ function deserializeProject(data, slot) {
     // Restaurer le patch Junox si disponible
     if (t.outputMode === 'junox' && td.junoxPatch) {
       junoxPatches[ti] = td.junoxPatch;
-      // Appliquer au nœud si déjà prêt
-      if (junoxNodes[ti]) junoxNodes[ti].setPatch(td.junoxPatch);
+      // Appliquer au nœud si déjà prêt — patch complet (LFO intact, pas de preview)
+      if (junoxNodes[ti]) {
+        junoxNodes[ti].setPatch(td.junoxPatch);
+        junoxNodes[ti].lfoTrigger(); // remettre phase LFO à zéro
+      }
     }
     // Restaurer junoxRuntime (delay, sat, arp...) — avec fallback sur les defaults
     if (t.outputMode === 'junox') {
@@ -13404,10 +13413,16 @@ function junoxBrSelect(idx) {
   const ti = JUNOX_TRACK;
   junoxPatches[ti] = list[idx];
   if (junoxNodes[ti]) {
-    junoxNodes[ti].setPatch(list[idx]);
-    // Réinitialiser la phase du LFO à zéro pour éviter un vibrato résiduel
-    // hérité du LFO tournant du preset précédent
+    // LFO->pitch muté en preview pour éviter le vibrato résiduel
+    const previewPatch = JSON.parse(JSON.stringify(list[idx]));
+    if (previewPatch.dco) previewPatch.dco.lfo = 0;
+    junoxNodes[ti].setPatch(previewPatch);
     junoxNodes[ti].lfoTrigger();
+    // Réappliquer les FX WebAudio — setPatch ne touche que le worklet
+    const rt = junoxRuntime[ti];
+    junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+    junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+    junoxSetReverb(ti, rt.revLevel);
   }
   renderFXPanel();
   oledForce(list[idx].name, 'JUNOX T2', 'double-tap=OK');
