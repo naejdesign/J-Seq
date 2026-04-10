@@ -1373,7 +1373,7 @@ const junoxPatches = [null, null, null, null, null, null, null, null];
 const junoxRuntime = Array.from({length:8}, () => ({
   poly: 2, notePrio: 0, subOct: 0, noiseType: 0,
   dlyTime: 150, dlyFeedback: 0.3, dlyMix: 0, revLevel: 0,
-  satDrive: 0, satType: 0,
+  satDrive: -13, satType: 0,
   arpEnabled: 0, arpRate: 2, arpMode: 0, arpOctaves: 1,
 }));
 // IR de reverb ir_rev_short.wav embarqué (évite les CORS en file://)
@@ -9656,7 +9656,7 @@ function resetStateToEmpty() {
     t.soloed      = false;
     t.volume      = 0.8;
     t.soundIndex  = 0;
-    t.outputMode  = 'sf2';
+    t.outputMode  = (i === JUNOX_TRACK) ? 'junox' : 'sf2';
     t.midiChannel = i + 1;
     t.midiOutputId = null;
     t.drumSoundMap = Array.from({length:8}, (_, j) => j);
