@@ -1361,7 +1361,7 @@ let junoxPage = 'main';
 // key = chemin dot-notation dans le patch (ex: 'dco.saw', 'env.attack')
 const JUNOX_SECTIONS = [
   {
-    id: 'modulation', name: 'MODULATION', color: '#fa4',
+    id: 'modulation', name: 'MODULATION', color: '#FFCC00',
     icon: 'M 0 8 Q 8 0 16 8 Q 24 16 32 8',
     params: [
       // DCO bend = dco.lfo depth (profondeur LFO sur le pitch du DCO)
@@ -1375,7 +1375,7 @@ const JUNOX_SECTIONS = [
     ],
   },
   {
-    id: 'oscillators', name: 'OSCILLATORS', color: '#4fa',
+    id: 'oscillators', name: 'OSCILLATORS', color: '#BE123C',
     icon: 'M 0 12 L 8 12 L 8 4 L 16 4 L 16 12 L 24 12 L 24 4 L 32 4',
     params: [
       // Range : 0.5=16'(grave), 1=8'(médium), 2=4'(aigu) — valeurs exactes du patch officiel
@@ -1438,7 +1438,7 @@ const JUNOX_SECTIONS = [
     ],
   },
   {
-    id: 'effects', name: 'EFFECTS', color: '#4cf',
+    id: 'effects', name: 'EFFECTS', color: '#4fa',
     icon: 'M 16 8 m -6 0 a 6 6 0 1 0 12 0 a 6 6 0 1 0 -12 0 M 16 8 m -11 0 a 11 11 0 1 0 22 0 a 11 11 0 1 0 -22 0',
     params: [
       // chorus : 0=Off, 1=I, 2=II, 3=I+II — entier dans le patch
@@ -2642,9 +2642,9 @@ function renderJunoxPageMain(ti) {
     bg.setAttribute('x', sx+pad); bg.setAttribute('y', sy+pad);
     bg.setAttribute('width', FX_SW-pad*2); bg.setAttribute('height', FX_SH-pad*2);
     bg.setAttribute('rx', 5);
-    bg.setAttribute('fill', col + '18');
-    bg.setAttribute('stroke', col + '66');
-    bg.setAttribute('stroke-width', '1');
+    bg.setAttribute('fill', '#141416');
+    bg.setAttribute('stroke', '#2a2a2e');
+    bg.setAttribute('stroke-width', '0.5');
     sg.appendChild(bg);
 
     // Icône SVG centrée (haut du slot)
@@ -2679,19 +2679,7 @@ function renderJunoxPageMain(ti) {
     nameEl.textContent = sec.name;
     sg.appendChild(nameEl);
 
-    // Hint "hold"
-    const hint = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    hint.setAttribute('x', sx + FX_SW/2);
-    hint.setAttribute('y', sy + FX_SH - 8);
-    hint.setAttribute('text-anchor', 'middle');
-    hint.setAttribute('font-family', "'DM Mono',monospace");
-    hint.setAttribute('font-size', '9');
-    hint.setAttribute('fill', '#333');
-    hint.setAttribute('pointer-events', 'none');
-    hint.textContent = 'hold = edit';
-    sg.appendChild(hint);
-
-    // Zone de clic — long press seulement
+    // Zone de clic
     const hit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
     hit.setAttribute('x', sx+pad); hit.setAttribute('y', sy+pad);
     hit.setAttribute('width', FX_SW-pad*2); hit.setAttribute('height', FX_SH-pad*2);
@@ -2841,9 +2829,9 @@ function renderMasterPanel() {
       id:'reverb', name:'REVERB', slots:[2,3], col:'#58f',
       params: [
         { key:'type',       label:'Type',   type:'typesel', fmt: v => (v||'hall1').toUpperCase() },
-        { key:'decay',      label:'Decay',  fmt: v => v.toFixed(1)+'s', min:0.3, max:6.0 },
+        { key:'decay',      label:'Decay',  fmt: v => v.toFixed(1)+'s', min:0.2, max:20.0 },
         { key:'brightness', label:'Bright', fmt: v => Math.round(v*100)+'%', min:0, max:1 },
-        { key:'predelay',   label:'PreDly', fmt: v => Math.round(v*1000)+'ms', min:0, max:0.1 },
+        { key:'predelay',   label:'PreDly', fmt: v => (v*1000).toFixed(1)+'ms', min:0, max:0.1 },
       ],
     },
     {
@@ -3082,9 +3070,9 @@ function renderFXPageMain(ti) {
     bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
     bg.setAttribute('width', w-margin*2); bg.setAttribute('height', FX_SH-margin*2);
     bg.setAttribute('rx', 5);
-    bg.setAttribute('fill',   active ? (def.color+'22') : '#141416');
-    bg.setAttribute('stroke', active ? def.color        : '#2a2a2e');
-    bg.setAttribute('stroke-width', active ? '1.5' : '0.5');
+    bg.setAttribute('fill',   '#141416');
+    bg.setAttribute('stroke', '#2a2a2e');
+    bg.setAttribute('stroke-width', '0.5');
     sg.appendChild(bg);
 
     // Nom + LED
@@ -3332,6 +3320,7 @@ function fxHandleDown(e) {
   }
 
   const now = Date.now();
+  const isJunoxTrack = S.tracks[S.currentTrack]?.outputMode === 'junox';
 
   let el = e.target;
   for (let n = el; n && n !== document; n = n.parentNode) {
@@ -3347,7 +3336,12 @@ function fxHandleDown(e) {
           setTimeout(() => { bg.setAttribute('stroke', '#333'); bg.setAttribute('stroke-width', '0.5'); }, 150);
         }
       }
-      setTimeout(() => { junoxPage = 'main'; renderFXPanel(); }, 120);
+      setTimeout(() => {
+        junoxPage = 'main';
+        renderFXPanel();
+        S._oledLocked = false;
+        oled('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
+      }, 120);
       e.stopPropagation(); e.preventDefault();
       return true;
     }
@@ -3422,8 +3416,8 @@ function fxHandleDown(e) {
       setTimeout(() => {
         junoxPage = secIdx;
         renderFXPanel();
-        oledForce('JUNOX', JUNOX_SECTIONS[secIdx].name, 'params');
-        setTimeout(() => { S._oledLocked = false; }, 1200);
+        S._oledLocked = true;
+        oledForce(JUNOX_SECTIONS[secIdx].name, junoxPatches[S.currentTrack]?.name || 'Junox', 'params');
       }, 80);
       e.stopPropagation(); e.preventDefault();
       return true;
@@ -3435,7 +3429,7 @@ function fxHandleDown(e) {
       const pi    = parseInt(n.getAttribute('data-mfxp'));
       const DEFS_MAP = {
         delay:  [ {key:'syncDiv',min:0,max:6,step:1,log:false,def:4}, {key:'sync',type:'toggle',def:true}, {key:'feedback',min:0,max:0.95,log:false,def:0.35}, {key:'filter',min:200,max:16000,log:true,def:4000} ],
-        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.3,max:6.0,log:false,def:4.0}, {key:'brightness',min:0,max:1,log:false,def:0.55}, {key:'predelay',min:0,max:0.1,log:false,def:0.0} ],
+        reverb: [ {key:'type',type:'typesel'}, {key:'decay',min:0.2,max:20.0,log:false,def:4.0}, {key:'brightness',min:0,max:1,log:false,def:0.55}, {key:'predelay',min:0,max:0.1,log:false,def:0.0} ],
         comp:   [ {key:'threshold',min:-60,max:0,log:false,def:-18}, {key:'ratio',min:1,max:20,log:false,def:3}, {key:'attack',min:0.0005,max:1,log:true,def:0.010}, {key:'release',min:0.01,max:1,log:true,def:0.15} ],
         lim:    [ {key:'threshold',min:-20,max:0,log:false,def:-1}, {key:'release',min:0.005,max:1,log:true,def:0.05}, {key:'knee',min:0,max:10,log:false,def:2}, {key:'gain',min:-6,max:12,log:false,def:0} ],
       };
@@ -3479,7 +3473,7 @@ function fxHandleDown(e) {
 
     // Retour depuis page avancée
     if (n.getAttribute('data-fxback')) {
-      // Flash blanc bref sur le slot 7 (retour)
+      if (isJunoxTrack) return false;
       const sg = document.getElementById('fxslot_7');
       if (sg) {
         const bg = sg.querySelector('rect');
@@ -3523,6 +3517,7 @@ function fxHandleDown(e) {
     }
     // Drag paramètre avancé
     if (n.getAttribute('data-fxparam') !== null) {
+      if (isJunoxTrack) return false;
       const paramIdx = parseInt(n.getAttribute('data-fxparam'));
       const slotIdx  = parseInt(n.getAttribute('data-fxslotadv') ?? n.getAttribute('data-fxslot'));
       const def = FX_DEFS[slotIdx];
@@ -3575,9 +3570,10 @@ function fxHandleDown(e) {
     }
     // Slot page principale — long press = page avancée (pas pour l'Arp, pas pour le Master, pas pour le Drum)
     if (n.getAttribute('data-fxslot') !== null && fxPage === 'main' && n.getAttribute('data-fxparam') === null) {
-      // Bloquer sur piste Master et Drum
+      // Bloquer sur piste Master, Drum et Junox
       const curMode = S.tracks[S.currentTrack].mode;
       if (curMode === 'master' || curMode === 'drum') return false;
+      if (S.tracks[S.currentTrack].outputMode === 'junox') return false;
       const slotIdx = parseInt(n.getAttribute('data-fxslot'));
       const def = FX_DEFS[slotIdx];
       if (!def) return false;
@@ -3614,10 +3610,13 @@ function fxHandleUp(e) {
       return;
     }
   }
-  // Junox drag → libérer
+  // Junox drag → libérer mais garder l'OLED sur le nom de la section
   if (_fxDrag?.isJunox) {
+    const { secIdx } = _fxDrag;
     _fxDrag = null;
-    S._oledLocked = false;
+    S._oledLocked = true;
+    const sec = JUNOX_SECTIONS[secIdx];
+    if (sec) oledForce(sec.name, junoxPatches[S.currentTrack]?.name || 'Junox', 'params');
     return;
   }
   if (_fxDrag?.isMaster) {
@@ -3639,6 +3638,7 @@ function fxHandleUp(e) {
       // Ne pas toggler si c'est une zone de param (encodeur Arp)
       if (n.getAttribute('data-fxslot') !== null && n.getAttribute('data-fxparam') === null && fxPage === 'main') {
         if (S.tracks[S.currentTrack].mode === 'master') break;
+        if (S.tracks[S.currentTrack].outputMode === 'junox') break;
         const slotIdx = parseInt(n.getAttribute('data-fxslot'));
         const def = FX_DEFS[slotIdx];
         if (!def) break;
@@ -3721,7 +3721,7 @@ function fxHandleMove(e) {
         v => Math.round(v*100)+'%',
         v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'Hz'
       ],
-      reverb: [ null, v => v.toFixed(1)+'s', v => Math.round(v*100)+'%', v => Math.round(v*1000)+'ms' ],
+      reverb: [ null, v => v.toFixed(1)+'s', v => Math.round(v*100)+'%', v => (v*1000).toFixed(1)+'ms' ],
       comp:   [ v => Math.round(v)+'dB', v => Math.round(v)+':1', v => v<0.01?(v*1000).toFixed(1)+'ms':(v*1000).toFixed(0)+'ms', v => (v*1000).toFixed(0)+'ms' ],
       lim:    [ v => Math.round(v)+'dB', v => (v*1000).toFixed(0)+'ms', v => Math.round(v)+'dB', v => (v>=0?'+':'')+Math.round(v)+'dB' ],
     };
@@ -3847,8 +3847,9 @@ document.addEventListener('mouseup',   e => { fxHandleUp(e); });
 document.addEventListener('dblclick', e => {
   const panel = document.getElementById('enginePanel');
   if (!panel || panel.getAttribute('visibility') === 'hidden') return;
-  // Ignorer si on est sur la piste Master ou drum (pas de params FX à resetter)
+  // Ignorer si on est sur la piste Master, drum ou Junox
   const curT = S.tracks[S.currentTrack];
+  if (curT.outputMode === 'junox') return;
   if (curT.mode === 'master' && !e.target.closest('[data-mfx]')) return;
 
   let el = e.target;
@@ -4126,6 +4127,13 @@ function sf2GetTrackName(ti) {
 
 // Alias pour compatibilité
 function getSF2PresetName(ti) { return sf2GetTrackName(ti); }
+
+// Nom du son/patch courant selon le mode de la track
+function getTrackSoundName(ti) {
+  const t = S.tracks[ti];
+  if (t.outputMode === 'junox') return junoxPatches[ti]?.name || 'Junox';
+  return sf2GetTrackName(ti);
+}
 
 // ── Routeur central : joue une note sur la track selon son outputMode ────────
 function playTrackNote(ti, midi, vel) {
@@ -6182,6 +6190,16 @@ function toggleStep(i) {
     // Si c'était la première note d'un clip vide → démarrer en sync
     if (wasEmpty) autoStartClipIfFirstNote();
   } else {
+    // Suppression du step — couper la note si elle sonne encore
+    if (t.mode !== 'drum' && t.mode !== 'master') {
+      const note = st.note || 60;
+      if (t.outputMode === 'sf2')   sf2NoteOff(S.currentTrack, note);
+      if (t.outputMode === 'junox') junoxNoteOff(S.currentTrack, note);
+      (st.extraNotes || []).forEach(n => {
+        if (t.outputMode === 'sf2')   sf2NoteOff(S.currentTrack, n);
+        if (t.outputMode === 'junox') junoxNoteOff(S.currentTrack, n);
+      });
+    }
     oled(`STEP ${i+1}`, 'OFF', trackInfo());
   }
   setStepAppearance(i, st.on, false);
@@ -8983,7 +9001,9 @@ document.addEventListener('mouseup', () => {
     // updateEncArcs est appelé dans releaseStep via renderSteps
   }
 
-  if (!keepOledLocked) {
+  // En page avancée Junox, garder le lock — l'OLED reste sur la section
+  const isJunoxAdv = S.tracks[S.currentTrack]?.outputMode === 'junox' && junoxPage !== 'main';
+  if (!keepOledLocked && !isJunoxAdv) {
     S._oledLocked = false;
     // Refresh OLED to default display after drag release (delayed to ensure all handlers done)
     setTimeout(() => {
@@ -8994,7 +9014,7 @@ document.addEventListener('mouseup', () => {
       } else if (t.mode === 'master') {
         oledForce('MASTER', 'Master Track', `BPM ${S.bpm}`);
       } else {
-        oledForce('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
+        oledForce('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
       }
     }, 100);
   }
@@ -13261,7 +13281,7 @@ function _gpRestoreOled() {
   const t = S.tracks[S.currentTrack];
   if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
   else if (t.mode === 'master') oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
-  else oled('SOUND', getSF2PresetName(S.currentTrack), trackInfo());
+  else oled('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
 }
 
 const _gpShoulders = [
