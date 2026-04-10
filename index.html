@@ -1895,7 +1895,9 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
   }
   if (paramKey === '_satDrive') {
     // Snap à l'entier (plage -12/+12 en pas de 1dB, plus OFF à -13)
-    const snapped = value <= -13 ? -13 : Math.round(Math.max(-12, Math.min(12, value)));
+    // Valeurs possibles : -13 (OFF), puis -12 à +12 en entiers
+    // La zone entre -13 et -12 snap vers OFF (-13), au-dessus snap à l'entier
+    const snapped = value < -12 ? -13 : Math.round(Math.max(-12, Math.min(12, value)));
     junoxRuntime[ti].satDrive = snapped;
     junoxSetSat(ti, snapped <= -13 ? null : snapped, undefined);
     return;
@@ -11579,9 +11581,9 @@ function midiCC(cc, value) {
         if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
       } else {
         // Browser fermé : charger directement le preset
-        junoxPatches[ti] = list[newIdx];
+        junoxPatches[ti] = JSON.parse(JSON.stringify(list[newIdx])); // copie
         if (junoxNodes[ti]) {
-          junoxNodes[ti].setPatch(list[newIdx]);
+          junoxNodes[ti].setPatch(junoxPatches[ti]);
           junoxNodes[ti].lfoTrigger();
           const rt = junoxRuntime[ti];
           junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
@@ -13468,7 +13470,7 @@ function junoxBrSelect(idx) {
 
   // Prévisualiser : charger le patch sans fermer
   const ti = JUNOX_TRACK;
-  junoxPatches[ti] = list[idx];
+  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx])); // copie pour ne pas muter le preset factory
   if (junoxNodes[ti]) {
     // LFO->pitch muté en preview pour éviter le vibrato résiduel
     const previewPatch = JSON.parse(JSON.stringify(list[idx]));
@@ -13491,10 +13493,10 @@ function junoxBrConfirm(idx) {
 
   junoxBr.activeIdx = idx;
   const ti = JUNOX_TRACK;
-  junoxPatches[ti] = list[idx];
+  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx])); // copie pour ne pas muter le preset factory
   if (junoxNodes[ti]) {
     // Envoyer le VRAI patch complet (avec dco.lfo intact, pas la version muée preview)
-    junoxNodes[ti].setPatch(list[idx]);
+    junoxNodes[ti].setPatch(junoxPatches[ti]);
     junoxNodes[ti].lfoTrigger();
     const rt = junoxRuntime[ti];
     junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
