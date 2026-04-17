@@ -1488,7 +1488,7 @@ const JUNOX_SECTIONS = [
   },
   {
     id: 'arp', name: 'ARP', color: '#f44',
-    icon: 'M 1 14 L 1 10 L 7 10 L 7 6 L 13 6 L 13 2 L 19 2 L 19 6 L 25 6 L 25 10 L 31 10 L 31 14',
+    icon: 'RECTS:-7,12,18,3,1.5|7,7,18,3,1.5|21,2,18,3,1.5',
     params: [
       { key:'_arpEnabled', name:'ARP', min:0, max:1, def:0, log:false,
         cycle:true, labels:['OFF','ON'], fmt: v => Math.round(v) ? 'ON' : 'OFF' },
@@ -2390,17 +2390,18 @@ const FX_DEFS = [
   },
   // ── Ligne 2 : MIDI Control · Phaser · Bitcrush ──
   {
-    id: 'arp', name: 'MIDI CTRL', color: '#aaa',
+    id: 'arp', name: 'ARP', color: '#aaa',
     params: [
-      { name: 'ARP',       key: 'arpEnabled',    min: 0, max: 1,   def: 0,   log: false, labels: ['OFF','ON'], cycle: true },
-      { name: 'Rate',      key: 'arpRate',       min: 0, max: 5,   def: 2,   log: false, labels: ['1/1','1/2','1/4','1/8','1/16','1/32'], cycle: true },
-      { name: 'Mode',      key: 'arpMode',       min: 0, max: 4,   def: 0,   log: false, labels: ['Up','Down','UpDn','Rand','Order'], cycle: true },
-      { name: 'Range',     key: 'arpOctaves',    min: 1, max: 3,   def: 1,   log: false, labels: ['1 oct','2 oct','3 oct'], cycle: true, cycleBase: 1 },
-      { name: 'Release',   key: 'midiRelease',   min: 0, max: 127, def: 0,   log: false, fmt: v => Math.round(v) },
-      { name: 'Cutoff',    key: 'midiCutoff',    min: 0, max: 127, def: 127, log: false, fmt: v => Math.round(v) },
-      { name: 'Resonance', key: 'midiReson',     min: 0, max: 127, def: 0,   log: false, fmt: v => Math.round(v) },
+      { name: 'ARP',   key: 'arpEnabled',  min: 0,   max: 1,   def: 0,   log: false, labels: ['OFF','ON'], cycle: true },
+      { name: 'Rate',  key: 'arpRate',     min: 0,   max: 5,   def: 2,   log: false, labels: ['1/1','1/2','1/4','1/8','1/16','1/32'], cycle: true },
+      { name: 'Mode',  key: 'arpMode',     min: 0,   max: 4,   def: 0,   log: false, labels: ['Up','Down','UpDn','Rand','Order'], cycle: true },
+      { name: 'Range', key: 'arpOctaves',  min: 1,   max: 3,   def: 1,   log: false, labels: ['1 oct','2 oct','3 oct'], cycle: true, cycleBase: 1 },
+      // Params cachés (non affichés dans l'UI avancée, accessibles via encodeurs)
+      { name: 'Cutoff',    key: 'midiCutoff',  min: 0, max: 127, def: 127, log: false, hidden: true, fmt: v => Math.round(v) },
+      { name: 'Resonance', key: 'midiReson',   min: 0, max: 127, def: 0,   log: false, hidden: true, fmt: v => Math.round(v) },
+      { name: 'Release',   key: 'midiRelease', min: 0, max: 127, def: 0,   log: false, hidden: true, fmt: v => Math.round(v) },
     ],
-    mainParams: [4, 5, 6, 0], // Release, Cutoff, Resonance, ARP ON/OFF
+    mainParams: [0, 1, 2, 3], // ARP, Rate, Mode, Range
     doubleSlot: true,
     create: () => null,
   },
@@ -2729,13 +2730,17 @@ function fxToggle(ti, slotIdx) {
   const def = FX_DEFS[slotIdx];
   slot.active = !slot.active;
   if (def.id === 'arp') {
+    // Toggle arpEnabled param + slot.active en sync
+    const cur = slot.params['arpEnabled'] ?? 0;
+    const next = cur >= 0.5 ? 0 : 1;
+    slot.params['arpEnabled'] = next;
+    slot.active = next >= 0.5;
     if (!slot.active) {
       arpStop(ti);
-      // Reset MIDI CCs to defaults
-      midiCtrlReset(ti);
     } else {
-      // Apply current MIDI CC values
-      midiCtrlApply(ti);
+      // Démarrer l'arp avec les réglages en cours
+      const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+      if (arpIdx >= 0) fxSetParam(ti, arpIdx, 'arpEnabled', 1);
     }
     renderFXPanel();
     return;
@@ -3041,14 +3046,28 @@ function renderJunoxPageMain(ti) {
     iconG.setAttribute('transform', `translate(${iconX + iconXOffset},${iconY}) scale(${iconScale})`);
     iconG.setAttribute('pointer-events', 'none');
 
-    const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-    iconPath.setAttribute('d', sec.icon);
-    iconPath.setAttribute('fill', 'none');
-    iconPath.setAttribute('stroke', col);
-    iconPath.setAttribute('stroke-width', '2');
-    iconPath.setAttribute('stroke-linecap', 'round');
-    iconPath.setAttribute('stroke-linejoin', 'round');
-    iconG.appendChild(iconPath);
+    if (sec.icon.startsWith('RECTS:')) {
+      // Icône en rectangles remplis (ex: ARP piano-roll)
+      const rects = sec.icon.slice(6).split('|');
+      rects.forEach(r => {
+        const [x, y, w, h, rx] = r.split(',').map(Number);
+        const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rect.setAttribute('x', x); rect.setAttribute('y', y);
+        rect.setAttribute('width', w); rect.setAttribute('height', h);
+        rect.setAttribute('rx', rx || 1);
+        rect.setAttribute('fill', col);
+        iconG.appendChild(rect);
+      });
+    } else {
+      const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      iconPath.setAttribute('d', sec.icon);
+      iconPath.setAttribute('fill', 'none');
+      iconPath.setAttribute('stroke', col);
+      iconPath.setAttribute('stroke-width', '2');
+      iconPath.setAttribute('stroke-linecap', 'round');
+      iconPath.setAttribute('stroke-linejoin', 'round');
+      iconG.appendChild(iconPath);
+    }
     sg.appendChild(iconG);
 
     // Nom de la section
@@ -3608,7 +3627,9 @@ function renderFXPageAdvanced(ti, slotIdx) {
   const def    = FX_DEFS[slotIdx];
   const slot   = trackFX[ti][slotIdx];
   if (!def || !slot) return;
-  const nParams = def.params.length;
+  // Filtrer les params cachés (hidden:true) pour l'affichage
+  const visibleParams = def.params.filter(p => !p.hidden);
+  const nParams = visibleParams.length;
 
   // 7 slots params + 1 slot retour
   for (let i = 0; i < 8; i++) {
@@ -3656,7 +3677,7 @@ function renderFXPageAdvanced(ti, slotIdx) {
     }
 
     // Slot paramètre
-    const p = def.params[i];
+    const p = visibleParams[i];
     const val = slot.params[p.key] ?? p.def;
     const pct = p.log
       ? Math.log(val/p.min) / Math.log(p.max/p.min)
@@ -10620,12 +10641,48 @@ function updateEncArcs() {
     return;
   }
 
-  // ── Mode mélodique (SF2), aucun step tenu : encodeurs inactifs, pas de labels ───────
-  for (let i = 0; i < 4; i++) {
-    hideArc('encArc' + i);
-    setEncRing(i, false, col);
-    setLabel(i, '', '#2a2a2a');
+  // ── Mode Junox, aucun step tenu : enc0=VCF Freq, enc1=Resonance, enc2=Env Mod, enc3=LFO Rate ──
+  if (t.outputMode === 'junox') {
+    const patch = junoxPatches[S.currentTrack] || {};
+    const vcfFreq = patch.vcf?.frequency ?? 0.7;
+    const vcfRes  = patch.vcf?.resonance  ?? 0;
+    const vcfEnv  = patch.vcf?.envMod     ?? 0;
+    const lfoRate = patch.lfo?.frequency  ?? 0.3;
+
+    setEncRing(0, true, col); setLabel(0, 'CUTOFF', col);
+    setArcUni('encArc0', vcfFreq, col);
+
+    setEncRing(1, true, col); setLabel(1, 'RESONANCE', col);
+    setArcUni('encArc1', vcfRes, col);
+
+    setEncRing(2, true, col); setLabel(2, 'ENV MOD', col);
+    setArcUni('encArc2', vcfEnv, col);
+
+    setEncRing(3, true, col); setLabel(3, 'LFO RATE', col);
+    setArcUni('encArc3', lfoRate, col);
+    return;
   }
+
+  // ── Mode mélodique (SF2), aucun step tenu : enc0=Cutoff enc1=Resonance enc2=Release ──
+  const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+  const arpSlot = arpIdx >= 0 ? trackFX[S.currentTrack][arpIdx] : null;
+  const cutoff  = arpSlot?.params['midiCutoff']  ?? 127;
+  const reson   = arpSlot?.params['midiReson']   ?? 0;
+  const release = arpSlot?.params['midiRelease'] ?? 0;
+
+  setEncRing(0, true, col); setLabel(0, 'CUTOFF', col);
+  setArcUni('encArc0', cutoff / 127, col);
+
+  setEncRing(1, true, col); setLabel(1, 'RESONANCE', col);
+  setArcUni('encArc1', reson / 127, col);
+
+  setEncRing(2, true, col); setLabel(2, 'RELEASE', col);
+  setArcUni('encArc2', release / 127, col);
+
+  // enc3 : inactif
+  hideArc('encArc3');
+  setEncRing(3, false, col);
+  setLabel(3, '', '#2a2a2a');
 }
 
 function getHeldSt() {
@@ -10707,7 +10764,43 @@ ENC_DEFS.forEach((def, i) => {
       e.preventDefault();
       return;
     }
-    // Priorité 3 : mélodique sans step → rien
+    // Priorité 3a : Junox sans step → VCF Freq/Resonance/Env Mod/LFO Rate sur enc0-3
+    if (t.outputMode === 'junox' && i < 4) {
+      const JUNOX_ENC = [
+        { key: 'vcf.frequency', label: 'CUTOFF',    min: 0, max: 1, def: 0.7 },
+        { key: 'vcf.resonance', label: 'RESONANCE', min: 0, max: 1, def: 0   },
+        { key: 'vcf.envMod',    label: 'ENV MOD',   min: 0, max: 1, def: 0   },
+        { key: 'lfo.frequency', label: 'LFO RATE',  min: 0, max: 1, def: 0.3 },
+      ];
+      const jDef = JUNOX_ENC[i];
+      const patch = junoxPatches[S.currentTrack];
+      if (!patch) return;
+      const parts = jDef.key.split('.');
+      const startVal = patch[parts[0]]?.[parts[1]] ?? jDef.def;
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
+        startVal, junoxEncMode: true, jDef };
+      S._oledLocked = true;
+      e.preventDefault();
+      return;
+    }
+
+    // Priorité 3b : mélodique SF2 sans step → Cutoff/Resonance/Release sur enc0/1/2
+    if (t.outputMode === 'sf2' && i < 3) {
+      const SF2_ENC = [
+        { key: 'midiCutoff',  label: 'CUTOFF',   min: 0, max: 127, def: 127, fmt: v => Math.round(v) },
+        { key: 'midiReson',   label: 'RESONANCE',     min: 0, max: 127, def: 0,   fmt: v => Math.round(v) },
+        { key: 'midiRelease', label: 'RELEASE',   min: 0, max: 127, def: 0,   fmt: v => Math.round(v) },
+      ];
+      const sf2Def = SF2_ENC[i];
+      const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+      const arpSlot = arpIdx >= 0 ? trackFX[S.currentTrack][arpIdx] : null;
+      if (!arpSlot) return;
+      const startVal = arpSlot.params[sf2Def.key] ?? sf2Def.def;
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
+        startVal, sf2EncMode: true, sf2Def, arpIdx };
+      S._oledLocked = true;
+      e.preventDefault();
+    }
   });
 });
 
@@ -10858,6 +10951,42 @@ document.addEventListener('mousemove', e => {
       const newVal = Math.max(dr.min, Math.min(dr.max, (pad[key] ?? dr.min) + delta / 120 * range));
       pad[key] = newVal;
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
+      updateEncArcs();
+      return;
+    }
+
+    // Mode Junox enc : VCF Freq / Resonance / Env Mod / LFO Rate
+    if (encDrags[i].junoxEncMode) {
+      if (Math.abs(delta) < 0.3) return;
+      const { jDef } = encDrags[i];
+      const patch = junoxPatches[S.currentTrack];
+      if (!patch) return;
+      const parts = jDef.key.split('.');
+      const cur = patch[parts[0]]?.[parts[1]] ?? jDef.def;
+      const newVal = Math.max(jDef.min, Math.min(jDef.max, cur + delta / 150));
+      if (!patch[parts[0]]) patch[parts[0]] = {};
+      patch[parts[0]][parts[1]] = newVal;
+      // Appliquer au nœud Junox en temps réel
+      const node = junoxNodes[S.currentTrack];
+      if (node) node.sendMessage('set-param', { name: jDef.key, value: newVal });
+      oledForce(jDef.label, Math.round(newVal * 100) + '%', `T${S.currentTrack + 1}`);
+      updateEncArcs();
+      return;
+    }
+
+    // Mode SF2 enc : Cutoff / Resonance / Release
+    if (encDrags[i].sf2EncMode) {
+      if (Math.abs(delta) < 0.5) return;
+      const { sf2Def, arpIdx } = encDrags[i];
+      const arpSlot = trackFX[S.currentTrack][arpIdx];
+      if (!arpSlot) return;
+      const cur = arpSlot.params[sf2Def.key] ?? sf2Def.def;
+      const newVal = Math.max(sf2Def.min, Math.min(sf2Def.max, cur + delta / 1.5));
+      arpSlot.params[sf2Def.key] = newVal;
+      midiCtrlSendCC(S.currentTrack,
+        sf2Def.key === 'midiCutoff' ? 74 : sf2Def.key === 'midiReson' ? 71 : 72,
+        Math.round(newVal));
+      oledForce(sf2Def.label, String(Math.round(newVal)), `T${S.currentTrack + 1}`);
       updateEncArcs();
       return;
     }
@@ -11427,11 +11556,56 @@ function midiCC(cc, value) {
       const dr  = DRUM_ENC_RANGES[encIdx];
       const key = DRUM_ENC_KEYS[encIdx];
       if (!dr) return;
-      const sens = (dr.max - dr.min) / 60; // ~60 incréments pour traverser la plage
+      const sens = (dr.max - dr.min) / 60;
       const d2 = relDelta(value, sens);
       const newVal = Math.max(dr.min, Math.min(dr.max, (pad[key] ?? dr.min) + d2));
       pad[key] = newVal;
       oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
+      updateEncArcs();
+      return;
+    }
+
+    // Mode Junox sans step tenu : enc0=VCF Freq, enc1=Resonance, enc2=Env Mod, enc3=LFO Rate
+    if (tEnc.outputMode === 'junox' && encIdx < 4) {
+      const JUNOX_ENC_MIDI = [
+        { key: 'vcf.frequency', label: 'CUTOFF',    min: 0, max: 1, def: 0.7 },
+        { key: 'vcf.resonance', label: 'RESONANCE', min: 0, max: 1, def: 0   },
+        { key: 'vcf.envMod',    label: 'ENV MOD',   min: 0, max: 1, def: 0   },
+        { key: 'lfo.frequency', label: 'LFO RATE',  min: 0, max: 1, def: 0.3 },
+      ];
+      const jDef = JUNOX_ENC_MIDI[encIdx];
+      const patch = junoxPatches[S.currentTrack];
+      if (!patch) return;
+      const parts = jDef.key.split('.');
+      const cur = patch[parts[0]]?.[parts[1]] ?? jDef.def;
+      const d2 = relDelta(value, 0.015); // ~0.015 par incrément sur plage 0-1
+      const newVal = Math.max(jDef.min, Math.min(jDef.max, cur + d2));
+      if (!patch[parts[0]]) patch[parts[0]] = {};
+      patch[parts[0]][parts[1]] = newVal;
+      const node = junoxNodes[S.currentTrack];
+      if (node) node.sendMessage('set-param', { name: jDef.key, value: newVal });
+      oledForce(jDef.label, Math.round(newVal * 100) + '%', `T${S.currentTrack + 1}`);
+      updateEncArcs();
+      return;
+    }
+
+    // Mode SF2 sans step tenu : enc0=Cutoff, enc1=Resonance, enc2=Release
+    if (tEnc.outputMode === 'sf2' && encIdx < 3) {
+      const SF2_ENC_MIDI = [
+        { key: 'midiCutoff',  label: 'CUTOFF',    cc: 74, min: 0, max: 127, def: 127 },
+        { key: 'midiReson',   label: 'RESONANCE',  cc: 71, min: 0, max: 127, def: 0   },
+        { key: 'midiRelease', label: 'RELEASE',    cc: 72, min: 0, max: 127, def: 0   },
+      ];
+      const sf2Def = SF2_ENC_MIDI[encIdx];
+      const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+      const arpSlot = arpIdx >= 0 ? trackFX[S.currentTrack][arpIdx] : null;
+      if (!arpSlot) return;
+      const d2 = relDelta(value, 2);
+      const cur = arpSlot.params[sf2Def.key] ?? sf2Def.def;
+      const newVal = Math.max(sf2Def.min, Math.min(sf2Def.max, cur + d2));
+      arpSlot.params[sf2Def.key] = newVal;
+      midiCtrlSendCC(S.currentTrack, sf2Def.cc, Math.round(newVal));
+      oledForce(sf2Def.label, String(Math.round(newVal)), `T${S.currentTrack + 1}`);
       updateEncArcs();
       return;
     }
