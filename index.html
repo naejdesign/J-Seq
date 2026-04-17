@@ -552,6 +552,7 @@ body {
   <div id="junoxBrHeader" class="brHeader">
     <span class="brTrackLabel" style="color:#4cf">JUNOX T2</span>
     <span id="junoxBrCurrent" class="brCurrentLabel">—</span>
+    <button id="junoxBrSaveBtn" title="Save current preset" style="background:none;border:1px solid #4cf;border-radius:5px;color:#4cf;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'DM Mono',monospace;margin-right:6px">SAVE</button>
     <button id="junoxBrCloseBtn" class="brCloseBtn">✕</button>
   </div>
   <div class="brBody" style="flex-direction:column">
@@ -560,6 +561,18 @@ body {
       <span id="junoxBrCount" class="brCount"></span>
     </div>
     <div id="junoxBrList" class="brList" style="flex:1"></div>
+  </div>
+</div>
+<!-- Popup save preset Junox -->
+<div id="junoxSavePopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+  <div style="background:#1a1a1c;border:1px solid #4cf;border-radius:10px;padding:24px 28px;min-width:280px;font-family:'DM Mono',monospace">
+    <div style="color:#4cf;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Save preset</div>
+    <input id="junoxSaveName" type="text" placeholder="Preset name…" maxlength="32"
+      style="width:100%;background:#111;border:1px solid #333;border-radius:5px;color:#eee;font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;box-sizing:border-box;margin-bottom:14px;outline:none"/>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button id="junoxSaveCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Annuler</button>
+      <button id="junoxSaveConfirmBtn" style="background:#4cf;border:none;border-radius:5px;color:#000;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Sauvegarder</button>
+    </div>
   </div>
 </div>
 
@@ -13617,31 +13630,47 @@ document.addEventListener('DOMContentLoaded', () => {
 // ═══════════════════════════════════════════════════════════════
 // JUNOX PRESET BROWSER
 // ═══════════════════════════════════════════════════════════════
+// ── Junox user presets (localStorage) ─────────────────────────
+const JUNOX_USER_PRESET_KEY = 'jseq_junox_user_presets';
+const JUNOX_MAX_USER_PRESETS = 256;
+
+function junoxUserPresetsLoad() {
+  try { return JSON.parse(localStorage.getItem(JUNOX_USER_PRESET_KEY) || '[]'); }
+  catch(e) { return []; }
+}
+
+function junoxUserPresetsSave(list) {
+  localStorage.setItem(JUNOX_USER_PRESET_KEY, JSON.stringify(list));
+}
+
+// ── Browser state ──────────────────────────────────────────────
 const junoxBr = {
-  activeIdx: null,   // index du preset sélectionné
+  activeIdx: null,   // index dans la liste fusionnée triée
+  mergedList: [],    // liste fusionnée [factory + user], triée alpha
 };
 
-function openJunoxBrowser() {
-  const list = Junox.Juno60FactoryPatchesA;
-  if (!list || !list.length) return;
+function junoxBrBuildList() {
+  const factory = (Junox.Juno60FactoryPatchesA || []).map(p => ({ ...p, _user: false }));
+  const user    = junoxUserPresetsLoad().map(p => ({ ...p, _user: true }));
+  const merged  = [...factory, ...user];
+  merged.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+  junoxBr.mergedList = merged;
+  return merged;
+}
 
-  // Trouver le preset actif
+function openJunoxBrowser() {
+  const list = junoxBrBuildList();
   const ti = JUNOX_TRACK;
   const curName = junoxPatches[ti]?.name || null;
   junoxBr.activeIdx = list.findIndex(p => p.name === curName);
   if (junoxBr.activeIdx < 0) junoxBr.activeIdx = 0;
 
-  // Mettre à jour le header
   document.getElementById('junoxBrCurrent').textContent = curName || '—';
   document.getElementById('junoxBrCount').textContent = list.length + ' presets';
 
-  // Rendre la liste
   junoxBrRenderList();
-
-  // Ouvrir
   document.getElementById('junoxBrowser').classList.add('open');
 
-  // Scroller vers le preset actif
   setTimeout(() => {
     const items = document.querySelectorAll('#junoxBrList .brItem');
     if (items[junoxBr.activeIdx]) items[junoxBr.activeIdx].scrollIntoView({ block: 'center' });
@@ -13653,23 +13682,18 @@ function closeJunoxBrowser() {
 }
 
 function junoxBrRenderList() {
-  const list = Junox.Juno60FactoryPatchesA;
+  const list = junoxBr.mergedList;
   const container = document.getElementById('junoxBrList');
   container.innerHTML = '';
-
-  const lastTap = {};
 
   list.forEach((preset, idx) => {
     const el = document.createElement('div');
     el.className = 'brItem' + (idx === junoxBr.activeIdx ? ' active-preset' : '');
-    el.innerHTML = `<span class="brName">${preset.name}</span><span class="brSub">${idx + 1}</span>`;
+    // Badge discret pour les presets utilisateur
+    const badge = preset._user ? ' <span style="font-size:9px;color:#4cf;opacity:0.7">★</span>' : '';
+    el.innerHTML = `<span class="brName">${preset.name}${badge}</span><span class="brSub">${idx + 1}</span>`;
 
-    // Single tap → sélectionner + prévisualiser
-    el.addEventListener('click', () => {
-      junoxBrSelect(idx);
-    });
-
-    // Double-tap → confirmer et fermer
+    el.addEventListener('click', () => junoxBrSelect(idx));
     safeDblClick(el, () => junoxBrConfirm(idx));
 
     container.appendChild(el);
@@ -13677,26 +13701,22 @@ function junoxBrRenderList() {
 }
 
 function junoxBrSelect(idx) {
-  const list = Junox.Juno60FactoryPatchesA;
+  const list = junoxBr.mergedList;
   if (!list[idx]) return;
   junoxBr.activeIdx = idx;
 
-  // Mettre à jour le style actif
   document.querySelectorAll('#junoxBrList .brItem').forEach((el, i) => {
     el.classList.toggle('active-preset', i === idx);
   });
   document.getElementById('junoxBrCurrent').textContent = list[idx].name;
 
-  // Prévisualiser : charger le patch sans fermer
   const ti = JUNOX_TRACK;
-  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx])); // copie pour ne pas muter le preset factory
+  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
   if (junoxNodes[ti]) {
-    // LFO->pitch muté en preview pour éviter le vibrato résiduel
     const previewPatch = JSON.parse(JSON.stringify(list[idx]));
     if (previewPatch.dco) previewPatch.dco.lfo = 0;
     junoxNodes[ti].setPatch(previewPatch);
     junoxNodes[ti].lfoTrigger();
-    // Réappliquer les FX WebAudio — setPatch ne touche que le worklet
     const rt = junoxRuntime[ti];
     junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
     junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
@@ -13707,14 +13727,13 @@ function junoxBrSelect(idx) {
 }
 
 function junoxBrConfirm(idx) {
-  const list = Junox.Juno60FactoryPatchesA;
+  const list = junoxBr.mergedList;
   if (!list[idx]) return;
 
   junoxBr.activeIdx = idx;
   const ti = JUNOX_TRACK;
-  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx])); // copie pour ne pas muter le preset factory
+  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
   if (junoxNodes[ti]) {
-    // Envoyer le VRAI patch complet (avec dco.lfo intact, pas la version muée preview)
     junoxNodes[ti].setPatch(junoxPatches[ti]);
     junoxNodes[ti].lfoTrigger();
     const rt = junoxRuntime[ti];
@@ -13727,9 +13746,68 @@ function junoxBrConfirm(idx) {
   oled('JUNOX T2', list[idx].name, 'chargé');
 }
 
+// ── Save preset ────────────────────────────────────────────────
+function junoxBrOpenSavePopup() {
+  const curName = junoxPatches[JUNOX_TRACK]?.name || '';
+  const input = document.getElementById('junoxSaveName');
+  input.value = curName;
+  const popup = document.getElementById('junoxSavePopup');
+  popup.style.display = 'flex';
+  setTimeout(() => { input.focus(); input.select(); }, 80);
+}
+
+function junoxBrCloseSavePopup() {
+  document.getElementById('junoxSavePopup').style.display = 'none';
+}
+
+function junoxBrDoSave() {
+  const name = document.getElementById('junoxSaveName').value.trim();
+  if (!name) return; // au moins 1 caractère requis
+
+  const users = junoxUserPresetsLoad();
+  if (users.length >= JUNOX_MAX_USER_PRESETS) {
+    alert('Maximum ' + JUNOX_MAX_USER_PRESETS + ' presets utilisateur atteint.');
+    return;
+  }
+
+  const ti = JUNOX_TRACK;
+  const patch = JSON.parse(JSON.stringify(junoxPatches[ti] || {}));
+  patch.name = name;
+
+  // Écraser si même nom existe déjà
+  const existIdx = users.findIndex(p => p.name === name);
+  if (existIdx >= 0) users[existIdx] = patch;
+  else users.push(patch);
+
+  junoxUserPresetsSave(users);
+  junoxBrCloseSavePopup();
+
+  // Rafraîchir la liste et scroll vers le preset sauvegardé
+  const list = junoxBrBuildList();
+  document.getElementById('junoxBrCount').textContent = list.length + ' presets';
+  const newIdx = list.findIndex(p => p.name === name);
+  junoxBr.activeIdx = newIdx >= 0 ? newIdx : 0;
+  junoxBrRenderList();
+  document.getElementById('junoxBrCurrent').textContent = name;
+  setTimeout(() => {
+    const items = document.querySelectorAll('#junoxBrList .brItem');
+    if (items[junoxBr.activeIdx]) items[junoxBr.activeIdx].scrollIntoView({ block: 'center' });
+  }, 50);
+  oledForce('JUNOX', name, 'preset sauvegardé');
+  setTimeout(() => { S._oledLocked = false; }, 1500);
+}
+
 // Init bouton fermer (appelé depuis le DOMContentLoaded principal)
 function initJunoxBrowserUI() {
   document.getElementById('junoxBrCloseBtn')?.addEventListener('click', closeJunoxBrowser);
+  document.getElementById('junoxBrSaveBtn')?.addEventListener('click', junoxBrOpenSavePopup);
+  document.getElementById('junoxSaveCancelBtn')?.addEventListener('click', junoxBrCloseSavePopup);
+  document.getElementById('junoxSaveConfirmBtn')?.addEventListener('click', junoxBrDoSave);
+  // Confirmer avec Enter
+  document.getElementById('junoxSaveName')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') junoxBrDoSave();
+    if (e.key === 'Escape') junoxBrCloseSavePopup();
+  });
 }
 
 // ═══════════════════════════════════════════════════════════════
