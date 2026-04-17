@@ -4496,7 +4496,8 @@ async function initSF2() {
         console.log(`[SF2] Track ${ti+1} (${TRACK_MODES[ti]}) — pas de FluidSynth`);
         continue;
       }
-      // T2 = Junox — pas d'instance FluidSynth
+      // Track Junox — pas d'instance FluidSynth
+      const t = S.tracks[ti];
       if (t.outputMode === 'junox') {
         jsSynths[ti] = null;
         jsSynthNodes[ti] = null;
@@ -14562,12 +14563,14 @@ function openTrackTypePopup(anchorBtn, ti) {
   const popup = document.getElementById('trackTypePopup');
 
   // Mettre à jour l'état actif + locked
+  const lockedType = LOCKED_TRACK_MODES[ti]; // 'drum', 'master', ou undefined
   popup.querySelectorAll('.typePopupItem').forEach(item => {
     const type = item.dataset.type;
-    const isLocked = (LOCKED_TRACK_MODES[ti] !== undefined);
     const isCurrent = (type === t.outputMode) || (type === 'drum' && t.mode === 'drum');
+    // Locked si la track est verrouillée ET ce n'est pas le type actuel
+    const isLocked = (lockedType !== undefined) && !isCurrent;
     item.classList.toggle('active', isCurrent);
-    item.classList.toggle('locked', isLocked && !isCurrent);
+    item.classList.toggle('locked', isLocked);
   });
 
   // Positionner la popup sous le bouton
@@ -14587,22 +14590,7 @@ function closeTrackTypePopup() {
   _typePopupTi = -1;
 }
 
-// Clic sur un item de la popup
-document.getElementById('trackTypePopup').addEventListener('click', async e => {
-  const item = e.target.closest('.typePopupItem');
-  if (!item || item.classList.contains('locked')) return;
-  const newType = item.dataset.type;
-  const ti = _typePopupTi;
-  closeTrackTypePopup();
-  if (ti < 0) return;
-
-  await switchTrackType(ti, newType);
-
-  // Ouvrir le browser correspondant au nouveau type
-  if (newType === 'junox') openJunoxBrowser(ti);
-  else if (newType === 'drum') { S.currentTrack = ti; openDrumBrowser(); }
-  else openSF2Browser(ti);
-});
+// (listener popup déplacé dans initTypeButtons)
 
 // Connecter les boutons de type dans les browsers
 function initTypeButtons() {
@@ -14615,6 +14603,26 @@ function initTypeButtons() {
       openTrackTypePopup(btn, ti);
     });
   });
+
+  // Clic sur un item de la popup
+  const popup = document.getElementById('trackTypePopup');
+  if (popup) {
+    popup.addEventListener('click', async e => {
+      const item = e.target.closest('.typePopupItem');
+      if (!item || item.classList.contains('locked')) return;
+      const newType = item.dataset.type;
+      const ti = _typePopupTi;
+      closeTrackTypePopup();
+      if (ti < 0) return;
+
+      await switchTrackType(ti, newType);
+
+      // Ouvrir le browser correspondant au nouveau type
+      if (newType === 'junox') openJunoxBrowser(ti);
+      else if (newType === 'drum') { S.currentTrack = ti; openDrumBrowser(); }
+      else openSF2Browser(ti);
+    });
+  }
 }
 
 function getCurrentBrowserTrack(btnId) {
