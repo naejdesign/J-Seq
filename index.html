@@ -1425,13 +1425,9 @@ const JUNOX_SECTIONS = [
     icon: 'M 0 8 L 4 4 L 8 12 L 12 6 L 16 10 L 20 4 L 24 12 L 28 8 L 32 8',
     params: [
       { key:'dco.subAmount', name:'Sub Amt', min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'_subOct', name:'Sub Oct', min:0, max:1, def:0, log:false,
-        cycle:true, cycleVals:[1, 2], labels:['-2 oct','-1 oct'],
-        fmt: v => ['-2 oct','-1 oct'][Math.round(v)] ?? '-2 oct' },
+
       { key:'dco.noise', name:'Noise',   min:0, max:1, def:0, log:false, fmt: v => (v*100).toFixed(0)+'%' },
-      { key:'_noiseType', name:'Noise Type', min:0, max:2, def:0, log:false,
-        cycle:true, cycleVals:[0,1,2], labels:['Soft White','Pink','Red'], fmtIsIndex:true,
-        fmt: v => ['Soft White','Pink','Red'][Math.round(v)] ?? 'Soft White' },
+
     ],
   },
   {
@@ -3972,6 +3968,7 @@ function fxHandleDown(e) {
           return true;
         }
         S.selectedDrumPad = padIdx;
+        S._heldDrumPad = padIdx; // maintenu → encVol règle son volume
         triggerDrumPad(padIdx, 0.85);
         renderSteps();
         renderDrumPadSelection();
@@ -4991,7 +4988,7 @@ function makeDrumPad(typeIdx) {
     startPoint: 0,
     reverse:    false,
     // commun
-    volume:     0.85,
+    volume:     1,
     sendReverb: 0,
     sendDelay:  0,
   };
@@ -5301,7 +5298,7 @@ function drumPadPlay(ti, padIdx, vel, stepTune) {
   const pads = t.drumPads;
   if (!pads || !pads[padIdx]) return;
   const pad = pads[padIdx];
-  const vol = (pad.volume || 0.85) * t.volume;
+  const vol = (pad.volume ?? 1) * t.volume;
 
   // Si stepTune non nul, créer un pad temporaire avec tune modifié
   const effectivePad = (stepTune && stepTune !== 0)
@@ -6827,9 +6824,10 @@ let drumAdvPage = null; // null = page principale, sinon padIdx en cours d'édit
 // Définitions des 7 paramètres avancés par pad
 // Définitions des 7 paramètres avancés par pad (slots 0-6, slot 7 = retour)
 const DRUM_ADV_PARAMS = [
-  { key:'chokeGroup', label:'Choke', min:0, max:3, def:0, fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true,  comingSoon:false },
-  { key:'pan',        label:'Pan',   min:-1,max:1, def:0, fmt: v => Math.abs(v)<0.02?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
-  null, null, null, null, null,
+  { key:'chokeGroup', label:'Choke',  min:0,  max:3, def:0, fmt: v => v===0?'OFF':'Grp '+Math.round(v), step:true,  comingSoon:false },
+  { key:'volume',     label:'Volume', min:0,  max:1, def:1, fmt: v => Math.round(v*100)+'%', step:false, comingSoon:false },
+  { key:'pan',        label:'Pan',    min:-1, max:1, def:0, fmt: v => Math.abs(v)<0.02?'C':(v>0?'R':'L')+Math.round(Math.abs(v)*100)+'%', step:false, comingSoon:false },
+  null, null, null, null,
   // slot 7 = retour
 ];
 
@@ -6875,16 +6873,8 @@ function renderDrumPadAdvanced(padIdx) {
       continue;
     }
 
-    // Slot 6 = vide
-    if (slotIdx === 6) {
-      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
-      bg.setAttribute('width', pw-margin*2); bg.setAttribute('height', ph-margin*2);
-      bg.setAttribute('rx', 5); bg.setAttribute('fill', '#0d0d0f');
-      bg.setAttribute('stroke', '#1a1a1a'); bg.setAttribute('stroke-width', '0.5');
-      sg.appendChild(bg);
-      continue;
-    }
+    // Slot 6 = vide — transparent comme les slots null
+    if (slotIdx === 6) continue;
 
     const p = DRUM_ADV_PARAMS[slotIdx];
     if (!p) continue;
@@ -7535,6 +7525,7 @@ document.addEventListener('keydown', e => {
         S._heldTrack = slot;
         handleTrackButtonClick(slot);
         S._heldTrack = -1;
+S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
       }
     }, 300);
     return;
@@ -8445,6 +8436,10 @@ for (let i = 0; i < 16; i++) {
   window._dragTouchId = null;
   // Touch qui tient un step
   let _stepHoldTouchId = null;
+  // Touch qui tient un pad drum (pour éviter que ses micro-mouvements bougent le volDrag)
+  let _padHoldTouchId = null;
+  // Touch qui tient un bouton de track
+  let _trackHoldTouchId = null;
 
   // IDs des éléments draggables (encodeurs, molette, sends)
   const DRAG_IDS = new Set(['wheel','encVol','enc0','enc1','enc2','enc3','enc4','enc5']);
@@ -8468,6 +8463,12 @@ for (let i = 0; i < 16; i++) {
         _stepHoldTouchId = t.identifier;
       if (DRAG_IDS.has(tid) && window._dragTouchId === null)
         window._dragTouchId = t.identifier;
+      // Pad drum maintenu : stocker son touch ID pour ignorer ses micro-mouvements
+      if (t.target.getAttribute && t.target.getAttribute('data-drumpad') !== null && _padHoldTouchId === null)
+        _padHoldTouchId = t.identifier;
+      // Bouton track maintenu : même logique
+      if (/^trkBtn\d$/.test(tid) && _trackHoldTouchId === null)
+        _trackHoldTouchId = t.identifier;
       t.target.dispatchEvent(makeMouse('mousedown', t));
     }
     e.preventDefault();
@@ -8479,6 +8480,8 @@ for (let i = 0; i < 16; i++) {
       const isStepTouch = (t.identifier === _stepHoldTouchId);
       if (isStepTouch)                          _stepHoldTouchId = null;
       if (t.identifier === window._dragTouchId) window._dragTouchId = null;
+      if (t.identifier === _padHoldTouchId)     { _padHoldTouchId = null; S._heldDrumPad = -1; }
+      if (t.identifier === _trackHoldTouchId)   { _trackHoldTouchId = null; }
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mouseup', t));
@@ -8524,6 +8527,9 @@ for (let i = 0; i < 16; i++) {
         // mais seulement si le touch est dans la zone encodeurs
       }
 
+      // Ne pas dispatcher sur document si c'est le doigt qui maintient un pad drum ou un bouton track
+      // (évite que ses micro-mouvements bougent le volDrag)
+      if (t.identifier === _padHoldTouchId || t.identifier === _trackHoldTouchId) continue;
       if (window._dragTouchId !== null) {
         if (t.identifier === window._dragTouchId)
           document.dispatchEvent(makeMouse('mousemove', t));
@@ -9469,6 +9475,7 @@ document.addEventListener('mouseup', () => {
   wheelDrag = null;
   volDrag = null;
   S._stepsLocked = false;
+  S._heldDrumPad = -1; // relâcher le pad drum tenu
 
   // Si des steps sont encore tenus (mouseup hors zone) → les relâcher proprement
   if (heldSteps.size > 0) {
@@ -9520,6 +9527,8 @@ svg('encVol').addEventListener('touchstart', function(e) {
     const st = currentStepBar()[firstIdx];
     volDrag = { type: 'vel', lastY: t.clientY, lastX: t.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
     heldSteps.get(firstIdx).didAction = true;
+  } else if (S._heldDrumPad >= 0 && S.tracks[S.currentTrack]?.mode === 'drum') {
+    volDrag = { type: 'drumpad', lastY: t.clientY, lastX: t.clientX, padIdx: S._heldDrumPad, moved: false };
   } else if (S._heldTrack >= 0) {
     volDrag = { type: 'track', lastY: t.clientY, lastX: t.clientX, ti: S._heldTrack, moved: false };
   } else {
@@ -9538,7 +9547,16 @@ svg('encVol').addEventListener('touchmove', function(e) {
   volDrag.lastX = t.clientX;
   if (Math.abs(delta) < 0.5) return;
   volDrag.moved = true;
-  if (volDrag.type === 'master') {
+  if (volDrag.type === 'drumpad') {
+    const ti = S.currentTrack;
+    const t2 = S.tracks[ti];
+    if (t2.drumPads?.[volDrag.padIdx] !== undefined) {
+      const newVol = Math.max(0, Math.min(1, (t2.drumPads[volDrag.padIdx].volume ?? 1) + delta / 150));
+      t2.drumPads[volDrag.padIdx].volume = newVol;
+      volDrag.moved = true;
+      oledForce(`PAD ${volDrag.padIdx+1} VOL`, `${Math.round(newVol * 100)}%`, getDrumPadName(ti, volDrag.padIdx));
+    }
+  } else if (volDrag.type === 'master') {
     setMasterVolume(S.masterVolume + delta / 150);
     oledForce('VOL MASTER', `${Math.round(S.masterVolume * 100)}%`, S.playing ? '▶' : '■');
   } else if (volDrag.type === 'track') {
@@ -9580,6 +9598,8 @@ svg('encVol').addEventListener('mousedown', e => {
     const st = bar[firstIdx];
     volDrag = { type: 'vel', lastY: e.clientY, lastX: e.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
     heldSteps.get(firstIdx).didAction = true;
+  } else if (S._heldDrumPad >= 0 && S.tracks[S.currentTrack]?.mode === 'drum') {
+    volDrag = { type: 'drumpad', lastY: e.clientY, lastX: e.clientX, padIdx: S._heldDrumPad, moved: false };
   } else if (S._heldTrack >= 0) {
     volDrag = { type: 'track', lastY: e.clientY, lastX: e.clientX, ti: S._heldTrack, moved: false };
   } else {
@@ -9599,9 +9619,19 @@ document.addEventListener('mousemove', e => {
   const dy = prevLastY - e.clientY;
   const dx = e.clientX - prevLastX;
   const delta = dy + dx;
-  if (volDrag.type === 'master') {
+  if (volDrag.type === 'drumpad') {
+    const ti = S.currentTrack;
+    const t2 = S.tracks[ti];
+    if (t2.drumPads?.[volDrag.padIdx] !== undefined) {
+      const newVol = Math.max(0, Math.min(1, (t2.drumPads[volDrag.padIdx].volume ?? 1) + delta / 150));
+      t2.drumPads[volDrag.padIdx].volume = newVol;
+      volDrag.moved = true;
+      oledForce(`PAD ${volDrag.padIdx+1} VOL`, `${Math.round(newVol * 100)}%`, getDrumPadName(ti, volDrag.padIdx));
+    }
+  } else if (volDrag.type === 'master') {
     volDrag.moved = true;
     setMasterVolume(S.masterVolume + delta / 150);
+    oledForce('VOL MASTER', `${Math.round(S.masterVolume * 100)}%`, S.playing ? '▶' : '■');
   } else if (volDrag.type === 'track') {
     const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
