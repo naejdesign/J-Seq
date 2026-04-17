@@ -9524,21 +9524,26 @@ svg('encVol').addEventListener('touchstart', function(e) {
   if (anyStepHeld()) {
     const firstIdx = heldStepList()[0];
     const st = currentStepBar()[firstIdx];
-    volDrag = { type: 'vel', lastY: t.clientY, lastX: t.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
+    volDrag = { type: 'vel', touchId: t.identifier, lastY: t.clientY, lastX: t.clientX, startVel: st.vel || 0.8, stepIdx: firstIdx, moved: false };
     heldSteps.get(firstIdx).didAction = true;
   } else if (S._heldDrumPad >= 0 && S.tracks[S.currentTrack]?.mode === 'drum') {
-    volDrag = { type: 'drumpad', lastY: t.clientY, lastX: t.clientX, padIdx: S._heldDrumPad, moved: false };
+    volDrag = { type: 'drumpad', touchId: t.identifier, lastY: t.clientY, lastX: t.clientX, padIdx: S._heldDrumPad, moved: false };
   } else if (S._heldTrack >= 0) {
-    volDrag = { type: 'track', lastY: t.clientY, lastX: t.clientX, ti: S._heldTrack, moved: false };
+    volDrag = { type: 'track', touchId: t.identifier, lastY: t.clientY, lastX: t.clientX, ti: S._heldTrack, moved: false };
   } else {
-    volDrag = { type: 'master', lastY: t.clientY, lastX: t.clientX, moved: false };
+    volDrag = { type: 'master', touchId: t.identifier, lastY: t.clientY, lastX: t.clientX, moved: false };
   }
 }, { passive: false });
 
 svg('encVol').addEventListener('touchmove', function(e) {
   e.preventDefault();
   if (!volDrag) return;
-  const t = e.changedTouches[0];
+  // Chercher uniquement le touch qui a initié le drag (par son identifier)
+  let t = null;
+  for (const touch of e.changedTouches) {
+    if (touch.identifier === volDrag.touchId) { t = touch; break; }
+  }
+  if (!t) return; // ce touchmove vient d'un autre doigt, ignorer
   const dy = volDrag.lastY - t.clientY;
   const dx = t.clientX - volDrag.lastX;
   const delta = dy + dx;
