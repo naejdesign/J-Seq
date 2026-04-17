@@ -502,7 +502,8 @@ body {
 <div id="drumBrowser" class="brOverlay" style="z-index:101">
   <div id="drumBrLoading" class="brLoading"><div class="brSpinner"></div><span id="drumBrLoadMsg">Chargement…</span></div>
   <div id="drumBrHeader" class="brHeader">
-    <span id="drumBrPadLabel" class="brTrackLabel" style="color:#ff6b00">PAD 1</span>
+    <button id="drumBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#ff6b00" title="Change track type">T1 · DRUM</button>
+    <span id="drumBrPadLabel" class="brTrackLabel" style="color:#888;font-size:12px">PAD 1</span>
     <button id="drumBrFolderBtn" class="brFolderBtn">📁 Dossier samples</button>
     <label id="drumBrRevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
       <input type="checkbox" id="drumBrReverse" style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
@@ -527,7 +528,7 @@ body {
 <div id="sf2Browser" class="brOverlay">
   <div id="sf2Loading" class="brLoading"><div class="brSpinner"></div><span id="sf2LoadMsg">Chargement…</span></div>
   <div id="sf2Header" class="brHeader">
-    <span id="sf2TrackLabel" class="brTrackLabel" style="color:#ff6b00">TRACK 1</span>
+    <button id="sf2TrackLabel" class="brTrackLabel brTypeBtn" style="color:#ff6b00" title="Change track type">TRACK 1</button>
     <button id="sf2FolderBtn" class="brFolderBtn">📁 Dossier SF2</button>
     <label id="sf2PrevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
       <input type="checkbox" id="sf2PreviewChk" style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
@@ -551,7 +552,7 @@ body {
 <!-- ══ JUNOX PRESET BROWSER ════════════════════════════════════ -->
 <div id="junoxBrowser" class="brOverlay" style="z-index:102">
   <div id="junoxBrHeader" class="brHeader">
-    <span class="brTrackLabel" style="color:#4cf">JUNOX T2</span>
+    <button id="junoxBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#4cf" title="Change track type">T2 · JUNOX</button>
     <button id="junoxBrSaveBtn" class="brFolderBtn">💾 Save preset</button>
     <span id="junoxBrCurrent" class="brCurrentLabel">—</span>
     <button id="junoxBrCloseBtn" class="brCloseBtn">✕</button>
@@ -1403,8 +1404,70 @@ const junoxRuntime = Array.from({length:8}, () => ({
   arpEnabled: 0, arpRate: 2, arpMode: 0, arpOctaves: 1,
 }));
 // IR de reverb ir_rev_short.wav embarqué (évite les CORS en file://)
-let junoxReady = false;
-let junoxInitializing = false;
+const junoxReady = Array(8).fill(false);       // une entrée par track
+const junoxInitializing = Array(8).fill(false); // une entrée par track
+
+// ═══════════════════════════════════════════════════════════════
+// SWITCH TRACK TYPE — changer le type d'une track à runtime
+// ti : index de track (1-6, T1 et T8 sont verrouillées)
+// newType : 'sf2' | 'junox' | 'drum'
+// ═══════════════════════════════════════════════════════════════
+async function switchTrackType(ti, newType) {
+  // Vérification : T1 et T8 sont verrouillées
+  if (LOCKED_TRACK_MODES[ti] !== undefined) {
+    console.warn(`[switchTrackType] T${ti+1} est verrouillée`);
+    return;
+  }
+
+  const t = S.tracks[ti];
+  const oldOutputMode = t.outputMode;
+  const oldMode = t.mode;
+
+  // Pas de changement
+  if (newType === oldOutputMode || (newType === 'drum' && oldMode === 'drum')) return;
+
+  // ── Démontage de l'ancien type ──
+  if (oldOutputMode === 'junox') {
+    // Arrêter les notes en cours
+    if (junoxNodes[ti]) junoxNoteAllOff(ti);
+    destroyJunox(ti);
+  } else if (oldMode === 'drum') {
+    // Rien de spécial à démonter pour drum (pas de nœud audio dédié)
+  }
+  // SF2 : les nœuds SF2 sont gérés globalement, pas par track
+
+  // ── Mise à jour du mode et outputMode ──
+  if (newType === 'drum') {
+    t.mode = 'drum';
+    t.outputMode = 'drum';
+    TRACK_MODES[ti] = 'drum';
+    if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
+  } else if (newType === 'junox') {
+    t.mode = 'melodic';
+    t.outputMode = 'junox';
+    TRACK_MODES[ti] = 'melodic';
+    // Initialiser Junox pour cette track si pas déjà fait
+    await initJunox(ti);
+  } else { // sf2
+    t.mode = 'melodic';
+    t.outputMode = 'sf2';
+    TRACK_MODES[ti] = 'melodic';
+  }
+
+  // Reconstruire la chaîne FX pour cette track
+  fxRebuildChain(ti);
+
+  // Forcer re-render complet
+  renderTrackButtons();
+  renderFXPanel();
+  renderSteps();
+  updateEncArcs();
+  updateSendArcs();
+
+  const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNOX' : 'SF2';
+  oled(`T${ti+1} → ${typeName}`, 'type changé', trackInfo());
+  console.log(`[switchTrackType] T${ti+1}: ${oldOutputMode} → ${newType}`);
+}
 
 // Page Junox courante : 'main' ou index de section (0-5)
 let junoxPage = 'main';
@@ -1580,13 +1643,13 @@ function junoxUiVal(param, patchVal) {
   return typeof patchVal === 'number' ? patchVal : param.def;
 }
 
-// Initialiser Junox pour la track JUNOX_TRACK
-async function initJunox() {
-  if (junoxReady || junoxInitializing) return;
-  junoxInitializing = true;
+// Initialiser Junox pour une track donnée
+async function initJunox(ti) {
+  if (ti === undefined) ti = 1; // compatibilité ancienne API
+  if (junoxReady[ti] || junoxInitializing[ti]) return;
+  junoxInitializing[ti] = true;
   ensureAudio();
   try {
-    const ti = JUNOX_TRACK;
     // Patch de départ : Strings 1
     const patch = { ...Junox.defaultPatch, dco: { ...Junox.defaultPatch.dco, sub: true } };
     junoxPatches[ti] = patch;
@@ -1594,16 +1657,28 @@ async function initJunox() {
     const node = await Junox.createJuno60(actx, patch, { polyphony: 16 });
     junoxNodes[ti] = node;
 
-    // Connecter dans la chaîne FX / sends (même logique que fxRebuildChain)
+    // Connecter dans la chaîne FX / sends
     junoxRebuildChain(ti);
 
-    junoxReady = true;
-    junoxInitializing = false;
-    console.log('[Junox] T2 prête — patch:', patch.name);
+    junoxReady[ti] = true;
+    junoxInitializing[ti] = false;
+    console.log(`[Junox] T${ti+1} prête — patch:`, patch.name);
   } catch(e) {
-    junoxInitializing = false;
-    console.error('[Junox] Init failed:', e);
+    junoxInitializing[ti] = false;
+    console.error(`[Junox] T${ti+1} init failed:`, e);
   }
+}
+
+// Démonter Junox pour une track (libère les ressources audio)
+function destroyJunox(ti) {
+  const node = junoxNodes[ti];
+  if (node) {
+    try { node.disconnect(); } catch(e) {}
+    junoxNodes[ti] = null;
+  }
+  junoxPatches[ti] = null;
+  junoxReady[ti] = false;
+  junoxInitializing[ti] = false;
 }
 
 // Construire la chaîne audio Junox
@@ -2011,7 +2086,7 @@ function ensureAudio() {
   // Initialiser FluidSynth WASM au premier geste
   if (!sf2Ready && !sf2Initializing) initSF2();
   // Initialiser Junox au premier geste
-  if (!junoxReady && !junoxInitializing) initJunox();
+  if (!junoxReady[S.currentTrack] && !junoxInitializing[S.currentTrack] && S.tracks[S.currentTrack]?.outputMode === 'junox') initJunox(S.currentTrack);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -4422,7 +4497,7 @@ async function initSF2() {
         continue;
       }
       // T2 = Junox — pas d'instance FluidSynth
-      if (ti === JUNOX_TRACK) {
+      if (t.outputMode === 'junox') {
         jsSynths[ti] = null;
         jsSynthNodes[ti] = null;
         console.log(`[SF2] Track ${ti+1} — Junox (pas de FluidSynth)`);
@@ -5419,7 +5494,11 @@ const TRACK_COLORS = [
   '#A855F7', // T7 — violet
   '#aaaaaa', // T8 Master — gris (inchangé)
 ];
-const TRACK_MODES  = ['drum','melodic','melodic','melodic','melodic','melodic','melodic','master'];
+// TRACK_MODES : T1(drum) et T8(master) sont verrouillés, T2-T7 peuvent changer
+// 'drum' | 'melodic' | 'master'  — pour le type de séquenceur
+// outputMode ('sf2'|'junox') est séparé et géré dans S.tracks[ti].outputMode
+let TRACK_MODES  = ['drum','melodic','melodic','melodic','melodic','melodic','melodic','master'];
+const LOCKED_TRACK_MODES = { 0: 'drum', 7: 'master' }; // T1 et T8 immutables
 
 // ── Fabrique un clip vide ──
 function makeClip() {
@@ -5474,7 +5553,7 @@ const S = {
     soloed: false,
     volume: 0.8,
     soundIndex: 0,
-    outputMode: (i === JUNOX_TRACK) ? 'junox' : 'sf2',
+    outputMode: (TRACK_MODES[i] === 'drum') ? 'drum' : (i === 1 ? 'junox' : 'sf2'),
     midiChannel: i + 1,
     midiOutputId: null,
     clips: Array.from({length:8}, () => makeClip()),
@@ -9796,7 +9875,7 @@ function resetStateToEmpty() {
     t.soloed      = false;
     t.volume      = 0.8;
     t.soundIndex  = 0;
-    t.outputMode  = (i === JUNOX_TRACK) ? 'junox' : 'sf2';
+    t.outputMode  = (TRACK_MODES[i] === 'drum') ? 'drum' : (i === 1 ? 'junox' : 'sf2'); // défaut initial
     t.midiChannel = i + 1;
     t.midiOutputId = null;
     t.drumSoundMap = Array.from({length:8}, (_, j) => j);
@@ -9812,14 +9891,18 @@ function resetStateToEmpty() {
   undoStack.cursor  = -1;
   undoStack.lastSaveTime = null;
   // Remettre junoxRuntime aux valeurs par défaut
-  const rt = junoxRuntime[JUNOX_TRACK];
-  rt.dlyTime = 500; rt.dlyFeedback = 0.5; rt.dlyMix = 0; rt.revLevel = 0;
-  rt.satDrive = -13; rt.satType = 0;
-  rt.poly = 1; rt.notePrio = 0; rt.subOct = 0; rt.noiseType = 0;
-  rt.arpEnabled = 0; rt.arpRate = 2; rt.arpMode = 0; rt.arpOctaves = 1;
-  junoxSetDelay(JUNOX_TRACK, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
-  junoxSetReverb(JUNOX_TRACK, rt.revLevel);
-  junoxSetSat(JUNOX_TRACK, null); // OFF
+  // Réinitialiser junoxRuntime pour toutes les tracks Junox actives
+  junoxRuntime.forEach((rt, ti) => {
+    rt.dlyTime = 500; rt.dlyFeedback = 0.5; rt.dlyMix = 0; rt.revLevel = 0;
+    rt.satDrive = -13; rt.satType = 0;
+    rt.poly = 1; rt.notePrio = 0; rt.subOct = 0; rt.noiseType = 0;
+    rt.arpEnabled = 0; rt.arpRate = 2; rt.arpMode = 0; rt.arpOctaves = 1;
+    if (junoxReady[ti]) {
+      junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+      junoxSetReverb(ti, rt.revLevel);
+      junoxSetSat(ti, null);
+    }
+  });
 }
 
 // ── Générateur de noms procéduraux ────────────────────────────
@@ -10007,6 +10090,8 @@ function deserializeProject(data, slot) {
     if (ti >= 8) return;
     const t = S.tracks[ti];
     t.mode        = td.mode        ?? t.mode;
+    // Synchroniser TRACK_MODES (pour les tracks non verrouillées)
+    if (LOCKED_TRACK_MODES[ti] === undefined) TRACK_MODES[ti] = t.mode;
     t.muted       = td.muted       ?? false;
     t.soloed      = td.soloed      ?? false;
     t.volume      = td.volume      ?? 0.8;
@@ -10017,16 +10102,27 @@ function deserializeProject(data, slot) {
     t.soundIndex  = td.soundIndex  ?? 0;
     t.outputMode  = td.outputMode  ?? 'sf2';
     // T2 reste toujours Junox même si le projet sérialisé dit autre chose
-    if (ti === JUNOX_TRACK) t.outputMode = 'junox';
+    // outputMode is restored from saved data below
     t.midiChannel = td.midiChannel ?? (ti + 1);
     t.midiOutputId = td.midiOutputId ?? null;
     // Restaurer le patch Junox si disponible
-    if (t.outputMode === 'junox' && td.junoxPatch) {
-      junoxPatches[ti] = td.junoxPatch;
-      // Appliquer au nœud si déjà prêt — patch complet (LFO intact, pas de preview)
-      if (junoxNodes[ti]) {
-        junoxNodes[ti].setPatch(td.junoxPatch);
-        junoxNodes[ti].lfoTrigger(); // remettre phase LFO à zéro
+    if (t.outputMode === 'junox') {
+      // Mettre à jour TRACK_MODES pour la track si ce n'est pas T1/T8
+      if (LOCKED_TRACK_MODES[ti] === undefined) TRACK_MODES[ti] = 'melodic';
+      if (td.junoxPatch) {
+        junoxPatches[ti] = td.junoxPatch;
+        if (junoxNodes[ti]) {
+          junoxNodes[ti].setPatch(td.junoxPatch);
+          junoxNodes[ti].lfoTrigger();
+        } else {
+          // Initialiser Junox pour cette track si pas encore fait
+          initJunox(ti).then(() => {
+            if (junoxNodes[ti] && junoxPatches[ti]) {
+              junoxNodes[ti].setPatch(junoxPatches[ti]);
+              junoxNodes[ti].lfoTrigger();
+            }
+          });
+        }
       }
     }
     // Restaurer junoxRuntime (delay, sat, arp...) — avec fallback sur les defaults
@@ -11602,7 +11698,7 @@ function midiCC(cc, value) {
       }
     } else if (tMod.outputMode === 'sf2' && sf2Ready && jsSynths[tiMod]) {
       jsSynths[tiMod].midiControl(SF2_CHANNEL, 1, value & 0x7f);
-    } else if (tMod.outputMode === 'junox' && junoxReady && junoxNodes[tiMod]) {
+    } else if (tMod.outputMode === 'junox' && junoxReady[tiMod] && junoxNodes[tiMod]) {
       // Modwheel expressive : contrôle dco.lfo en temps réel (0 → valeur max du patch)
       // La molette module la profondeur du vibrato entre 0 et la valeur LFO→Pitch du patch
       const patch = junoxPatches[tiMod];
@@ -12895,6 +12991,45 @@ function loopDeleteBar(barIdx) {
   border-radius: 14px 14px 0 0;
   min-height: 52px;
 }
+.brTypeBtn {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 5px;
+  cursor: pointer;
+  padding: 2px 8px;
+  transition: border-color 0.15s;
+}
+.brTypeBtn:hover { border-color: rgba(255,255,255,0.4); }
+
+/* Popup type selector */
+#trackTypePopup {
+  display: none;
+  position: fixed;
+  z-index: 200;
+  background: #1a1a1c;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 6px 0;
+  min-width: 160px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+}
+#trackTypePopup.open { display: block; }
+.typePopupItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  color: #aaa;
+  cursor: pointer;
+  transition: background 0.1s;
+}
+.typePopupItem:hover { background: #2a2a2e; color: #fff; }
+.typePopupItem.active { color: #fff; font-weight: 600; }
+.typePopupItem.locked { color: #444; cursor: not-allowed; }
+.typePopupDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+
 .brTrackLabel {
   font-size: 16px;
   font-weight: 500;
@@ -13084,7 +13219,7 @@ const sf2Browser = {
 
 function openSF2Browser(ti) {
   sf2Browser.trackIdx = ti;
-  document.getElementById('sf2TrackLabel').textContent = `TRACK ${ti+1}`;
+  updateBrowserTrackLabel('sf2', ti);
   const ts = trackSF2[ti];
   // Afficher le son actif dans le header
   document.getElementById('sf2CurrentPreset').textContent =
@@ -13663,6 +13798,7 @@ function createDemoProject() {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
+  initTypeButtons();
   // Créer le projet Demo par défaut s'il n'existe pas ou est obsolète
   const DEMO_VER = 12;
   try {
@@ -13679,7 +13815,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (S.mode === 'session') return;
     const ti = S.tracks[S.currentTrack];
     if (ti.mode === 'master') return;
-    if (ti.outputMode === 'junox') { openJunoxBrowser(); return; }
+    if (ti.outputMode === 'junox') { openJunoxBrowser(S.currentTrack); return; }
     if (ti.mode === 'drum') {
       openDrumBrowser();
     } else {
@@ -13725,9 +13861,11 @@ function junoxBrBuildList() {
   return merged;
 }
 
-function openJunoxBrowser() {
+function openJunoxBrowser(ti) {
+  if (ti === undefined) ti = S.currentTrack;
+  junoxBr.trackIdx = ti; // mémoriser la track pour les actions du browser
+  updateBrowserTrackLabel('junox', ti);
   const list = junoxBrBuildList();
-  const ti = JUNOX_TRACK;
   const curName = junoxPatches[ti]?.name || null;
   junoxBr.activeIdx = list.findIndex(p => p.name === curName);
   if (junoxBr.activeIdx < 0) junoxBr.activeIdx = 0;
@@ -13823,7 +13961,7 @@ function junoxBrSelect(idx) {
   });
   document.getElementById('junoxBrCurrent').textContent = list[idx].name;
 
-  const ti = JUNOX_TRACK;
+  const ti = junoxBr.trackIdx ?? S.currentTrack;
   junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
   if (junoxNodes[ti]) {
     const previewPatch = JSON.parse(JSON.stringify(list[idx]));
@@ -13844,7 +13982,7 @@ function junoxBrConfirm(idx) {
   if (!list[idx]) return;
 
   junoxBr.activeIdx = idx;
-  const ti = JUNOX_TRACK;
+  const ti = junoxBr.trackIdx ?? S.currentTrack;
   junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
   if (junoxNodes[ti]) {
     junoxNodes[ti].setPatch(junoxPatches[ti]);
@@ -13861,7 +13999,7 @@ function junoxBrConfirm(idx) {
 
 // ── Save preset ────────────────────────────────────────────────
 function junoxBrOpenSavePopup() {
-  const curName = junoxPatches[JUNOX_TRACK]?.name || '';
+  const curName = junoxPatches[junoxBr.trackIdx ?? S.currentTrack]?.name || '';
   const input = document.getElementById('junoxSaveName');
   input.textContent = curName;
   const popup = document.getElementById('junoxSavePopup');
@@ -13891,7 +14029,7 @@ function junoxBrDoSave() {
     return;
   }
 
-  const ti = JUNOX_TRACK;
+  const ti = junoxBr.trackIdx ?? S.currentTrack;
   const patch = JSON.parse(JSON.stringify(junoxPatches[ti] || {}));
   patch.name = name;
 
@@ -13951,12 +14089,14 @@ const drumBr = {
 function openDrumBrowser() {
   ensureAudio();
   const ti = S.currentTrack;
+  updateBrowserTrackLabel('drum', ti);
   const t  = S.tracks[ti];
   if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
   drumBr.padIdx = S.selectedDrumPad;
   const pad = t.drumPads[drumBr.padIdx];
 
   document.getElementById('drumBrPadLabel').textContent = `PAD ${drumBr.padIdx + 1}`;
+  updateBrowserTrackLabel('drum', ti);
   // Initialiser la checkbox Reverse selon l'état actuel du pad
   const curPad = t.drumPads[drumBr.padIdx];
   document.getElementById('drumBrReverse').checked = curPad.reverse || false;
@@ -14409,6 +14549,101 @@ function gamepadBUp() {
     }
   }
   _gamepadBHeldIdx = -1;
+}
+
+// ══════════════════════════════════════════════════════════════
+// TRACK TYPE POPUP — sélecteur de type de piste dans les browsers
+// ══════════════════════════════════════════════════════════════
+let _typePopupTi = -1; // track concernée par la popup
+
+function openTrackTypePopup(anchorBtn, ti) {
+  _typePopupTi = ti;
+  const t = S.tracks[ti];
+  const popup = document.getElementById('trackTypePopup');
+
+  // Mettre à jour l'état actif + locked
+  popup.querySelectorAll('.typePopupItem').forEach(item => {
+    const type = item.dataset.type;
+    const isLocked = (LOCKED_TRACK_MODES[ti] !== undefined);
+    const isCurrent = (type === t.outputMode) || (type === 'drum' && t.mode === 'drum');
+    item.classList.toggle('active', isCurrent);
+    item.classList.toggle('locked', isLocked && !isCurrent);
+  });
+
+  // Positionner la popup sous le bouton
+  const rect = anchorBtn.getBoundingClientRect();
+  popup.style.left = rect.left + 'px';
+  popup.style.top  = (rect.bottom + 4) + 'px';
+  popup.classList.add('open');
+
+  // Fermer sur clic extérieur
+  setTimeout(() => {
+    document.addEventListener('click', closeTrackTypePopup, { once: true });
+  }, 10);
+}
+
+function closeTrackTypePopup() {
+  document.getElementById('trackTypePopup').classList.remove('open');
+  _typePopupTi = -1;
+}
+
+// Clic sur un item de la popup
+document.getElementById('trackTypePopup').addEventListener('click', async e => {
+  const item = e.target.closest('.typePopupItem');
+  if (!item || item.classList.contains('locked')) return;
+  const newType = item.dataset.type;
+  const ti = _typePopupTi;
+  closeTrackTypePopup();
+  if (ti < 0) return;
+
+  await switchTrackType(ti, newType);
+
+  // Ouvrir le browser correspondant au nouveau type
+  if (newType === 'junox') openJunoxBrowser(ti);
+  else if (newType === 'drum') { S.currentTrack = ti; openDrumBrowser(); }
+  else openSF2Browser(ti);
+});
+
+// Connecter les boutons de type dans les browsers
+function initTypeButtons() {
+  ['sf2TrackLabel', 'drumBrTrackLabel', 'junoxBrTrackLabel'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (!btn) return;
+    btn.addEventListener('click', e => {
+      e.stopPropagation();
+      const ti = getCurrentBrowserTrack(id);
+      openTrackTypePopup(btn, ti);
+    });
+  });
+}
+
+function getCurrentBrowserTrack(btnId) {
+  if (btnId === 'sf2TrackLabel') return sf2Browser.trackIdx ?? S.currentTrack;
+  if (btnId === 'drumBrTrackLabel') return S.currentTrack;
+  if (btnId === 'junoxBrTrackLabel') return junoxBr.trackIdx ?? S.currentTrack;
+  return S.currentTrack;
+}
+
+// Mettre à jour les labels des browsers selon la track courante
+function updateBrowserTrackLabel(browserId, ti) {
+  const t = S.tracks[ti];
+  const col = t.color || '#ff6b00';
+  const trackNum = `T${ti+1}`;
+  let typeLabel;
+  if (t.outputMode === 'junox') typeLabel = 'JUNOX';
+  else if (t.mode === 'drum') typeLabel = 'DRUM';
+  else typeLabel = 'SF2';
+
+  if (browserId === 'sf2') {
+    const btn = document.getElementById('sf2TrackLabel');
+    if (btn) { btn.textContent = `${trackNum} · ${typeLabel}`; btn.style.color = col; }
+  } else if (browserId === 'drum') {
+    const btn = document.getElementById('drumBrTrackLabel');
+    if (btn) { btn.textContent = `${trackNum} · DRUM`; btn.style.color = col; }
+  } else if (browserId === 'junox') {
+    const btn = document.getElementById('junoxBrTrackLabel');
+    if (btn) { btn.textContent = `${trackNum} · JUNOX`; btn.style.color = col; }
+  }
 }
 
 // ── Gamepad polling loop ─────────────────────────────────────
@@ -15255,5 +15490,17 @@ requestAnimationFrame(pollGamepad);
   }
 })();
 </script>
+<!-- ══ TRACK TYPE POPUP ══ -->
+<div id="trackTypePopup">
+  <div class="typePopupItem" data-type="sf2">
+    <span class="typePopupDot" style="background:#3399ff"></span> SF2 Synth
+  </div>
+  <div class="typePopupItem" data-type="junox">
+    <span class="typePopupDot" style="background:#4cf"></span> JUNO Synth
+  </div>
+  <div class="typePopupItem" data-type="drum">
+    <span class="typePopupDot" style="background:#ff6b00"></span> Drum Track
+  </div>
+</div>
 </body>
 </html>
