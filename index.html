@@ -8436,10 +8436,7 @@ for (let i = 0; i < 16; i++) {
   window._dragTouchId = null;
   // Touch qui tient un step
   let _stepHoldTouchId = null;
-  // Touch qui tient un pad drum (pour éviter que ses micro-mouvements bougent le volDrag)
-  let _padHoldTouchId = null;
-  // Touch qui tient un bouton de track
-  let _trackHoldTouchId = null;
+
 
   // IDs des éléments draggables (encodeurs, molette, sends)
   const DRAG_IDS = new Set(['wheel','encVol','enc0','enc1','enc2','enc3','enc4','enc5']);
@@ -8463,12 +8460,7 @@ for (let i = 0; i < 16; i++) {
         _stepHoldTouchId = t.identifier;
       if (DRAG_IDS.has(tid) && window._dragTouchId === null)
         window._dragTouchId = t.identifier;
-      // Pad drum maintenu : stocker son touch ID pour ignorer ses micro-mouvements
-      if (t.target.getAttribute && t.target.getAttribute('data-drumpad') !== null && _padHoldTouchId === null)
-        _padHoldTouchId = t.identifier;
-      // Bouton track maintenu : même logique
-      if (/^trkBtn\d$/.test(tid) && _trackHoldTouchId === null)
-        _trackHoldTouchId = t.identifier;
+
       t.target.dispatchEvent(makeMouse('mousedown', t));
     }
     e.preventDefault();
@@ -8480,8 +8472,11 @@ for (let i = 0; i < 16; i++) {
       const isStepTouch = (t.identifier === _stepHoldTouchId);
       if (isStepTouch)                          _stepHoldTouchId = null;
       if (t.identifier === window._dragTouchId) window._dragTouchId = null;
-      if (t.identifier === _padHoldTouchId)     { _padHoldTouchId = null; S._heldDrumPad = -1; }
-      if (t.identifier === _trackHoldTouchId)   { _trackHoldTouchId = null; }
+      // Reset pad drum maintenu
+      const info2 = touchTargets[t.identifier];
+      const tgt2 = info2 ? info2.target : t.target;
+      if (tgt2 && tgt2.getAttribute && tgt2.getAttribute('data-drumpad') !== null) S._heldDrumPad = -1;
+
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
       origTarget.dispatchEvent(makeMouse('mouseup', t));
@@ -8513,29 +8508,33 @@ for (let i = 0; i < 16; i++) {
     for (const t of e.changedTouches) {
       const info = touchTargets[t.identifier];
       const origTarget = info ? info.target : t.target;
-      origTarget.dispatchEvent(makeMouse('mousemove', t));
 
-      // Un drag sur document ne peut venir que d'un touch qui a démarré
-      // dans la zone encodeurs (partie haute, startY < seuil)
-      // Les touches qui démarrent dans la zone steps/piano/clavier sont ignorées
+      // Règle fondamentale : seul le doigt qui a touché un encodeur/molette
+      // (_dragTouchId) peut déclencher un mousemove sur document.
+      // Tous les autres doigts (hold step, hold pad, hold track, etc.)
+      // reçoivent leur mousemove localement mais ne propagent PAS sur document.
+      const isDragTouch = (t.identifier === window._dragTouchId);
+
+      // Dispatch local sur l'élément cible (pour les handlers directs)
+      // mais avec stopPropagation pour éviter la remontée vers document
+      // si ce n'est pas le doigt de drag
+      if (!isDragTouch) {
+        // Créer un événement non-bubbling pour éviter qu'il remonte
+        const localEv = new MouseEvent('mousemove', {
+          bubbles: false, cancelable: true,
+          clientX: t.clientX, clientY: t.clientY,
+          screenX: t.screenX, screenY: t.screenY,
+          button: 0, buttons: 1
+        });
+        origTarget.dispatchEvent(localEv);
+        continue; // ne pas aller sur document
+      }
+
+      // C'est le doigt de drag : dispatch normal sur document
+      // mais seulement s'il vient de la zone encodeurs (pas de la zone steps)
       if (info && info.startY >= yThreshold) continue;
-
-      // Filtre de proximité : ignorer les sauts > 60px (doigt parasite)
-      if (info) {
-        const dist = Math.abs(t.clientY - info.startY) + Math.abs(t.clientX - info.startX);
-        // On met à jour startY pour les prochains moves (suivi continu)
-        // mais seulement si le touch est dans la zone encodeurs
-      }
-
-      // Ne pas dispatcher sur document si c'est le doigt qui maintient un pad drum ou un bouton track
-      // (évite que ses micro-mouvements bougent le volDrag)
-      if (t.identifier === _padHoldTouchId || t.identifier === _trackHoldTouchId) continue;
-      if (window._dragTouchId !== null) {
-        if (t.identifier === window._dragTouchId)
-          document.dispatchEvent(makeMouse('mousemove', t));
-      } else {
-        document.dispatchEvent(makeMouse('mousemove', t));
-      }
+      origTarget.dispatchEvent(makeMouse('mousemove', t));
+      document.dispatchEvent(makeMouse('mousemove', t));
     }
     e.preventDefault();
   }, { passive: false });
