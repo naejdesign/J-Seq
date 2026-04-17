@@ -376,19 +376,19 @@ body {
 <!-- ══ CROIX DIRECTIONNELLE ══ -->
 <g id="btnLeft" cursor="pointer">
   <circle cx="43" cy="257" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M47 252 L41 257 L47 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M45 252 L39 257 L45 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnRight" cursor="pointer">
   <circle cx="115" cy="257" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M111 252 L117 257 L111 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M113 252 L119 257 L113 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnPlus" cursor="pointer">
   <circle cx="79" cy="233" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 238 L79 232 L84 238" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M74 235 L79 229 L84 235" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnMinus" cursor="pointer">
   <circle cx="79" cy="281" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 276 L79 282 L84 276" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M74 279 L79 285 L84 279" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 
 <!-- ══ BPM display sur OLED (overlay dynamique) ══════════════════ -->
@@ -1510,7 +1510,7 @@ const JUNOX_SECTIONS = [
   },
   {
     id: 'arp', name: 'ARP', color: '#f44',
-    icon: 'RECTS:-7,12,18,3,1.5|7,7,18,3,1.5|21,2,18,3,1.5',
+    icon: 'RECTS:-7,14,16,3,1.5|7,8,16,3,1.5|21,2,16,3,1.5',
     params: [
       { key:'_arpEnabled', name:'ARP', min:0, max:1, def:0, log:false,
         cycle:true, labels:['OFF','ON'], fmt: v => Math.round(v) ? 'ON' : 'OFF' },
@@ -7468,6 +7468,13 @@ document.addEventListener('keydown', e => {
   if (e.repeat) return; // ignorer l'auto-repeat
   const key = e.key.toLowerCase();
 
+  // Enter / NumpadEnter = bouton A gamepad
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+    e.preventDefault();
+    gamepadBDown();
+    return;
+  }
+
   // Shift physique
   if (e.key === 'Shift') {
     setShiftOn(true);
@@ -7655,6 +7662,13 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
 });
 
 document.addEventListener('keyup', e => {
+  // Enter / NumpadEnter = bouton A gamepad
+  if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+    e.preventDefault();
+    gamepadBUp();
+    return;
+  }
+
   // Relâchement touches track → reset _heldTrack
   const keyLow = e.key.toLowerCase();
   if (['&','1','é','2','"','3',"'",'4'].includes(e.key)) S._heldTrack = -1;
