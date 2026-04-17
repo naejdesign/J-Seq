@@ -375,20 +375,20 @@ body {
 -->
 <!-- ══ CROIX DIRECTIONNELLE ══ -->
 <g id="btnLeft" cursor="pointer">
-  <circle cx="48" cy="257" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M52 252 L46 257 L52 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="43" cy="257" r="14" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M47 252 L41 257 L47 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnRight" cursor="pointer">
-  <circle cx="110" cy="257" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M106 252 L112 257 L106 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="115" cy="257" r="14" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M111 252 L117 257 L111 262" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnPlus" cursor="pointer">
-  <circle cx="79" cy="238" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 242 L79 236 L84 242" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="79" cy="233" r="14" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M74 238 L79 232 L84 238" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnMinus" cursor="pointer">
   <circle cx="79" cy="281" r="14" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 277 L79 283 L84 277" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M74 276 L79 282 L84 276" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 
 <!-- ══ BPM display sur OLED (overlay dynamique) ══════════════════ -->
@@ -9638,8 +9638,20 @@ svg('encVol').addEventListener('touchend', function(e) {
   e.preventDefault();
   svg('encVol').setAttribute('stroke', '#3a3a3a');
   svg('encVol').setAttribute('stroke-width', '1.5');
-  if (!anyStepHeld()) S._oledLocked = false;
+  const lastDrag = volDrag;
   volDrag = null;
+  if (!anyStepHeld()) {
+    S._oledLocked = false;
+    // Retour OLED après réglage drumpad ou track (même comportement que mouseup global)
+    if (lastDrag && (lastDrag.type === 'drumpad' || lastDrag.type === 'track') && lastDrag.moved) {
+      setTimeout(() => {
+        if (S._oledLocked) return;
+        const t = S.tracks[S.currentTrack];
+        if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
+        else oled('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
+      }, 1200);
+    }
+  }
 }, { passive: false });
 
 // encVol mousedown/mouseup pour desktop
