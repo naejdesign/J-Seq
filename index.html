@@ -11644,7 +11644,8 @@ function midiOnMessage(e) {
     // CC sur ch10 → forwarder vers drum track si elle est en MIDI out
     // MAIS les CC globaux (encodeurs, BPM, navigation) passent toujours dans midiCC
     if (ch === 10) {
-      const drumTi = S.tracks.findIndex(t => t.mode === 'drum');
+      const curIsDrum = S.tracks[S.currentTrack]?.mode === 'drum';
+      const drumTi = curIsDrum ? S.currentTrack : S.tracks.findIndex(t => t.mode === 'drum');
       if (drumTi >= 0 && S.tracks[drumTi].outputMode === 'midi') {
         const out = getTrackOutput(drumTi);
         if (out) {
@@ -12397,12 +12398,16 @@ function midiNoteOn(midi, velocity, ch) {
   ensureAudio();
   const vel = velocity / 127;
 
-  // ── Channel 10 → toujours router vers la première track drum ──
+  // ── Channel 10 → router vers la track drum actuellement sélectionnée ──
+  // Si la track courante est drum, on l'utilise ; sinon la première drum trouvée
   if (ch === 10 && isDrumMidi(midi)) {
-    const drumTrackIdx = S.tracks.findIndex(t => t.mode === 'drum');
+    const curIsDrum = S.tracks[S.currentTrack]?.mode === 'drum';
+    const drumTrackIdx = curIsDrum
+      ? S.currentTrack
+      : S.tracks.findIndex(t => t.mode === 'drum');
     if (drumTrackIdx >= 0) {
       const padIdx = midi - DRUM_MIDI_BASE;
-      triggerDrumPad(padIdx, vel, drumTrackIdx); // trackIdx explicite, pas de changement de currentTrack
+      triggerDrumPad(padIdx, vel, drumTrackIdx);
       midiState.heldNotes.set(midi, true);
       return;
     }
