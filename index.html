@@ -2266,7 +2266,7 @@ const FX_DEFS = [
     },
   },
   {
-    id: 'compressor', name: 'Compress', color: '#4fa',
+    id: 'compressor', name: 'Compressor', color: '#4fa',
     params: [
       { name: 'Thresh',  key: '_threshold', min: -60, max: 0,   def: -20,  log: false },
       { name: 'Ratio',   key: '_ratio',     min: 1,   max: 20,  def: 3,    log: false },
@@ -2456,7 +2456,7 @@ const FX_DEFS = [
     },
   },
   {
-    id: 'saturation', name: 'Saturate', color: '#f84',
+    id: 'saturation', name: 'Saturator', color: '#f84',
     params: [
       { name: 'Drive', key: '_drive', min: -12, max: 12, def: 0, step: 1, log: false },
       { name: 'Type',  key: '_type',  min: 0,   max: 7,  def: 0, log: false, labels: ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'], cycle: true },
@@ -9379,13 +9379,25 @@ svg('wheel').addEventListener('mouseup', e => {
 svg('wheel').addEventListener('mousedown', e => {
   const now = Date.now();
   
-  // Double-tap → reset BPM à 120
+  // Double-tap → reset contextuel
   if (now - _wheelLastTap < 350) {
     _wheelLastTap = 0;
-    setBpm(120);
-    oledForce('BPM', '120', 'RESET');
     svg('wheel').setAttribute('stroke', '#aaa');
     svg('wheel').setAttribute('stroke-width', '2.5');
+    // Si step master tenu → reset BPM de ce step
+    const isMasterDbl = S.tracks[S.currentTrack].mode === 'master';
+    if (isMasterDbl && anyStepHeld()) {
+      const res = getHeldSt();
+      if (res && res.st.on) {
+        res.st.note = S.bpm; // reset à la valeur BPM globale courante
+        if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+        renderSteps();
+        oledForce(`STEP ${res.idx+1}`, `${S.bpm} BPM`, 'RESET');
+      }
+    } else {
+      setBpm(120);
+      oledForce('BPM', '120', 'RESET');
+    }
     setTimeout(() => {
       svg('wheel').setAttribute('stroke', '#3a3a3a');
       svg('wheel').setAttribute('stroke-width', '1.5');
@@ -15011,8 +15023,22 @@ requestAnimationFrame(pollGamepad);
       const now = Date.now();
       if (_tap['encVol'] && now - _tap['encVol'] < 350) {
         _tap['encVol'] = 0;
-        setMasterVolume(0.80);
-        oledForce('VOL MASTER', '80%', 'RESET');
+        // Contexte : track tenue → reset volume de cette track
+        if (S._heldTrack >= 0) {
+          const t = S.tracks[S._heldTrack];
+          t.volume = 0.8;
+          oledForce(`VOL T${S._heldTrack+1}`, '80%', 'RESET');
+        // Contexte : drum pad tenu → reset volume du pad
+        } else if (S._heldDrumPad >= 0 && S.tracks[S.currentTrack]?.mode === 'drum') {
+          const t = S.tracks[S.currentTrack];
+          if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
+          t.drumPads[S._heldDrumPad].volume = 1.0;
+          oledForce(`PAD ${S._heldDrumPad+1} VOL`, '100%', 'RESET');
+        // Défaut : reset volume master
+        } else {
+          setMasterVolume(0.80);
+          oledForce('VOL MASTER', '80%', 'RESET');
+        }
         e.preventDefault();
       } else {
         _tap['encVol'] = now;
