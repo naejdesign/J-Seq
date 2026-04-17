@@ -7595,12 +7595,6 @@ document.addEventListener('keydown', e => {
   const stepIdx = STEP_CODES.indexOf(e.code);
   if (stepIdx >= 0) {
     ensureAudio();
-    // Shift + step 0 (W) = toggle project mode
-    if (S.shiftHeld && stepIdx === 0) {
-      if (projectModeActive) exitProjectMode();
-      else enterProjectMode();
-      return;
-    }
     if (projectModeActive) {
       // En project mode, les steps = pages
       projectPage = stepIdx;
@@ -8366,13 +8360,6 @@ for (let i = 0; i < 16; i++) {
 
       // ── Session mode : steps non utilisés ──
       if (S.mode === 'session') return;
-
-      // ── Shift + step 0 = toggle project mode ──
-      if (S.shiftHeld && idx === 0) {
-        if (projectModeActive) exitProjectMode();
-        else enterProjectMode();
-        return;
-      }
 
       // ── PROJECT MODE : steps = navigation pages ──
       if (projectModeActive) {
@@ -13134,6 +13121,20 @@ function sf2BrowserLoadCatalogue(entries) {
 
 // ── Rendu colonne gauche : catégories ─────────────────────────────────────
 
+// Helper : double-tap sûr — vérifie que les 2 clics sont sur le MÊME élément
+function safeDblClick(el, action, delay) {
+  delay = delay || 350;
+  el.addEventListener('click', function() {
+    var now = Date.now();
+    if (now - (el._dblT || 0) < delay) {
+      el._dblT = 0;
+      action();
+    } else {
+      el._dblT = now;
+    }
+  });
+}
+
 function renderSF2CategoryList() {
   const list = document.getElementById('sf2FileList');
   if (!sf2Browser.categories.length) {
@@ -13183,7 +13184,7 @@ function renderSF2SoundList(sounds) {
   list.querySelectorAll('.brItem').forEach(el => {
     const idx = parseInt(el.dataset.idx);
     el.addEventListener('click',    () => sf2SoundClick(idx));
-    el.addEventListener('dblclick', () => sf2SoundConfirm(idx));
+    safeDblClick(el, () => sf2SoundConfirm(idx));
   });
   const active = list.querySelector('.active-preset');
   if (active) active.scrollIntoView({ block: 'center' });
@@ -13623,9 +13624,7 @@ function junoxBrRenderList() {
     });
 
     // Double-tap → confirmer et fermer
-    el.addEventListener('dblclick', () => {
-      junoxBrConfirm(idx);
-    });
+    safeDblClick(el, () => junoxBrConfirm(idx));
 
     container.appendChild(el);
   });
@@ -13749,7 +13748,7 @@ function drumBrRenderSynthList(pad) {
   list.querySelectorAll('.brItem').forEach(el => {
     const name = el.dataset.synth;
     el.addEventListener('click',    () => drumBrPreviewSynth(name));
-    el.addEventListener('dblclick', () => drumBrConfirmSynth(name));
+    safeDblClick(el, () => drumBrConfirmSynth(name));
   });
 }
 
@@ -13852,7 +13851,7 @@ function drumBrRenderFileList() {
   list.querySelectorAll('.brItem').forEach(el => {
     const idx = parseInt(el.dataset.idx);
     el.addEventListener('click',    () => drumBrPreviewFile(idx));
-    el.addEventListener('dblclick', () => drumBrConfirmFile(idx));
+    safeDblClick(el, () => drumBrConfirmFile(idx));
   });
   const active = list.querySelector('.active-file');
   if (active) active.scrollIntoView({ block: 'center' });
