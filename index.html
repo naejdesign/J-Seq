@@ -8562,9 +8562,16 @@ for (let i = 0; i < 16; i++) {
         }
       } else {
         // Pas d'encodeur actif : bloquer les touches qui ont démarré
-        // dans la zone basse (steps, pads — pour éviter que le doigt
-        // qui maintient un step/pad perturbe un drag dans le panel FX)
+        // dans la zone basse (steps, pads) OU sur un bouton track/dpad
+        // pour éviter que ces doigts perturbent un drag dans le panel FX
         if (info && info.startY >= yThreshold) continue;
+        const startId = info ? (info.target.id || '') : '';
+        if (/^trkBtn\d$/.test(startId)) continue;
+        // Aussi bloquer les touches sur les pads drum et les boutons dpad
+        if (info && info.target.getAttribute && (
+          info.target.getAttribute('data-drumpad') !== null ||
+          /^btn(Left|Right|Plus|Minus)$/.test(startId)
+        )) continue;
       }
 
       origTarget.dispatchEvent(makeMouse('mousemove', t));
