@@ -1412,29 +1412,40 @@ const junoxInitializing = Array(8).fill(false); // une entrée par track
 // ti : index de track (1-6, T1 et T8 sont verrouillées)
 // newType : 'sf2' | 'junox' | 'drum'
 // ═══════════════════════════════════════════════════════════════
+let _switchTrackTypeBusy = false;
 async function switchTrackType(ti, newType) {
   // Vérification : T1 et T8 sont verrouillées
   if (LOCKED_TRACK_MODES[ti] !== undefined) {
     console.warn(`[switchTrackType] T${ti+1} est verrouillée`);
     return;
   }
+  if (_switchTrackTypeBusy) return;
+  _switchTrackTypeBusy = true;
 
   const t = S.tracks[ti];
   const oldOutputMode = t.outputMode;
   const oldMode = t.mode;
 
   // Pas de changement
-  if (newType === oldOutputMode || (newType === 'drum' && oldMode === 'drum')) return;
+  if (newType === oldOutputMode || (newType === 'drum' && oldMode === 'drum')) {
+    _switchTrackTypeBusy = false;
+    return;
+  }
 
   // ── Démontage de l'ancien type ──
   if (oldOutputMode === 'junox') {
     // Arrêter les notes en cours
-    if (junoxNodes[ti]) junoxNoteAllOff(ti);
+    if (junoxNodes[ti]) { try { junoxAllNotesOff(ti); } catch(e) {} }
     destroyJunox(ti);
   } else if (oldMode === 'drum') {
     // Rien de spécial à démonter pour drum (pas de nœud audio dédié)
   }
   // SF2 : les nœuds SF2 sont gérés globalement, pas par track
+
+  // ── Fermer tous les browsers ouverts ──
+  document.getElementById('sf2Browser').classList.remove('open');
+  document.getElementById('junoxBrowser').classList.remove('open');
+  document.getElementById('drumBrowser').classList.remove('open');
 
   // ── Mise à jour du mode et outputMode ──
   if (newType === 'drum') {
@@ -1467,6 +1478,7 @@ async function switchTrackType(ti, newType) {
   const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNOX' : 'SF2';
   oled(`T${ti+1} → ${typeName}`, 'type changé', trackInfo());
   console.log(`[switchTrackType] T${ti+1}: ${oldOutputMode} → ${newType}`);
+  _switchTrackTypeBusy = false;
 }
 
 // Page Junox courante : 'main' ou index de section (0-5)
@@ -1650,8 +1662,11 @@ async function initJunox(ti) {
   junoxInitializing[ti] = true;
   ensureAudio();
   try {
-    // Patch de départ : Strings 1
-    const patch = { ...Junox.defaultPatch, dco: { ...Junox.defaultPatch.dco, sub: true } };
+    // Utiliser le patch existant si disponible, sinon Strings 1 par défaut
+    const existingPatch = junoxPatches[ti];
+    const patch = existingPatch
+      ? JSON.parse(JSON.stringify(existingPatch))
+      : { ...Junox.defaultPatch, dco: { ...Junox.defaultPatch.dco, sub: true } };
     junoxPatches[ti] = patch;
 
     const node = await Junox.createJuno60(actx, patch, { polyphony: 16 });
@@ -14091,6 +14106,13 @@ function openDrumBrowser() {
   ensureAudio();
   const ti = S.currentTrack;
   updateBrowserTrackLabel('drum', ti);
+  // Cacher le bouton type-switcher sur T1 (track drum fixe)
+  const typeBtn = document.getElementById('drumBrTrackLabel');
+  if (typeBtn) {
+    typeBtn.style.pointerEvents = LOCKED_TRACK_MODES[ti] !== undefined ? 'none' : '';
+    typeBtn.style.opacity = LOCKED_TRACK_MODES[ti] !== undefined ? '0.4' : '';
+    typeBtn.style.cursor = LOCKED_TRACK_MODES[ti] !== undefined ? 'default' : '';
+  }
   const t  = S.tracks[ti];
   if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
   drumBr.padIdx = S.selectedDrumPad;
