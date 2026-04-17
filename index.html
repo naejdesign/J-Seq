@@ -551,8 +551,8 @@ body {
 <div id="junoxBrowser" class="brOverlay" style="z-index:102">
   <div id="junoxBrHeader" class="brHeader">
     <span class="brTrackLabel" style="color:#4cf">JUNOX T2</span>
+    <button id="junoxBrSaveBtn" class="brFolderBtn">💾 Save preset</button>
     <span id="junoxBrCurrent" class="brCurrentLabel">—</span>
-    <button id="junoxBrSaveBtn" title="Save current preset" style="background:none;border:1px solid #4cf;border-radius:5px;color:#4cf;font-size:11px;padding:3px 8px;cursor:pointer;font-family:'DM Mono',monospace;margin-right:6px">SAVE</button>
     <button id="junoxBrCloseBtn" class="brCloseBtn">✕</button>
   </div>
   <div class="brBody" style="flex-direction:column">
@@ -572,6 +572,17 @@ body {
     <div style="display:flex;gap:10px;justify-content:flex-end">
       <button id="junoxSaveCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Annuler</button>
       <button id="junoxSaveConfirmBtn" style="background:#4cf;border:none;border-radius:5px;color:#000;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Sauvegarder</button>
+    </div>
+  </div>
+</div>
+<!-- Popup delete preset Junox -->
+<div id="junoxDeletePopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+  <div style="background:#1a1a1c;border:1px solid #555;border-radius:10px;padding:24px 28px;min-width:260px;font-family:'DM Mono',monospace">
+    <div style="color:#f44;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Supprimer ce preset ?</div>
+    <div id="junoxDeleteName" style="color:#eee;font-size:14px;margin-bottom:18px;padding:8px 10px;background:#111;border-radius:5px;border:1px solid #333"></div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button id="junoxDeleteCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Annuler</button>
+      <button id="junoxDeleteConfirmBtn" style="background:#f44;border:none;border-radius:5px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Supprimer</button>
     </div>
   </div>
 </div>
@@ -7858,7 +7869,7 @@ function confirmRoutingMenu() {
         renderRoutingMenu();
       } catch(err) {
         oledForce(`T${ti+1} · SF2`, 'Erreur !', err.message.slice(0,14));
-        setTimeout(() => { S._oledLocked = false; routingMenuMode = false; }, 2000);
+        setTimeout(() => { S._oledLocked = false; routingMenuMode = false; }, 1000);
       }
     };
     input.click();
@@ -7890,7 +7901,7 @@ function confirmRoutingMenu() {
     const portName = midiState.access?.outputs.get(t.midiOutputId)?.name || 'MIDI';
     closeRoutingMenu();
     oledForce(`T${ti+1}`, `${portName.slice(0,12)}`, `Ch ${t.midiChannel}`);
-    setTimeout(() => { S._oledLocked = false; }, 2000);
+    setTimeout(() => { S._oledLocked = false; }, 1000);
     renderTrackButtons();
   }
 }
@@ -9493,7 +9504,7 @@ document.addEventListener('mouseup', () => {
     const vel = bar[firstIdx]?.vel || 0.8;
     oledForce(`STEP ${firstIdx+1}`, `VÉL: ${Math.round(vel*127)}`, `(${Math.round(vel*100)}%)`);
     keepOledLocked = true;
-    setTimeout(() => { S._oledLocked = false; }, 2000);
+    setTimeout(() => { S._oledLocked = false; }, 1000);
   }
 
   wheelDrag = null;
@@ -10404,7 +10415,7 @@ function clearProjectLabels() {
         updateSendArcs();
         const name = data._meta?.name || `P${projectPage+1}·${slotNum}`;
         oledForce('LOAD', name, `${data.bpm} BPM`);
-        setTimeout(() => { S._oledLocked = false; }, 2000);
+        setTimeout(() => { S._oledLocked = false; }, 1000);
       }
       return;
     }
@@ -10436,7 +10447,7 @@ function clearProjectLabels() {
       renderSteps();
       saveUndo();
       oledForce('NEW', name, `P${projectPage+1}·${slotNum}`);
-      setTimeout(() => { S._oledLocked = false; }, 2000);
+      setTimeout(() => { S._oledLocked = false; }, 1000);
     } else {
       // 1er clic : juste sélectionner visuellement
       _projectLastClick = { slot, time: now };
@@ -13689,15 +13700,61 @@ function junoxBrRenderList() {
   list.forEach((preset, idx) => {
     const el = document.createElement('div');
     el.className = 'brItem' + (idx === junoxBr.activeIdx ? ' active-preset' : '');
-    // Badge discret pour les presets utilisateur
     const badge = preset._user ? ' <span style="font-size:9px;color:#4cf;opacity:0.7">★</span>' : '';
     el.innerHTML = `<span class="brName">${preset.name}${badge}</span><span class="brSub">${idx + 1}</span>`;
 
     el.addEventListener('click', () => junoxBrSelect(idx));
     safeDblClick(el, () => junoxBrConfirm(idx));
 
+    // Long-press 2s → supprimer (presets utilisateur uniquement)
+    if (preset._user) {
+      let _longTimer = null;
+      const startLong = () => {
+        _longTimer = setTimeout(() => { _longTimer = null; junoxBrOpenDeletePopup(idx); }, 1000);
+      };
+      const cancelLong = () => { if (_longTimer) { clearTimeout(_longTimer); _longTimer = null; } };
+      el.addEventListener('mousedown', startLong);
+      el.addEventListener('touchstart', startLong, { passive: true });
+      el.addEventListener('mouseup', cancelLong);
+      el.addEventListener('mouseleave', cancelLong);
+      el.addEventListener('touchend', cancelLong);
+      el.addEventListener('touchcancel', cancelLong);
+    }
+
     container.appendChild(el);
   });
+}
+
+function junoxBrOpenDeletePopup(idx) {
+  const preset = junoxBr.mergedList[idx];
+  if (!preset || !preset._user) return;
+  junoxBr._deleteIdx = idx;
+  document.getElementById('junoxDeleteName').textContent = preset.name;
+  document.getElementById('junoxDeletePopup').style.display = 'flex';
+}
+
+function junoxBrCloseDeletePopup() {
+  document.getElementById('junoxDeletePopup').style.display = 'none';
+  junoxBr._deleteIdx = null;
+}
+
+function junoxBrDoDelete() {
+  const idx = junoxBr._deleteIdx;
+  const preset = junoxBr.mergedList[idx];
+  if (!preset || !preset._user) return;
+
+  const users = junoxUserPresetsLoad();
+  const newUsers = users.filter(p => p.name !== preset.name);
+  junoxUserPresetsSave(newUsers);
+  junoxBrCloseDeletePopup();
+
+  // Rafraîchir la liste
+  const list = junoxBrBuildList();
+  document.getElementById('junoxBrCount').textContent = list.length + ' presets';
+  junoxBr.activeIdx = Math.min(junoxBr.activeIdx ?? 0, list.length - 1);
+  junoxBrRenderList();
+  oledForce('JUNOX', preset.name, 'supprimé');
+  setTimeout(() => { S._oledLocked = false; }, 1500);
 }
 
 function junoxBrSelect(idx) {
@@ -13808,6 +13865,8 @@ function initJunoxBrowserUI() {
     if (e.key === 'Enter') junoxBrDoSave();
     if (e.key === 'Escape') junoxBrCloseSavePopup();
   });
+  document.getElementById('junoxDeleteCancelBtn')?.addEventListener('click', junoxBrCloseDeletePopup);
+  document.getElementById('junoxDeleteConfirmBtn')?.addEventListener('click', junoxBrDoDelete);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -14947,7 +15006,7 @@ async function exportProjectZip(slot, data) {
 
     closeProjectBrowser();
     oledForce('EXPORT', name, '✓ ZIP téléchargé');
-    setTimeout(() => { S._oledLocked = false; }, 2000);
+    setTimeout(() => { S._oledLocked = false; }, 1000);
 
   } catch(e) {
     console.error('Export ZIP error:', e);
@@ -14986,7 +15045,7 @@ document.getElementById('prjBrFileInput').addEventListener('change', async funct
     closeProjectBrowser();
     renderProjectMode();
     oledForce('IMPORT', name, `→ slot ${(slot % 32) + 1}`);
-    setTimeout(() => { S._oledLocked = false; }, 2000);
+    setTimeout(() => { S._oledLocked = false; }, 1000);
 
   } catch(e) {
     console.error('Import ZIP error:', e);
