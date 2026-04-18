@@ -4,8 +4,8 @@
   "description": "Groovebox sequencer",
   "start_url": "./index.html",
   "display": "fullscreen",
-  "background_color": "#111114",
-  "theme_color": "#ff6b00",
+  "background_color": "#1a1a1c",
+  "theme_color": "#1a1a1c",
   "orientation": "landscape",
   "icons": [
     {
