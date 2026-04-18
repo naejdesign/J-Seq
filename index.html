@@ -22,7 +22,7 @@ html, body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #808080;
+  background: #1a1a1c;
   font-family: 'DM Mono', monospace;
   touch-action: none;
   overscroll-behavior: none; /* bloque pull-to-refresh et swipe de navigation */
@@ -303,16 +303,16 @@ body {
 <!-- R0 col0 — CURSOR MODE -->
 <!-- R0 — SETS/PROJECTS (bouton large) -->
 <g id="btnSession" cursor="pointer">
-  <rect x="754" y="113" width="77" height="32" rx="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <line x1="783" y1="124" x2="797" y2="124" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="783" y1="129" x2="797" y2="129" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="783" y1="134" x2="797" y2="134" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <rect x="754" y="107" width="77" height="32" rx="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <line x1="783" y1="118" x2="797" y2="118" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="783" y1="123" x2="797" y2="123" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <line x1="783" y1="128" x2="797" y2="128" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
 </g>
 
 <!-- R1 col0 — UNDO -->
 <g id="btnUndo" cursor="pointer">
-  <circle cx="770" cy="177" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g transform="translate(770,177) scale(1.083) translate(-12,-12)">
+  <circle cx="770" cy="174" r="18" fill="#222" stroke="#333" stroke-width="1"/>
+  <g transform="translate(770,174) scale(1.083) translate(-12,-12)">
     <path d="M7 13L3 9M3 9L7 5M3 9H16C18.7614 9 21 11.2386 21 14C21 16.7614 18.7614 19 16 19H11"
       stroke="#777" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
@@ -320,22 +320,22 @@ body {
 
 <!-- R1 col1 — LOOP -->
 <g id="btnLoop" cursor="pointer">
-  <circle cx="815" cy="177" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <g transform="translate(815,177) scale(0.0477) translate(-272,-272)">
+  <circle cx="815" cy="174" r="18" fill="#222" stroke="#333" stroke-width="1"/>
+  <g transform="translate(815,174) scale(0.0477) translate(-272,-272)">
     <path fill="#777" d="M545.487,269.909v7.995c0,65.811-53.546,119.338-119.344,119.338H331.24c0,0,22.023-14.931,17.235-46.589h77.668c40.122,0,72.761-32.633,72.761-72.755v-7.995c0-40.125-32.645-72.761-72.761-72.761h-106.85l0,0h-28.176l16.443,41.632c0.579,1.469,0.106,3.142-1.152,4.091c-1.266,0.957-3.003,0.951-4.256-0.018l-86.123-66.198c-0.872-0.665-1.374-1.696-1.374-2.784c0-1.09,0.502-2.125,1.374-2.79l86.123-66.204c0.632-0.496,1.389-0.733,2.146-0.733c0.745,0,1.489,0.231,2.116,0.707c1.259,0.952,1.731,2.627,1.146,4.093l-16.432,41.636h28.17v-0.006h106.844C491.941,150.562,545.487,204.104,545.487,269.909z M243.34,302.628c-1.253-0.964-2.991-0.97-4.256-0.012c-1.259,0.951-1.731,2.63-1.149,4.09l16.438,41.63h-28.174l0,0H119.344c-40.122,0-72.758-32.646-72.758-72.762v-7.997c0-40.117,32.642-72.759,72.758-72.759h77.667c-4.788-31.649,17.233-46.586,17.233-46.586h-94.9C53.543,148.233,0,201.767,0,267.578v7.997c0,65.811,53.543,119.345,119.344,119.345h106.843v-0.007h28.173l-16.438,41.63c-0.582,1.472-0.109,3.15,1.149,4.096c0.63,0.479,1.375,0.71,2.119,0.71c0.75,0,1.513-0.236,2.143-0.733l86.12-66.2c0.875-0.668,1.377-1.696,1.377-2.79c0-1.1-0.502-2.122-1.377-2.79L243.34,302.628z"/>
   </g>
 </g>
 
 <!-- R2 col0 — DELETE -->
 <g id="btnDelete" cursor="pointer">
-  <circle cx="770" cy="225" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="770" cy="225" r="18" fill="#222" stroke="#333" stroke-width="1"/>
   <line x1="762" y1="217" x2="778" y2="233" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
   <line x1="778" y1="217" x2="762" y2="233" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
 </g>
 
 <!-- R2 col1 — MUTE -->
 <g id="btnMute" cursor="pointer">
-  <circle cx="815" cy="225" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="815" cy="225" r="18" fill="#222" stroke="#333" stroke-width="1"/>
   <g stroke="#777" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
     <rect x="809" y="220" width="6" height="10" rx="1"/>
     <path d="M 815 221.5 L 821 217 L 821 233 L 815 228.5"/>
@@ -345,20 +345,20 @@ body {
 
 <!-- R3 col0 — COPY -->
 <g id="btnCopy" cursor="pointer">
-  <circle cx="770" cy="273" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="770" cy="277" r="18" fill="#222" stroke="#333" stroke-width="1"/>
   <g stroke="#777" stroke-width="1.4" fill="none" stroke-linecap="round">
-    <rect x="761" y="268" width="11" height="11" rx="1.5"/>
-    <line x1="767" y1="264" x2="776" y2="264"/>
-    <line x1="776" y1="264" x2="776" y2="275"/>
+    <rect x="761" y="272" width="11" height="11" rx="1.5"/>
+    <line x1="767" y1="268" x2="776" y2="268"/>
+    <line x1="776" y1="268" x2="776" y2="279"/>
   </g>
 </g>
 
 <!-- R3 col1 — SHIFT "..." -->
 <g id="btnShift" cursor="pointer">
-  <circle cx="815" cy="273" r="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <circle cx="807" cy="273" r="2.2" fill="#777"/>
-  <circle cx="815" cy="273" r="2.2" fill="#777"/>
-  <circle cx="823" cy="273" r="2.2" fill="#777"/>
+  <circle cx="815" cy="277" r="18" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="807" cy="277" r="2.2" fill="#777"/>
+  <circle cx="815" cy="277" r="2.2" fill="#777"/>
+  <circle cx="823" cy="277" r="2.2" fill="#777"/>
 </g>
 
 <!-- ══ 16 STEPS ═══════════════════════════════════════════════════
@@ -375,19 +375,19 @@ body {
 -->
 <!-- ══ CROIX DIRECTIONNELLE ══ -->
 <g id="btnLeft" cursor="pointer">
-  <circle cx="38" cy="255" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="38" cy="255" r="20" fill="#222" stroke="#333" stroke-width="1"/>
   <path d="M40 250 L34 255 L40 260" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnRight" cursor="pointer">
-  <circle cx="120" cy="255" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="120" cy="255" r="20" fill="#222" stroke="#333" stroke-width="1"/>
   <path d="M118 250 L124 255 L118 260" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnPlus" cursor="pointer">
-  <circle cx="79" cy="228" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="79" cy="228" r="20" fill="#222" stroke="#333" stroke-width="1"/>
   <path d="M74 230 L79 224 L84 230" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnMinus" cursor="pointer">
-  <circle cx="79" cy="281" r="16" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="79" cy="281" r="20" fill="#222" stroke="#333" stroke-width="1"/>
   <path d="M74 279 L79 285 L84 279" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 
@@ -550,7 +550,7 @@ body {
 </div>
 
 <!-- ══ JUNOX PRESET BROWSER ════════════════════════════════════ -->
-<div id="junoxBrowser" class="brOverlay" style="z-index:102">
+<div id="junoxBrowser" class="brOverlay">
   <div id="junoxBrHeader" class="brHeader">
     <button id="junoxBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#4cf" title="Change track type">T2 · JUNOX</button>
     <button id="junoxBrSaveBtn" class="brFolderBtn">💾 Save preset</button>
@@ -1457,8 +1457,6 @@ async function switchTrackType(ti, newType) {
     t.mode = 'melodic';
     t.outputMode = 'junox';
     TRACK_MODES[ti] = 'melodic';
-    // Initialiser Junox pour cette track si pas déjà fait
-    await initJunox(ti);
   } else { // sf2
     t.mode = 'melodic';
     t.outputMode = 'sf2';
@@ -1478,6 +1476,13 @@ async function switchTrackType(ti, newType) {
   const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNOX' : 'SF2';
   oled(`T${ti+1} → ${typeName}`, 'type changé', trackInfo());
   console.log(`[switchTrackType] T${ti+1}: ${oldOutputMode} → ${newType}`);
+
+  // Pour Junox : ouvrir le browser immédiatement, puis init audio en arrière-plan
+  if (newType === 'junox') {
+    openJunoxBrowser(ti);
+    initJunox(ti); // async, pas d'await — le browser est déjà visible
+  }
+
   _switchTrackTypeBusy = false;
 }
 
@@ -1716,15 +1721,20 @@ function junoxRebuildChain(ti) {
       node.connect(delay.input);
       delay.output.connect(reverb.input);
       reverb.output.connect(sat.input);
-      sat.output.connect(getMaster());
+      // GainNode volume track
+      const volGainJ = actx.createGain();
+      volGainJ.gain.value = S.tracks[ti]?.volume ?? 0.8;
+      sat.output.connect(volGainJ);
+      trackGainNodes[ti] = volGainJ;
+      volGainJ.connect(getMaster());
       // Sends master
       const t = S.tracks[ti];
       const dSend = actx.createGain();
       const rSend = actx.createGain();
       dSend.gain.value = t.sendDelay  || 0;
       rSend.gain.value = t.sendReverb || 0;
-      sat.output.connect(dSend); dSend.connect(getDelayBus());
-      sat.output.connect(rSend); rSend.connect(getReverbBus());
+      volGainJ.connect(dSend); dSend.connect(getDelayBus());
+      volGainJ.connect(rSend); rSend.connect(getReverbBus());
       trackSendNodes[ti] = { dSend, rSend };
     } else {
       // Fallback direct
@@ -2682,6 +2692,7 @@ const trackFX = Array.from({length:8}, () =>
 );
 // Nœuds send delay/reverb par track (créés dans fxRebuildChain, mis à jour en temps réel)
 const trackSendNodes = {};
+const trackGainNodes = {}; // GainNode par track pour contrôle volume en temps réel
 
 // Page FX courante : 'main' ou index d'effet en édition avancée
 let fxPage = 'main';
@@ -2814,6 +2825,16 @@ function fxRebuildChain(ti) {
     console.warn('[FX] Erreur chaîne FX track', ti, e);
     current = synthNode;
   }
+
+  // GainNode volume track (contrôle temps réel)
+  try {
+    const tVol = S.tracks[ti];
+    const volGain = actx.createGain();
+    volGain.gain.value = tVol.volume ?? 0.8;
+    current.connect(volGain);
+    current = volGain;
+    trackGainNodes[ti] = volGain;
+  } catch(e) {}
 
   // Connexion master
   try { current.connect(getMaster()); } catch(e) {
@@ -5081,7 +5102,7 @@ const noteName = m => noteNames[m%12] + (Math.floor(m/12)-1);
 // Types de sons synthétisés disponibles
 const DRUM_SYNTH_TYPES = [
   'Kick','Snare','Clap','HH Cl','HH Op','Tom',
-  'Crash','Triangle','Zap'
+  'Crash','Triangle','Zap','Rim','Conga','Bell'
 ];
 
 // Valeurs par défaut par type
@@ -5095,6 +5116,9 @@ const DRUM_SYNTH_DEFAULTS = {
   'Crash':    { tune:0, decay:0.8,  tone:0.6, drive:0, pan:0, chokeGroup:0 },
   'Triangle': { tune:0, decay:0.5,  tone:0.9, drive:0, pan:0, chokeGroup:0 },
   'Zap':      { tune:0, decay:0.15, tone:0.5, drive:0.2, pan:0, chokeGroup:0 },
+  'Rim':      { tune:0, decay:0.12, tone:0.65,drive:0.1, pan:0, chokeGroup:0 },
+  'Conga':    { tune:0, decay:0.25, tone:0.55,drive:0,   pan:0, chokeGroup:0 },
+  'Bell':     { tune:0, decay:0.7,  tone:0.75,drive:0,   pan:0, chokeGroup:0 },
 };
 
 // Fabrique un pad drum vide
@@ -5345,6 +5369,65 @@ function drumSynth(pad, vel, dest) {
     gZ.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     oZ.connect(gZ); buildChain(gZ);
     oZ.start(t); oZ.stop(t + decSec + 0.04);
+
+  } else if (type === 'Rim') {
+    // Rimshot réaliste : bruit blanc passe-bande (1k-5kHz) + corps carré court
+    // Couche 1 : bruit filtré passe-bande → son "clac" sec
+    const sR = noiseSrc(Math.max(0.03, decSec * 0.5));
+    const bpR = actx.createBiquadFilter();
+    bpR.type = 'bandpass';
+    bpR.frequency.value = 2500 * tuneRatio;
+    bpR.Q.value = 1.8;
+    const gnR = actx.createGain();
+    gnR.gain.setValueAtTime(vel * 1.2, t);
+    gnR.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.45);
+    gnR.gain.linearRampToValueAtTime(0, t + decSec * 0.45 + 0.01);
+    sR.connect(bpR); bpR.connect(gnR); gnR.connect(masterOut);
+    sR.start(t);
+    // Couche 2 : petit transient carré très court (le "rim" de la caisse)
+    const oR = actx.createOscillator(), gR = actx.createGain();
+    oR.type = 'square';
+    oR.frequency.value = 800 * tuneRatio;
+    gR.gain.setValueAtTime(vel * 0.35, t);
+    gR.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.12);
+    gR.gain.linearRampToValueAtTime(0, t + decSec * 0.12 + 0.01);
+    oR.connect(gR); gR.connect(masterOut);
+    oR.start(t); oR.stop(t + decSec * 0.12 + 0.02);
+
+  } else if (type === 'Conga') {
+    // Conga : sine avec pitch drop rapide, sonorité afro-latine
+    const oC2 = actx.createOscillator(), gC2 = actx.createGain();
+    oC2.type = 'sine';
+    const congaBase = 220 * tuneRatio;
+    oC2.frequency.setValueAtTime(congaBase * 2.2, t);
+    oC2.frequency.exponentialRampToValueAtTime(congaBase, t + decSec * 0.06);
+    gC2.gain.setValueAtTime(vel, t);
+    gC2.gain.exponentialRampToValueAtTime(vel * 0.3, t + decSec * 0.08);
+    gC2.gain.exponentialRampToValueAtTime(0.001, t + decSec);
+    gC2.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    oC2.connect(gC2); buildChain(gC2);
+    oC2.start(t); oC2.stop(t + decSec + 0.04);
+    // Légère attaque noise (frappe de peau)
+    const sC2 = noiseSrc(0.012), gnC2 = actx.createGain();
+    gnC2.gain.setValueAtTime(vel * 0.3, t);
+    gnC2.gain.exponentialRampToValueAtTime(0.001, t + 0.012);
+    sC2.connect(gnC2); buildChain(gnC2); sC2.start(t);
+
+  } else if (type === 'Bell') {
+    // Ride/Cymbal : mix de 6 oscillateurs hautes fréquences (simulation métallique)
+    const ratios = [1, 1.4142, 1.9, 2.67, 3.45, 4.2];
+    const baseFreq = 480 * tuneRatio;
+    ratios.forEach((r, i) => {
+      const oCy = actx.createOscillator(), gCy = actx.createGain();
+      oCy.type = i < 3 ? 'square' : 'sawtooth';
+      oCy.frequency.value = baseFreq * r;
+      const partialVol = vel * (i < 3 ? 0.12 : 0.06);
+      gCy.gain.setValueAtTime(partialVol, t);
+      gCy.gain.exponentialRampToValueAtTime(0.001, t + decSec * (0.4 + i * 0.1));
+      gCy.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+      oCy.connect(gCy); buildChain(gCy);
+      oCy.start(t); oCy.stop(t + decSec + 0.04);
+    });
 
   }
 }
@@ -6683,6 +6766,17 @@ function padNote(row, col) {
 // ═══════════════════════════════════════════════════════════════
 // ACTIONS
 // ═══════════════════════════════════════════════════════════════
+function cycleTrack(delta) {
+  // delta = +1 (suivante) ou -1 (précédente), cycle continu sur 8 tracks
+  const next = (S.currentTrack + 8 + delta) % 8;
+  const nextPage = Math.floor(next / 4);
+  if (nextPage !== S.page) { S.page = nextPage; }
+  selectTrack(next);
+  const slot = next % 4;
+  setBtnLit(`trkBtn${slot}`, true);
+  setTimeout(() => setBtnLit(`trkBtn${slot}`, false), 150);
+}
+
 function selectTrack(ti) {
   const prevTi = S.currentTrack;
   const prev   = S.tracks[prevTi];
@@ -7676,7 +7770,8 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(12);
     else if (S._loopHeld)                         duplicatePattern();
     else if (anyStepHeld())                       transposeHeldSteps(1);
-    else                                          navBar(1);
+    else if (S.shiftHeld)                         addBar();
+    else                                          cycleTrack(-1);
     return;
   }
   if (key === 'arrowdown') {
@@ -7686,7 +7781,8 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(-12);
     else if (S._loopHeld)                         halvePattern();
     else if (anyStepHeld())                       transposeHeldSteps(-1);
-    else                                          navBar(-1);
+    else if (S.shiftHeld)                         removeBar();
+    else                                          cycleTrack(1);
     return;
   }
   if (key === 'arrowleft')  {
@@ -7694,7 +7790,7 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     setDirBtnLit('btnLeft', true);
     if (S._loopHeld)         compressPattern();
     else if (anyStepHeld())  nudgeHeldSteps(-1);
-    else if (S.shiftHeld)    removeBar();
+    else if (S.shiftHeld)    navBar(-1);
     else                     moveStepCursor(-1);
     return;
   }
@@ -7703,7 +7799,7 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     setDirBtnLit('btnRight', true);
     if (S._loopHeld)         stretchPattern();
     else if (anyStepHeld())  nudgeHeldSteps(1);
-    else if (S.shiftHeld)    addBar();
+    else if (S.shiftHeld)    navBar(1);
     else                     moveStepCursor(1);
     return;
   }
@@ -8104,8 +8200,8 @@ const _trkTapCount  = {};
 
 for (let slot = 0; slot < 4; slot++) {
   svg(`trkBtn${slot}`).addEventListener('mousedown', () => { S._heldTrack = slot; });
-  svg(`trkBtn${slot}`).addEventListener('mouseup',   () => { S._heldTrack = -1; });
-  svg(`trkBtn${slot}`).addEventListener('mouseleave',() => { S._heldTrack = -1; });
+  svg(`trkBtn${slot}`).addEventListener('mouseup',   () => { if (!volDrag) S._heldTrack = -1; });
+  svg(`trkBtn${slot}`).addEventListener('mouseleave',() => { if (!volDrag) S._heldTrack = -1; });
   svg(`trkBtn${slot}`).addEventListener('click', () => {
     if (projectModeActive) return; // ignoré en mode project
     _trkTapCount[slot] = (_trkTapCount[slot] || 0) + 1;
@@ -9058,7 +9154,8 @@ svg('btnPlus').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(12);
   else if (anyStepHeld()) transposeHeldSteps(1);
-  else                    navBar(1);
+  else if (S.shiftHeld)   addBar();
+  else                    cycleTrack(-1);
 });
 
 svg('btnMinus').addEventListener('mousedown', e => {
@@ -9072,7 +9169,8 @@ svg('btnMinus').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(-12);
   else if (anyStepHeld()) transposeHeldSteps(-1);
-  else                    navBar(-1);
+  else if (S.shiftHeld)   removeBar();
+  else                    cycleTrack(1);
 });
 
 svg('btnLeft').addEventListener('mousedown', e => {
@@ -9085,7 +9183,7 @@ svg('btnLeft').addEventListener('mouseleave',() => setDirBtnLit('btnLeft',  fals
 svg('btnLeft').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (anyStepHeld())     nudgeHeldSteps(-1);
-  else if (S.shiftHeld)  removeBar();
+  else if (S.shiftHeld)  navBar(-1);
   else                   moveStepCursor(-1);
 });
 
@@ -9099,7 +9197,7 @@ svg('btnRight').addEventListener('mouseleave',() => setDirBtnLit('btnRight', fal
 svg('btnRight').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
   if (anyStepHeld())     nudgeHeldSteps(1);
-  else if (S.shiftHeld)  addBar();
+  else if (S.shiftHeld)  navBar(1);
   else                   moveStepCursor(1);
 });
 svg('btnShift').addEventListener('mousedown', () => {
@@ -9732,6 +9830,7 @@ svg('encVol').addEventListener('touchmove', function(e) {
   } else if (volDrag.type === 'track') {
     const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
+    if (trackGainNodes[volDrag.ti]) trackGainNodes[volDrag.ti].gain.value = newVol;
     oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
   } else if (volDrag.type === 'vel') {
     const st = currentStepBar()[volDrag.stepIdx];
@@ -9821,6 +9920,7 @@ document.addEventListener('mousemove', e => {
   } else if (volDrag.type === 'track') {
     const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
+    if (trackGainNodes[volDrag.ti]) trackGainNodes[volDrag.ti].gain.value = newVol;
     oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
   } else if (volDrag.type === 'vel') {
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
@@ -14645,9 +14745,9 @@ function initTypeButtons() {
       await switchTrackType(ti, newType);
 
       // Ouvrir le browser correspondant au nouveau type
-      if (newType === 'junox') openJunoxBrowser(ti);
-      else if (newType === 'drum') { S.currentTrack = ti; openDrumBrowser(); }
-      else openSF2Browser(ti);
+      // (junox est déjà ouvert par switchTrackType avant l'init audio)
+      if (newType === 'drum') { S.currentTrack = ti; openDrumBrowser(); }
+      else if (newType === 'sf2') openSF2Browser(ti);
     });
   }
 }
@@ -15001,19 +15101,19 @@ function dpadAction(name) {
         if (name === 'right') nudgeHeldSteps(1);
         return;
       }
-      // Priorité 3 : Shift maintenu → add/remove bar
+      // Priorité 3 : Shift maintenu → navBar (←/→) ou add/remove bar (↑/↓)
       if (S.shiftHeld) {
-        if (name === 'left')  removeBar();
-        if (name === 'right') addBar();
+        if (name === 'left')  navBar(-1);
+        if (name === 'right') navBar(1);
         if (name === 'up')    addBar();
         if (name === 'down')  removeBar();
         return;
       }
-      // Priorité 4 : Normal → curseur/navigation
+      // Priorité 4 : Normal → curseur (←/→) ou cycle track (↑/↓)
       if (name === 'left')  moveStepCursor(-1);
       if (name === 'right') moveStepCursor(1);
-      if (name === 'up')    navBar(1);
-      if (name === 'down')  navBar(-1);
+      if (name === 'up')    cycleTrack(-1);
+      if (name === 'down')  cycleTrack(1);
     }
 
     _gpDirs.forEach(d => {
