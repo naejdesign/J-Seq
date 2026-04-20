@@ -4728,7 +4728,8 @@ async function loadDefaultGM() {
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const contentLength = resp.headers.get('Content-Length');
       const total = contentLength ? parseInt(contentLength) : 0;
-      const reader = resp.body.getReader();
+      // Cloner avant de lire le stream (évite conflit avec le Service Worker)
+      const reader = resp.clone().body.getReader();
       const chunks = [];
       let received = 0;
       while (true) {
