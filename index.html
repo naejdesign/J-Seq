@@ -109,7 +109,7 @@ body {
   </filter>
   <!-- Clip pour l'écran OLED -->
   <clipPath id="oledClip">
-    <rect x="15" y="28" width="129" height="58" rx="2"/>
+    <rect x="15" y="18" width="129" height="58" rx="2"/>
   </clipPath>
 </defs>
 
@@ -121,31 +121,18 @@ body {
 <!-- ══ OLED ════════════════════════════════════════════════════════
   10mm/15mm → @2.745px/mm : x=27, y=41   72×35px → ~26×13mm
 -->
-<rect id="oled" x="11" y="25" width="137" height="64" rx="3" fill="#000" stroke="#3a3a3a" stroke-width="1"/>
+<path id="oled" d="M14 15 L145 15 Q148 15 148 18 L148 79 L11 79 L11 18 Q11 15 14 15 Z" fill="#000" stroke="#3a3a3a" stroke-width="1"/>
 <g clip-path="url(#oledClip)">
-  <text id="oTop"  x="16" y="39"  font-family="'DM Mono',monospace" font-size="9"  fill="#555" style="pointer-events:none">NOTE MODE</text>
-  <text id="oMain" x="16" y="57"  font-family="'DM Mono',monospace" font-size="14" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
-  <text id="oSub"  x="16" y="76"  font-family="'DM Mono',monospace" font-size="9"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
+  <text id="oTop"  x="16" y="29"  font-family="'DM Mono',monospace" font-size="9"  fill="#555" style="pointer-events:none">NOTE MODE</text>
+  <text id="oMain" x="16" y="47"  font-family="'DM Mono',monospace" font-size="14" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
+  <text id="oSub"  x="16" y="66"  font-family="'DM Mono',monospace" font-size="9"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
 </g>
 <!-- Zone de clic OLED — par dessus tout, capte les clics sur toute la surface -->
-<rect id="oledClickZone" x="11" y="25" width="137" height="64" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
+<rect id="oledClickZone" x="11" y="20" width="137" height="64" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
 
 <!-- ══ MOLETTE ═══════════════════════════════════════════════════
   Centre x=73, centre y=168  rayon=34
 -->
-
-<!-- ══ BPM WHEEL + PROJECT BUTTON ════════════════════════════════ -->
-<circle id="wheel" cx="54" cy="127" r="20" fill="#222" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
-<circle cx="54" cy="127" r="16" fill="none" stroke="#2a2a2a" stroke-width="0.8" pointer-events="none"/>
-<text x="54" y="131" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">BPM</text>
-
-<g id="btnSets" cursor="pointer">
-  <rect x="84" y="107" width="43" height="38" rx="6" fill="#222" stroke="#333" stroke-width="1"/>
-  <g fill="none" stroke="#777" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round">
-    <path d="M98 118 L98 134 L112 134 L112 122 L108 118 Z"/>
-    <path d="M108 118 L108 122 L112 122"/>
-  </g>
-</g>
 
 <!-- ══ PLAY + RECORD ══════════════════════════════════════════════
   y=360
@@ -157,10 +144,10 @@ body {
   gap=5, largeur=28, hauteur des pads
   Rangées y: 107, 152, 197, 242
 -->
-<rect id="trkBtn0" x="162" y="107" width="14" height="44" rx="7" fill="#ff6b00" opacity="1" cursor="pointer"/>
-<rect id="trkBtn1" x="162" y="155" width="14" height="44" rx="7" fill="#3399ff" opacity="1" cursor="pointer"/>
-<rect id="trkBtn2" x="162" y="203" width="14" height="44" rx="7" fill="#3ddc84" opacity="1" cursor="pointer"/>
-<rect id="trkBtn3" x="162" y="251" width="14" height="44" rx="7" fill="#cc44ff" opacity="1" cursor="pointer"/>
+<rect id="trkBtn0" x="162" y="107" width="18" height="44" rx="7" fill="#ff6b00" opacity="1" cursor="pointer"/>
+<rect id="trkBtn1" x="162" y="155" width="18" height="44" rx="7" fill="#3399ff" opacity="1" cursor="pointer"/>
+<rect id="trkBtn2" x="162" y="203" width="18" height="44" rx="7" fill="#3ddc84" opacity="1" cursor="pointer"/>
+<rect id="trkBtn3" x="162" y="251" width="18" height="44" rx="7" fill="#cc44ff" opacity="1" cursor="pointer"/>
 
 <!-- ══ 32 PADS 4×8 ════════════════════════════════════════════════
   x start=190, pad_w=58, pad_h=44, gap=6
@@ -242,56 +229,56 @@ body {
   On recalcule: pad cols x: 190,254,318,382,446,510,574,638 → centres: 219,283,347,411,475,539,603,667
 -->
 <g id="encoders">
-  <circle id="enc0" cx="190" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc1" cx="291" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc2" cx="392" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc3" cx="494" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc4" cx="595" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
-  <circle id="enc5" cx="696" cy="52" r="21" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc0" cx="212" cy="52" r="22" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc1" cx="304" cy="52" r="22" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc2" cx="397" cy="52" r="22" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc3" cx="489" cy="52" r="22" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc4" cx="581" cy="52" r="22" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
+  <circle id="enc5" cx="674" cy="52" r="22" fill="#252527" stroke="#383838" stroke-width="1" cursor="ns-resize"/>
 </g>
 
 <!-- Labels encodeurs (illuminables) -->
 <g font-family="'DM Mono',monospace" font-size="12" text-anchor="middle">
-  <text id="encLbl0" x="190" y="87" fill="#2a2a2a">Length</text>
-  <text id="encLbl1" x="291" y="87" fill="#2a2a2a">Velocity</text>
-  <text id="encLbl2" x="392" y="87" fill="#2a2a2a">Offset</text>
-  <text id="encLbl3" x="494" y="87" fill="#2a2a2a">Probability</text>
-  <text id="encLbl4" x="595" y="87" fill="#2a2a2a">Delay</text>
-  <text id="encLbl5" x="696" y="87" fill="#2a2a2a">Reverb</text>
+  <text id="encLbl0" x="212" y="87" fill="#2a2a2a">Length</text>
+  <text id="encLbl1" x="304" y="87" fill="#2a2a2a">Velocity</text>
+  <text id="encLbl2" x="397" y="87" fill="#2a2a2a">Offset</text>
+  <text id="encLbl3" x="489" y="87" fill="#2a2a2a">Probability</text>
+  <text id="encLbl4" x="581" y="87" fill="#2a2a2a">Delay</text>
+  <text id="encLbl5" x="674" y="87" fill="#2a2a2a">Reverb</text>
 </g>
 <!-- Arcs encodeurs actifs (technique stroke-dasharray, r=11, rot=-225°) -->
-<!-- r=11 → circ=69.12, arc_total=69.12*0.75=51.84 -->
+<!-- r=18 → circ=113.10, arc_total=113.10*0.75=84.82 -->
 <g id="encArcs">
-  <circle id="encArc0" cx="190" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 113.1" stroke-linecap="round"
-    transform="rotate(-225 190 52)" pointer-events="none"/>
-  <circle id="encArc1" cx="291" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 113.1" stroke-linecap="round"
-    transform="rotate(-225 291 52)" pointer-events="none"/>
+  <circle id="encArc0" cx="212" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.10" stroke-linecap="round"
+    transform="rotate(-225 212 52)" pointer-events="none"/>
+  <circle id="encArc1" cx="304" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.10" stroke-linecap="round"
+    transform="rotate(-225 304 52)" pointer-events="none"/>
   <!-- enc2 : converti en circle comme les autres — l'arc bipolaire Offset est calculé dynamiquement via stroke-dashoffset en JS -->
-  <circle id="encArc2" cx="392" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 113.1" stroke-linecap="round"
-    transform="rotate(-225 392 52)" pointer-events="none"/>
-  <circle id="encArc3" cx="494" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 113.1" stroke-linecap="round"
-    transform="rotate(-225 494 52)" pointer-events="none"/>
-  <circle id="encArc4" cx="595" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 113.1" stroke-linecap="round"
-    transform="rotate(-225 595 52)" pointer-events="none"/>
-  <circle id="encArc5" cx="696" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
-    stroke-dasharray="0 113.1" stroke-linecap="round"
-    transform="rotate(-225 696 52)" pointer-events="none"/>
+  <circle id="encArc2" cx="397" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.10" stroke-linecap="round"
+    transform="rotate(-225 397 52)" pointer-events="none"/>
+  <circle id="encArc3" cx="489" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.10" stroke-linecap="round"
+    transform="rotate(-225 489 52)" pointer-events="none"/>
+  <circle id="encArc4" cx="581" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.10" stroke-linecap="round"
+    transform="rotate(-225 581 52)" pointer-events="none"/>
+  <circle id="encArc5" cx="674" cy="52" r="18" fill="none" stroke="none" stroke-width="2.5"
+    stroke-dasharray="0 113.10" stroke-linecap="round"
+    transform="rotate(-225 674 52)" pointer-events="none"/>
 </g>
 
 <!-- ══ ENCODEUR VOLUME (haut droite) ═════════════════════════════
   10mm bord droit = 860-27=833, 15mm haut → y bord=25, centre=25+21=46, r=21
 -->
-<circle id="encVol" cx="793" cy="52" r="21" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
-<circle cx="793" cy="52" r="17" fill="none" stroke="#2a2a2a" stroke-width="0.8" pointer-events="none"/>
-<text x="793" y="56" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">VOL</text>
+<circle id="encVol" cx="783" cy="52" r="22" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
+<circle cx="783" cy="52" r="17" fill="none" stroke="#2a2a2a" stroke-width="0.8" pointer-events="none"/>
+<text x="783" y="56" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">VOL</text>
 <!-- Indicateur MIDI connecté (entre enc7 et encVol) -->
-<circle id="midiDot" cx="745" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
-<text id="midiLbl" x="745" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
+<circle id="midiDot" cx="729" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
+<text id="midiLbl" x="729" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
 
 <!-- ══ 8 BOUTONS FONCTION DROITS ══════════════════════════════════
   Zone droite: x cols 770 et 810, rows y=128,178,228,278 (centrés rangées pads)
@@ -301,16 +288,28 @@ body {
 <!-- R0 col0 — CURSOR MODE -->
 <!-- R0 — SETS/PROJECTS (bouton large) -->
 <g id="btnSession" cursor="pointer">
-  <rect x="754" y="107" width="77" height="32" rx="16" fill="#222" stroke="#333" stroke-width="1"/>
-  <line x1="783" y1="118" x2="797" y2="118" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="783" y1="123" x2="797" y2="123" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
-  <line x1="783" y1="128" x2="797" y2="128" stroke="#888" stroke-width="1.8" stroke-linecap="round"/>
+  <path d="M79 79 L148 79 L148 99 Q148 102 145 102 L79 102 L79 79 Z" fill="#222" stroke="#333" stroke-width="1"/>
+  <!-- Icône burger centrée sur cx=113, cy=98 -->
+  <line x1="108" y1="86" x2="118" y2="86" stroke="#666" stroke-width="1.3" stroke-linecap="round"/>
+  <line x1="108" y1="90" x2="118" y2="90" stroke="#666" stroke-width="1.3" stroke-linecap="round"/>
+  <line x1="108" y1="94" x2="118" y2="94" stroke="#666" stroke-width="1.3" stroke-linecap="round"/>
+</g>
+
+<!-- ══ PROJECT BUTTON (sous OLED gauche) ══════════════ -->
+<g id="btnSets" cursor="pointer">
+  <path d="M11 79 L79 79 L79 102 L14 102 Q11 102 11 99 L11 79 Z" fill="#222" stroke="#333" stroke-width="1"/>
+  <!-- Icône fichier centrée sur cx=45, cy=98 -->
+  <g fill="none" stroke="#666" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"
+     transform="translate(45,90) translate(-5,-5)">
+    <path d="M0 0 L0 10 L10 10 L10 4 L6 0 Z"/>
+    <path d="M6 0 L6 4 L10 4"/>
+  </g>
 </g>
 
 <!-- R1 col0 — UNDO -->
 <g id="btnUndo" cursor="pointer">
-  <circle cx="770" cy="174" r="18" fill="#222" stroke="#333" stroke-width="1"/>
-  <g transform="translate(770,174) scale(1.083) translate(-12,-12)">
+  <circle cx="750" cy="135" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <g transform="translate(750,135) scale(1.083) translate(-12,-12)">
     <path d="M7 13L3 9M3 9L7 5M3 9H16C18.7614 9 21 11.2386 21 14C21 16.7614 18.7614 19 16 19H11"
       stroke="#777" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
   </g>
@@ -318,45 +317,45 @@ body {
 
 <!-- R1 col1 — LOOP -->
 <g id="btnLoop" cursor="pointer">
-  <circle cx="815" cy="174" r="18" fill="#222" stroke="#333" stroke-width="1"/>
-  <g transform="translate(815,174) scale(0.0477) translate(-272,-272)">
+  <circle cx="815" cy="135" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <g transform="translate(815,135) scale(0.0477) translate(-272,-272)">
     <path fill="#777" d="M545.487,269.909v7.995c0,65.811-53.546,119.338-119.344,119.338H331.24c0,0,22.023-14.931,17.235-46.589h77.668c40.122,0,72.761-32.633,72.761-72.755v-7.995c0-40.125-32.645-72.761-72.761-72.761h-106.85l0,0h-28.176l16.443,41.632c0.579,1.469,0.106,3.142-1.152,4.091c-1.266,0.957-3.003,0.951-4.256-0.018l-86.123-66.198c-0.872-0.665-1.374-1.696-1.374-2.784c0-1.09,0.502-2.125,1.374-2.79l86.123-66.204c0.632-0.496,1.389-0.733,2.146-0.733c0.745,0,1.489,0.231,2.116,0.707c1.259,0.952,1.731,2.627,1.146,4.093l-16.432,41.636h28.17v-0.006h106.844C491.941,150.562,545.487,204.104,545.487,269.909z M243.34,302.628c-1.253-0.964-2.991-0.97-4.256-0.012c-1.259,0.951-1.731,2.63-1.149,4.09l16.438,41.63h-28.174l0,0H119.344c-40.122,0-72.758-32.646-72.758-72.762v-7.997c0-40.117,32.642-72.759,72.758-72.759h77.667c-4.788-31.649,17.233-46.586,17.233-46.586h-94.9C53.543,148.233,0,201.767,0,267.578v7.997c0,65.811,53.543,119.345,119.344,119.345h106.843v-0.007h28.173l-16.438,41.63c-0.582,1.472-0.109,3.15,1.149,4.096c0.63,0.479,1.375,0.71,2.119,0.71c0.75,0,1.513-0.236,2.143-0.733l86.12-66.2c0.875-0.668,1.377-1.696,1.377-2.79c0-1.1-0.502-2.122-1.377-2.79L243.34,302.628z"/>
   </g>
 </g>
 
 <!-- R2 col0 — DELETE -->
 <g id="btnDelete" cursor="pointer">
-  <circle cx="770" cy="225" r="18" fill="#222" stroke="#333" stroke-width="1"/>
-  <line x1="762" y1="217" x2="778" y2="233" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
-  <line x1="778" y1="217" x2="762" y2="233" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="750" cy="201" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <line x1="742" y1="193" x2="758" y2="209" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
+  <line x1="758" y1="193" x2="742" y2="209" stroke="#777" stroke-width="2.2" stroke-linecap="round"/>
 </g>
 
 <!-- R2 col1 — MUTE -->
 <g id="btnMute" cursor="pointer">
-  <circle cx="815" cy="225" r="18" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="815" cy="201" r="22" fill="#222" stroke="#333" stroke-width="1"/>
   <g stroke="#777" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round">
-    <rect x="809" y="220" width="6" height="10" rx="1"/>
-    <path d="M 815 221.5 L 821 217 L 821 233 L 815 228.5"/>
-    <line x1="808" y1="218" x2="824" y2="232" stroke-width="1.6"/>
+    <rect x="809" y="196" width="6" height="10" rx="1"/>
+    <path d="M 815 197.5 L 821 193 L 821 209 L 815 204.5"/>
+    <line x1="808" y1="194" x2="824" y2="208" stroke-width="1.6"/>
   </g>
 </g>
 
 <!-- R3 col0 — COPY -->
 <g id="btnCopy" cursor="pointer">
-  <circle cx="770" cy="277" r="18" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="750" cy="267" r="22" fill="#222" stroke="#333" stroke-width="1"/>
   <g stroke="#777" stroke-width="1.4" fill="none" stroke-linecap="round">
-    <rect x="761" y="272" width="11" height="11" rx="1.5"/>
-    <line x1="767" y1="268" x2="776" y2="268"/>
-    <line x1="776" y1="268" x2="776" y2="279"/>
+    <rect x="741" y="262" width="11" height="11" rx="1.5"/>
+    <line x1="747" y1="258" x2="756" y2="258"/>
+    <line x1="756" y1="258" x2="756" y2="269"/>
   </g>
 </g>
 
 <!-- R3 col1 — SHIFT "..." -->
 <g id="btnShift" cursor="pointer">
-  <circle cx="815" cy="277" r="18" fill="#222" stroke="#333" stroke-width="1"/>
-  <circle cx="807" cy="277" r="2.2" fill="#777"/>
-  <circle cx="815" cy="277" r="2.2" fill="#777"/>
-  <circle cx="823" cy="277" r="2.2" fill="#777"/>
+  <circle cx="815" cy="267" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <circle cx="807" cy="267" r="2.2" fill="#777"/>
+  <circle cx="815" cy="267" r="2.2" fill="#777"/>
+  <circle cx="823" cy="267" r="2.2" fill="#777"/>
 </g>
 
 <!-- ══ 16 STEPS ═══════════════════════════════════════════════════
@@ -373,20 +372,20 @@ body {
 -->
 <!-- ══ CROIX DIRECTIONNELLE ══ -->
 <g id="btnLeft" cursor="pointer">
-  <circle cx="38" cy="255" r="20" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M40 250 L34 255 L40 260" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="31" cy="247" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M33 242 L27 247 L33 252" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnRight" cursor="pointer">
-  <circle cx="120" cy="255" r="20" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M118 250 L124 255 L118 260" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="128" cy="247" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M126 242 L132 247 L126 252" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnPlus" cursor="pointer">
-  <circle cx="79" cy="228" r="20" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 230 L79 224 L84 230" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="79" cy="221" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M74 223 L79 217 L84 223" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 <g id="btnMinus" cursor="pointer">
-  <circle cx="79" cy="281" r="20" fill="#222" stroke="#333" stroke-width="1"/>
-  <path d="M74 279 L79 285 L84 279" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="79" cy="273" r="22" fill="#222" stroke="#333" stroke-width="1"/>
+  <path d="M74 271 L79 277 L84 271" fill="none" stroke="#888" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
 </g>
 
 <!-- ══ BPM display sur OLED (overlay dynamique) ══════════════════ -->
@@ -398,12 +397,12 @@ body {
 <!-- ══ PLAY + REC ══ -->
   <g id="playRecGroup">
     <g id="btnPlay" cursor="pointer">
-      <rect x="33" y="156" width="43" height="38" rx="6" fill="#252528" stroke="#444" stroke-width="1"/>
-      <path id="playIcon" d="M44 164 L44 186 L62 175 Z" fill="#888"/>
+      <rect x="23" y="133" width="43" height="44" rx="6" fill="#252528" stroke="#444" stroke-width="1"/>
+      <path id="playIcon" d="M35 143 L35 167 L53 155 Z" fill="#888"/>
     </g>
     <g id="btnRec" cursor="pointer">
-      <circle cx="105" cy="175" r="20" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
-      <circle id="recDot" cx="105" cy="175" r="9" fill="#882222"/>
+      <circle cx="113" cy="155" r="22" fill="#252528" stroke="#3a3a3a" stroke-width="1"/>
+      <circle id="recDot" cx="113" cy="155" r="9" fill="#882222"/>
     </g>
   </g>
 
@@ -1444,6 +1443,7 @@ async function switchTrackType(ti, newType) {
   document.getElementById('sf2Browser').classList.remove('open');
   document.getElementById('junoxBrowser').classList.remove('open');
   document.getElementById('drumBrowser').classList.remove('open');
+  document.getElementById('midiBrowser').classList.remove('open');
 
   // ── Mise à jour du mode et outputMode ──
   if (newType === 'drum') {
@@ -1454,6 +1454,10 @@ async function switchTrackType(ti, newType) {
   } else if (newType === 'junox') {
     t.mode = 'melodic';
     t.outputMode = 'junox';
+    TRACK_MODES[ti] = 'melodic';
+  } else if (newType === 'midi') {
+    t.mode = 'melodic';
+    t.outputMode = 'midi';
     TRACK_MODES[ti] = 'melodic';
   } else { // sf2
     t.mode = 'melodic';
@@ -1471,14 +1475,16 @@ async function switchTrackType(ti, newType) {
   updateEncArcs();
   updateSendArcs();
 
-  const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNOX' : 'SF2';
+  const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNOX' : newType === 'midi' ? 'MIDI OUT' : 'SF2';
   oled(`T${ti+1} → ${typeName}`, 'type changé', trackInfo());
   console.log(`[switchTrackType] T${ti+1}: ${oldOutputMode} → ${newType}`);
 
   // Pour Junox : ouvrir le browser immédiatement, puis init audio en arrière-plan
   if (newType === 'junox') {
     openJunoxBrowser(ti);
-    initJunox(ti); // async, pas d'await — le browser est déjà visible
+    initJunox(ti);
+  } else if (newType === 'midi') {
+    openMidiBrowser(ti);
   }
 
   _switchTrackTypeBusy = false;
@@ -2332,8 +2338,8 @@ const FX_DEFS = [
   {
     id: 'filter', name: 'Filter', color: '#4af',
     params: [
-      { name: 'Cutoff', key: 'frequency', min: 20,  max: 20000, def: 18000, log: true  },
-      { name: 'Res',    key: 'Q',         min: 0.1, max: 20,    def: 0.7,   log: false },
+      { name: 'Cutoff', key: 'frequency', min: 20,  max: 20000, def: 18000, log: true,  fmt: v => v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v)+' Hz' },
+      { name: 'Res',    key: 'Q',         min: 0.1, max: 20,    def: 0.7,   log: false, fmt: v => v.toFixed(1) },
       { name: 'Type',   key: '_typeIdx',  min: 0,   max: 2,     def: 0,     log: false, labels: ['LP','HP','BP'], cycle: true },
     ],
     mainParams: [0, 1],
@@ -2353,9 +2359,9 @@ const FX_DEFS = [
   {
     id: 'tremolo', name: 'Tremolo', color: '#fa4',
     params: [
-      { name: 'Speed', key: '_rate',      min: 0.1, max: 20, def: 5,   log: false },
-      { name: 'Depth', key: '_intensity', min: 0,   max: 1,  def: 0.4, log: false },
-      { name: 'Mix',   key: '_mix',       min: 0,   max: 1,  def: 0.7, log: false },
+      { name: 'Speed', key: '_rate',      min: 0.1, max: 20, def: 5,   log: false, fmt: v => Math.round((v-0.1)/(20-0.1)*100)+'%' },
+      { name: 'Depth', key: '_intensity', min: 0,   max: 1,  def: 0.4, log: false, fmt: v => Math.round(v*100)+'%' },
+      { name: 'Mix',   key: '_mix',       min: 0,   max: 1,  def: 0.7, log: false, fmt: v => Math.round(v*100)+'%' },
     ],
     mainParams: [0, 1],
     create: () => {
@@ -2392,11 +2398,11 @@ const FX_DEFS = [
   {
     id: 'compressor', name: 'Compressor', color: '#4fa',
     params: [
-      { name: 'Thresh',  key: '_threshold', min: -60, max: 0,   def: -20,  log: false },
-      { name: 'Ratio',   key: '_ratio',     min: 1,   max: 20,  def: 3,    log: false },
-      { name: 'Attack',  key: '_attack',    min: 0,   max: 1,   def: 0.015, log: false },
-      { name: 'Release', key: '_release',   min: 0,   max: 3,   def: 0.12, log: false },
-      { name: 'Knee',    key: '_knee',      min: 0,   max: 40,  def: 8,    log: false },
+      { name: 'Thresh',  key: '_threshold', min: -60, max: 0,   def: -20,  log: false, fmt: v => (v > 0 ? '+' : '') + Math.round(v) + ' dB' },
+      { name: 'Ratio',   key: '_ratio',     min: 1,   max: 20,  def: 3,    log: false, fmt: v => Math.round(v) + ':1' },
+      { name: 'Attack',  key: '_attack',    min: 0,   max: 1,   def: 0.015, log: false, fmt: v => Math.round(v * 1000) + ' ms' },
+      { name: 'Release', key: '_release',   min: 0,   max: 3,   def: 0.12, log: false, fmt: v => v >= 1 ? v.toFixed(2) + ' s' : Math.round(v * 1000) + ' ms' },
+      { name: 'Knee',    key: '_knee',      min: 0,   max: 40,  def: 8,    log: false, fmt: v => Math.round(v) + ' dB' },
     ],
     mainParams: [0, 1],
     create: () => {
@@ -2439,11 +2445,11 @@ const FX_DEFS = [
   {
     id: 'chorus', name: 'Chorus', color: '#a4f',
     params: [
-      { name: 'Rate',     key: '_rate',     min: 0.01, max: 8,    def: 1.2,  log: false },
-      { name: 'Depth',    key: '_depth',    min: 0,    max: 0.02, def: 0.004, log: false },
-      { name: 'Feedback', key: '_feedback', min: 0,    max: 0.9,  def: 0.15, log: false },
-      { name: 'Stereo',   key: '_stereo',   min: 0,    max: 1,    def: 0.7,  log: false },
-      { name: 'Mix',      key: '_mix',      min: 0,    max: 1,    def: 0.4,  log: false },
+      { name: 'Rate',     key: '_rate',     min: 0.01, max: 8,    def: 1.2,  log: false, fmt: v => Math.round((v-0.01)/(8-0.01)*100)+'%' },
+      { name: 'Depth',    key: '_depth',    min: 0,    max: 0.02, def: 0.004, log: false, fmt: v => Math.round(v/0.02*100)+'%' },
+      { name: 'Feedback', key: '_feedback', min: 0,    max: 0.9,  def: 0.15, log: false, fmt: v => Math.round(v/0.9*100)+'%' },
+      { name: 'Stereo',   key: '_stereo',   min: 0,    max: 1,    def: 0.7,  log: false, fmt: v => Math.round(v*100)+'%' },
+      { name: 'Mix',      key: '_mix',      min: 0,    max: 1,    def: 0.4,  log: false, fmt: v => Math.round(v*100)+'%' },
     ],
     mainParams: [0, 1],
     create: () => {
@@ -2528,11 +2534,11 @@ const FX_DEFS = [
   {
     id: 'phaser', name: 'Phaser', color: '#f4a',
     params: [
-      { name: 'Rate',  key: '_rate',     min: 0.01, max: 8,    def: 0.3,  log: false },
-      { name: 'Depth', key: '_depth',    min: 0,    max: 3000, def: 1000, log: false },
-      { name: 'Freq',  key: '_freq',     min: 100,  max: 4000, def: 600,  log: false },
-      { name: 'Fbk',   key: '_feedback', min: 0,    max: 0.95, def: 0.6,  log: false },
-      { name: 'Mix',   key: '_mix',      min: 0,    max: 1,    def: 0.4,  log: false },
+      { name: 'Rate',  key: '_rate',     min: 0.01, max: 8,    def: 0.3,  log: false, fmt: v => Math.round((v-0.01)/(8-0.01)*100)+'%' },
+      { name: 'Depth', key: '_depth',    min: 0,    max: 3000, def: 1000, log: false, fmt: v => Math.round(v/3000*100)+'%' },
+      { name: 'Freq',  key: '_freq',     min: 100,  max: 4000, def: 600,  log: false, fmt: v => Math.round(v)+' Hz' },
+      { name: 'Feedback', key: '_feedback', min: 0, max: 0.95, def: 0.6,  log: false, fmt: v => Math.round(v/0.95*100)+'%' },
+      { name: 'Mix',   key: '_mix',      min: 0,    max: 1,    def: 0.4,  log: false, fmt: v => Math.round(v*100)+'%' },
     ],
     mainParams: [0, 1],
     create: () => {
@@ -2582,7 +2588,7 @@ const FX_DEFS = [
   {
     id: 'saturation', name: 'Saturator', color: '#f84',
     params: [
-      { name: 'Drive', key: '_drive', min: -12, max: 12, def: 0, step: 1, log: false },
+      { name: 'Drive', key: '_drive', min: -12, max: 12, def: 0, step: 1, log: false, fmt: v => (v > 0 ? '+' : '') + Math.round(v) + ' dB' },
       { name: 'Type',  key: '_type',  min: 0,   max: 7,  def: 0, log: false, labels: ['tanh','sine','hard','log','sqrt','cube','fold','sqSin'], cycle: true },
     ],
     mainParams: [0, 1],
@@ -2938,6 +2944,7 @@ function fxSetParam(ti, slotIdx, paramKey, value) {
     if (paramKey === 'arpEnabled') {
       value = Math.round(value);
       slot.params[paramKey] = value;
+      slot.active = value >= 1; // sync slot.active
       if (value === 0) arpStop(ti);
     }
     
@@ -3031,6 +3038,7 @@ function fxSetParam(ti, slotIdx, paramKey, value) {
 }
 
 function fxFormatVal(paramDef, val) {
+  if (paramDef.fmt) return paramDef.fmt(val);
   if (paramDef.labels) {
     const base = paramDef.cycleBase ?? 0;
     return paramDef.labels[Math.round(val) - base] || val+'';
@@ -3602,6 +3610,114 @@ function renderMasterPanel() {
 
 function renderFXPageMain(ti) {
   const col = TRACK_COLORS[ti] || '#ff6b00';
+  const t = S.tracks[ti];
+
+  // Mode MIDI Out : ARP sur la ligne haute, filigrane sur la ligne basse
+  if (t.outputMode === 'midi') {
+    // Vider tous les slots
+    for (let i = 0; i < 8; i++) {
+      const sg = document.getElementById(`fxslot_${i}`);
+      if (sg) sg.innerHTML = '';
+    }
+
+    // ── Ligne haute (slots 0-3) : ARP via le rendu standard ──
+    // On force temporairement le SLOT_MAP pour que l'ARP occupe les 4 slots haut
+    const arpDefIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+    if (arpDefIdx >= 0) {
+      const def    = FX_DEFS[arpDefIdx];
+      const slot   = trackFX[ti][arpDefIdx];
+      const active = slot.active;
+      const col2   = def.color;
+      const margin = 5;
+      const sg0 = document.getElementById('fxslot_0');
+      if (sg0) {
+        const sx = fxSlotX(0), sy = fxSlotY(0);
+        const w = FX_SW * 4, h = FX_SH;
+        // Fond
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('x', sx+margin); bg.setAttribute('y', sy+margin);
+        bg.setAttribute('width', w-margin*2); bg.setAttribute('height', h-margin*2);
+        bg.setAttribute('rx', 5);
+        bg.setAttribute('fill',   active ? col2+'22' : '#141416');
+        bg.setAttribute('stroke', active ? col2      : '#2a2a2e');
+        bg.setAttribute('stroke-width', active ? '2' : '0.5');
+        sg0.appendChild(bg);
+        // Nom + LED
+        const nameEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        nameEl.setAttribute('x', sx+14); nameEl.setAttribute('y', sy+20);
+        nameEl.setAttribute('font-family', "'DM Mono',monospace");
+        nameEl.setAttribute('font-size', '12'); nameEl.setAttribute('font-weight', '500');
+        nameEl.setAttribute('fill', active ? col2 : '#555');
+        nameEl.setAttribute('pointer-events', 'none');
+        nameEl.textContent = 'ARP';
+        sg0.appendChild(nameEl);
+        const led = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        led.setAttribute('cx', sx+w-14); led.setAttribute('cy', sy+14);
+        led.setAttribute('r', 4);
+        led.setAttribute('fill',   active ? col2 : '#222');
+        led.setAttribute('stroke', active ? col2 : '#333');
+        led.setAttribute('pointer-events', 'none');
+        sg0.appendChild(led);
+        // Params ARP visibles
+        const mainP = [0, 1, 2, 3]; // ARP, Rate, Mode, Range
+        const colW  = w / 4;
+        mainP.forEach((pi, ci) => {
+          const p   = def.params[pi];
+          const val = slot.params[p.key] ?? p.def;
+          const px  = sx + colW * ci + colW/2;
+          const pname = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          pname.setAttribute('x', px); pname.setAttribute('y', sy+38);
+          pname.setAttribute('text-anchor', 'middle');
+          pname.setAttribute('font-family', "'DM Mono',monospace");
+          pname.setAttribute('font-size', '10');
+          pname.setAttribute('fill', active ? '#888' : '#444');
+          pname.setAttribute('pointer-events', 'none');
+          pname.textContent = p.name;
+          sg0.appendChild(pname);
+          const pval = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          pval.setAttribute('id', `fxpv_${arpDefIdx}_${pi}`);
+          pval.setAttribute('x', px); pval.setAttribute('y', sy+52);
+          pval.setAttribute('text-anchor', 'middle');
+          pval.setAttribute('font-family', "'DM Mono',monospace");
+          pval.setAttribute('font-size', '11'); pval.setAttribute('font-weight', '500');
+          pval.setAttribute('fill', active ? col2 : '#555');
+          pval.setAttribute('pointer-events', 'none');
+          pval.textContent = fxFormatVal(p, val);
+          sg0.appendChild(pval);
+        });
+        // Zone clic toggle ARP
+        const toggleHit = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        toggleHit.setAttribute('x', sx+margin); toggleHit.setAttribute('y', sy+margin);
+        toggleHit.setAttribute('width', w-margin*2); toggleHit.setAttribute('height', h-margin*2);
+        toggleHit.setAttribute('rx', 5); toggleHit.setAttribute('fill', 'transparent');
+        toggleHit.setAttribute('cursor', 'pointer');
+        toggleHit.setAttribute('data-fxslot', String(arpDefIdx));
+        sg0.appendChild(toggleHit);
+      }
+    }
+
+    // ── Ligne basse (slots 4-7) : filigrane centré sur toute la zone ──
+    const sg4 = document.getElementById('fxslot_4');
+    if (sg4) {
+      const sx = fxSlotX(4), sy = fxSlotY(4);
+      const w = FX_SW * 4, h = FX_SH;
+      const col2 = trackColor(ti);
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('id', 'midiTrackWatermark');
+      txt.setAttribute('x', String(sx + w/2));
+      txt.setAttribute('y', String(sy + h/2 + 10));
+      txt.setAttribute('text-anchor', 'middle');
+      txt.setAttribute('font-family', "'DM Mono',monospace");
+      txt.setAttribute('font-size', '22');
+      txt.setAttribute('font-weight', '600');
+      txt.setAttribute('fill', col2 + '28');
+      txt.setAttribute('pointer-events', 'none');
+      txt.setAttribute('letter-spacing', '3');
+      txt.textContent = `MIDI Track  ·  Channel ${t.midiChannel || 1}`;
+      sg4.appendChild(txt);
+    }
+    return;
+  }
 
   // Nouveau mapping des 8 slots SVG :
   // slot 0→FX[0]=Filter, 1→FX[1]=Tremolo, 2→FX[2]=Compress, 3→FX[3]=Chorus
@@ -4745,6 +4861,8 @@ function getSF2PresetName(ti) { return sf2GetTrackName(ti); }
 function getTrackSoundName(ti) {
   const t = S.tracks[ti];
   if (t.outputMode === 'junox') return junoxPatches[ti]?.name || 'Junox';
+  if (t.outputMode === 'midi') return `MIDI Ch${t.midiChannel || 1}`;
+  if (t.mode === 'drum') return 'Drum';
   return sf2GetTrackName(ti);
 }
 
@@ -6645,31 +6763,7 @@ function renderTrackButtons() {
       lbl.textContent = '';
     }
 
-    // Indicateur page : flèche ▼ sur le dernier slot de la page 0, ▲ sur le premier slot de la page 1
-    const pageArrowId = `trkPageArrow${slot}`;
-    let arrow = document.getElementById(pageArrowId);
-    if (!arrow) {
-      arrow = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      arrow.setAttribute('id', pageArrowId);
-      arrow.setAttribute('font-family', "'DM Mono',monospace");
-      arrow.setAttribute('font-size', '7');
-      arrow.setAttribute('text-anchor', 'middle');
-      arrow.setAttribute('pointer-events', 'none');
-      document.getElementById('moveSVG').appendChild(arrow);
-    }
-    arrow.setAttribute('x', '182');
-    arrow.setAttribute('y', String(yPositions[slot] + 6));
-    if (page === 0 && slot === 3) {
-      // Dernier bouton page 1 → flèche vers page 2
-      arrow.setAttribute('fill', '#ffffff88');
-      arrow.textContent = '▶';
-    } else if (page === 1 && slot === 0) {
-      // Premier bouton page 2 → flèche vers page 1
-      arrow.setAttribute('fill', '#ffffff88');
-      arrow.textContent = '◀';
-    } else {
-      arrow.textContent = '';
-    }
+
   }
 }
 
@@ -8471,27 +8565,22 @@ function nudgeHeldSteps(delta) {
 function finalizeNudge() {
   if (!_nudgeFloating) return;
   const bar = currentStepBar();
-  const pos = heldStepList()[0];
-  
-  if (pos !== undefined) {
-    if (bar[pos] && bar[pos].on) {
-      // Position occupée au release → revenir à la dernière position valide
-      const lastValid = _nudgeFloating.lastValidPos;
-      if (!bar[lastValid] || !bar[lastValid].on) {
-        bar[lastValid] = Object.assign({}, _nudgeFloating.data);
-        if (_nudgeFloating.data.extraNotes) bar[lastValid].extraNotes = [..._nudgeFloating.data.extraNotes];
-      }
-      // Mettre le curseur sur la dernière position valide
-      stepCursorPos = lastValid;
-      updateStepCursor();
-    } else if (!bar[pos] || !bar[pos].on) {
-      // Position vide au release → poser ici (normalement déjà fait)
-      bar[pos] = Object.assign({}, _nudgeFloating.data);
-      if (_nudgeFloating.data.extraNotes) bar[pos].extraNotes = [..._nudgeFloating.data.extraNotes];
-      _nudgeFloating.lastValidPos = pos;
-    }
+  // Utiliser lastValidPos (position actuelle du step) et non l'index original
+  const pos = _nudgeFloating.lastValidPos;
+
+  // S'assurer que le step est bien posé à sa position finale
+  if (!bar[pos] || !bar[pos].on) {
+    bar[pos] = Object.assign({}, _nudgeFloating.data);
+    if (_nudgeFloating.data.extraNotes) bar[pos].extraNotes = [..._nudgeFloating.data.extraNotes];
   }
-  
+  // Effacer la position originale si différente
+  const origPos = _nudgeFloating.originalPos;
+  if (origPos !== pos && bar[origPos] && bar[origPos].on) {
+    bar[origPos] = { on: false, note: 60, vel: 0.8, len: 1, prob: 100, shift: 0 };
+  }
+  stepCursorPos = pos;
+  updateStepCursor();
+
   _nudgeFloating = null;
   renderSteps();
 }
@@ -8650,11 +8739,18 @@ for (let i = 0; i < 16; i++) {
         return;
       }
 
+      // Téléporter le curseur sur le step cliqué (souris/tactile)
+      stepCursorPos = idx;
+      showStepCursor();
       pressStep(idx);
     });
     stepEl.addEventListener('mouseup', function(e) {
       if (S.mode === 'loop') { releaseLoopStep(idx); return; }
-      releaseStep(idx);
+      // Après un nudge, heldSteps a l'index courant (pas l'original)
+      // On cherche l'index réel dans heldSteps
+      const currentIdx = heldSteps.has(idx) ? idx
+        : (heldSteps.size > 0 ? heldSteps.keys().next().value : idx);
+      releaseStep(currentIdx);
     });
   })(i);
 }
@@ -8677,7 +8773,7 @@ for (let i = 0; i < 16; i++) {
 
 
   // IDs des éléments draggables (encodeurs, molette, sends)
-  const DRAG_IDS = new Set(['wheel','encVol','enc0','enc1','enc2','enc3','enc4','enc5']);
+  const DRAG_IDS = new Set(['encVol','enc0','enc1','enc2','enc3','enc4','enc5']);
 
   function makeMouse(type, touch) {
     return new MouseEvent(type, {
@@ -8968,20 +9064,31 @@ svg('btnMute').addEventListener('mouseup', () => {
 // ── Illumination générique boutons (style uniforme) ─────────────
 function setBtnLit(id, on, color) {
   const g = svg(id);
+  // Pour btnSets et btnSession : amener le bouton actif au premier plan
+  if (on && (id === 'btnSets' || id === 'btnSession') && g.parentNode) {
+    g.parentNode.appendChild(g);
+  }
   if (!g) return;
   const col = color || '#aaa';
   const offCol = '#888';
   // Main shape (first circle or first rect child)
   const mainCircle = g.querySelector('circle');
   const mainRect = g.querySelector('rect');
-  if (mainCircle) {
-    mainCircle.setAttribute('fill',         on ? '#1a1a22' : '#222');
-    mainCircle.setAttribute('stroke',       on ? col       : '#333');
-    mainCircle.setAttribute('stroke-width', on ? '1.5'     : '1');
-  } else if (mainRect) {
-    mainRect.setAttribute('fill',         on ? '#1a1a22' : '#222');
-    mainRect.setAttribute('stroke',       on ? col       : '#333');
-    mainRect.setAttribute('stroke-width', on ? '1.5'     : '1');
+  // Pour btnSets/btnSession qui utilisent un path comme fond
+  let mainPath = null;
+  if (!mainCircle && !mainRect) {
+    for (const c of g.children) {
+      if (c.tagName.toLowerCase() === 'path' &&
+          (c.getAttribute('fill') === '#222' || c.getAttribute('fill') === '#1a1a22')) {
+        mainPath = c; break;
+      }
+    }
+  }
+  const mainShape = mainCircle || mainRect || mainPath;
+  if (mainShape) {
+    mainShape.setAttribute('fill',         on ? '#1a1a22' : '#222');
+    mainShape.setAttribute('stroke',       on ? col       : '#333');
+    mainShape.setAttribute('stroke-width', on ? '1.5'     : '1');
   }
   // Nested <g> groups with stroke (icon containers) — set group stroke
   g.querySelectorAll('g').forEach(sub => {
@@ -8991,8 +9098,9 @@ function setBtnLit(id, on, color) {
   });
   // All lines
   g.querySelectorAll('line').forEach(l => l.setAttribute('stroke', on ? col : offCol));
-  // All paths
+  // All paths (sauf la shape principale qui est déjà gérée)
   g.querySelectorAll('path').forEach(p => {
+    if (p === mainShape) return;
     if (p.getAttribute('fill') && p.getAttribute('fill') !== 'none') {
       p.setAttribute('fill', on ? col : offCol);
     }
@@ -9619,51 +9727,7 @@ function sessionDeleteClip(trackIdx, clipIdx) {
 let wheelDrag = null;
 let _wheelLastTap = 0;
 
-svg('wheel').addEventListener('mouseup', e => {
-  if (anyStepHeld()) { e.stopPropagation(); wheelDrag = null; }
-});
-svg('wheel').addEventListener('mousedown', e => {
-  const now = Date.now();
-  
-  // Double-tap → reset contextuel
-  if (now - _wheelLastTap < 350) {
-    _wheelLastTap = 0;
-    svg('wheel').setAttribute('stroke', '#aaa');
-    svg('wheel').setAttribute('stroke-width', '2.5');
-    // Si step master tenu → reset BPM de ce step
-    const isMasterDbl = S.tracks[S.currentTrack].mode === 'master';
-    if (isMasterDbl && anyStepHeld()) {
-      const res = getHeldSt();
-      if (res && res.st.on) {
-        res.st.note = S.bpm; // reset à la valeur BPM globale courante
-        if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
-        renderSteps();
-        oledForce(`STEP ${res.idx+1}`, `${S.bpm} BPM`, 'RESET');
-      }
-    } else {
-      setBpm(120);
-      oledForce('BPM', '120', 'RESET');
-    }
-    setTimeout(() => {
-      svg('wheel').setAttribute('stroke', '#3a3a3a');
-      svg('wheel').setAttribute('stroke-width', '1.5');
-      S._oledLocked = false;
-    }, 800);
-    e.preventDefault();
-    return;
-  }
-  _wheelLastTap = now;
-  
-  // Ne pas réinitialiser si un drag est déjà en cours (touch parasite)
-  if (wheelDrag) return;
-  
-  svg('wheel').setAttribute('stroke', '#aaa');
-  svg('wheel').setAttribute('stroke-width', '2.5');
-  wheelDrag = { type: 'bpm', y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX, bpm: S.bpm, moved: false };
-  S._oledLocked = true;
-  oledForce('BPM', `${S.bpm}`, S.playing ? '▶ playing' : '■ stopped');
-  e.preventDefault();
-});
+// (wheel BPM déplacé sur enc0 en master track)
 document.addEventListener('mousemove', e => {
   if (!wheelDrag) return;
   if (wheelDrag.type === 'bpm') {
@@ -9692,7 +9756,7 @@ document.addEventListener('mousemove', e => {
     } else {
       setBpm(S.bpm + Math.round(delta / 2));
       oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
-      flashKnob('wheel');
+      // (pas de flash pour enc0 BPM)
     }
   }
 });
@@ -9700,8 +9764,8 @@ document.addEventListener('mouseup', () => {
   // Libérer le touch de drag
   window._dragTouchId = null;
 
-  // Si un step est encore physiquement tenu, ignorer ce mouseup complètement
-  // (vient d'un autre doigt — encodeur, zone vide, etc.)
+  // Si un step est encore physiquement tenu, ignorer ce mouseup
+  // (vient d'un autre doigt — encodeur, bouton directionnel, etc.)
   if (anyStepHeld()) {
     wheelDrag = null;
     volDrag = null;
@@ -9713,9 +9777,7 @@ document.addEventListener('mouseup', () => {
   // Reset encVol ring
   svg('encVol').setAttribute('stroke', '#3a3a3a');
   svg('encVol').setAttribute('stroke-width', '1.5');
-  // Reset wheel ring
-  svg('wheel').setAttribute('stroke', '#3a3a3a');
-  svg('wheel').setAttribute('stroke-width', '1.5');
+  // (wheel supprimé)
 
   // Molette = BPM uniquement, pas d'action spéciale au clic
 
@@ -9829,7 +9891,7 @@ svg('encVol').addEventListener('touchmove', function(e) {
     const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
     if (trackGainNodes[volDrag.ti]) trackGainNodes[volDrag.ti].gain.value = newVol;
-    oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
+    oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, getTrackSoundName(volDrag.ti));
   } else if (volDrag.type === 'vel') {
     const st = currentStepBar()[volDrag.stepIdx];
     const newVel = Math.max(0, Math.min(1, st.vel + delta / 80));
@@ -9919,7 +9981,7 @@ document.addEventListener('mousemove', e => {
     const newVol = Math.max(0, Math.min(1, S.tracks[volDrag.ti].volume + delta / 150));
     S.tracks[volDrag.ti].volume = newVol;
     if (trackGainNodes[volDrag.ti]) trackGainNodes[volDrag.ti].gain.value = newVol;
-    oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, trackColor(volDrag.ti));
+    oledForce(`VOL T${volDrag.ti+1}`, `${Math.round(newVol * 100)}%`, getTrackSoundName(volDrag.ti));
   } else if (volDrag.type === 'vel') {
     if (S.mode === 'loop' && S._loopBarHeld >= 0) {
       const vdelta = dy / 200;
@@ -10454,7 +10516,16 @@ function enterProjectMode() {
     setBtnLit('btnLoop', false, '#3ddc84');
   }
   projectModeActive = true;
-  projectSelected = null;
+  projectPage = 0;
+  // Pré-sélectionner le projet courant s'il existe, sinon slot 0 page 0
+  if (currentProject) {
+    const s = currentProject.slot;
+    projectPage = Math.floor(s / 32);
+    const inPage = s % 32;
+    projectSelected = { slot: s, row: Math.floor(inPage / 8), col: inPage % 8 };
+  } else {
+    projectSelected = { slot: 0, row: 0, col: 0 };
+  }
   _projectLastClick = { slot: -1, time: 0 };
   S._prevMode = S.mode;
   clearAllDynamicLabels();
@@ -10889,9 +10960,14 @@ function updateEncArcs() {
     if (lbl) { lbl.textContent = text; lbl.setAttribute('fill', color); }
   }
 
-  // ── Mode master : masquer tous les encodeurs, step tenu ou non ──
+  // ── Mode master : enc0 = BPM, autres masqués ──
   if (t.mode === 'master') {
-    for (let i = 0; i < 6; i++) {
+    // enc0 : BPM actif
+    hideArc('encArc0');
+    setEncRing(0, true, col);
+    setLabel(0, 'BPM', col);
+    // enc1-5 : masqués
+    for (let i = 1; i < 6; i++) {
       hideArc('encArc' + i);
       setEncRing(i, false, col);
       setLabel(i, '', '#2a2a2a');
@@ -10932,6 +11008,16 @@ function updateEncArcs() {
       const pct = (val - def.min) / (eMax - def.min);
       setArcUni('encArc' + i, pct, col);
     });
+    return;
+  }
+
+  // ── Mode MIDI Out sans step tenu : tous encodeurs masqués ──
+  if (t.outputMode === 'midi') {
+    for (let i = 0; i < 6; i++) {
+      hideArc('encArc' + i);
+      setEncRing(i, false, col);
+      setLabel(i, '', '#2a2a2a');
+    }
     return;
   }
 
@@ -11039,6 +11125,16 @@ ENC_DEFS.forEach((def, i) => {
     if (encDrags[i]) return; // drag déjà actif — ignorer touch parasite
     const t = S.tracks[S.currentTrack];
 
+    // Priorité 0 : master track + enc0 → BPM (avant tout, y compris step tenu)
+    if (t.mode === 'master' && i === 0) {
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
+        startVal: S.bpm, masterBpmMode: true, moved: false };
+      S._oledLocked = true;
+      oledForce('BPM', `${S.bpm}`, S.playing ? '▶ playing' : '■ stopped');
+      e.preventDefault();
+      return;
+    }
+
     // Priorité 1 : step tenu
     const res = getHeldSt();
     if (res && res.st.on) {
@@ -11082,6 +11178,9 @@ ENC_DEFS.forEach((def, i) => {
       e.preventDefault();
       return;
     }
+    // Priorité 3a.1 : MIDI Out → tous encodeurs désactivés
+    if (t.outputMode === 'midi') return;
+
     // Priorité 3a : Junox sans step → VCF Freq/Resonance/Env Mod/LFO Rate sur enc0-3
     if (t.outputMode === 'junox' && i < 4) {
       const JUNOX_ENC = [
@@ -11143,6 +11242,7 @@ SEND_ENCS.forEach((def, si) => {
     if (S.mode === 'session') return;
     const t = S.tracks[S.currentTrack];
     if (t.mode === 'master') return;
+    if (t.outputMode === 'midi') return; // pas de sends sur track MIDI Out
     let startVal;
     if (t.mode === 'drum') {
       if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
@@ -11206,7 +11306,7 @@ function updateSendArcs() {
     const enc = svg(def.id);
     const lbl = document.getElementById(def.lblId);
     const arc = document.getElementById(def.arcId);
-    if (dimAll || t.mode === 'master') {
+    if (dimAll || t.mode === 'master' || t.outputMode === 'midi') {
       if (enc) enc.setAttribute('stroke', dimAll ? '#1e1e20' : '#383838');
       if (lbl) { lbl.textContent = def.label; lbl.setAttribute('fill', dimAll ? '#1a1a1a' : '#2a2a2a'); }
       if (arc) { arc.setAttribute('stroke', 'none'); arc.setAttribute('stroke-dasharray', `0 ${ENC_CIRC}`); arc.setAttribute('stroke-dashoffset', '0'); }
@@ -11242,6 +11342,27 @@ document.addEventListener('mousemove', e => {
     const dy = prevLastY - e.clientY;
     const dx = e.clientX - prevLastX;
     const delta = dy + dx;
+
+    // Master track BPM
+    if (encDrags[i].masterBpmMode) {
+      if (Math.abs(delta) < 0.5) return;
+      encDrags[i].moved = true;
+      // Step master tenu → BPM de ce step
+      if (anyStepHeld()) {
+        const res = getHeldSt();
+        if (res && res.st.on) {
+          const newBpm = Math.max(20, Math.min(300, (res.st.note || S.bpm) + Math.round(delta / 2)));
+          res.st.note = newBpm;
+          if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+          renderSteps();
+          oledForce(`STEP ${res.idx+1}`, `${newBpm} BPM`, `Bar ${S.currentBar+1}`);
+        }
+      } else {
+        setBpm(S.bpm + Math.round(delta / 2));
+        oledForce('BPM', `${S.bpm}`, S.playing ? '▶ playing' : '■ stopped');
+      }
+      return;
+    }
 
     // Mode drum step tenu
     if (encDrags[i].drumStepMode) {
@@ -13935,6 +14056,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const ti = S.tracks[S.currentTrack];
     if (ti.mode === 'master') return;
     if (ti.outputMode === 'junox') { openJunoxBrowser(S.currentTrack); return; }
+    if (ti.outputMode === 'midi') { openMidiBrowser(S.currentTrack); return; }
     if (ti.mode === 'drum') {
       openDrumBrowser();
     } else {
@@ -14764,6 +14886,7 @@ function updateBrowserTrackLabel(browserId, ti) {
   const trackNum = `T${ti+1}`;
   let typeLabel;
   if (t.outputMode === 'junox') typeLabel = 'JUNOX';
+  else if (t.outputMode === 'midi') typeLabel = 'MIDI';
   else if (t.mode === 'drum') typeLabel = 'DRUM';
   else typeLabel = 'SF2';
 
@@ -14778,6 +14901,165 @@ function updateBrowserTrackLabel(browserId, ti) {
     if (btn) { btn.textContent = `${trackNum} · JUNOX`; btn.style.color = col; }
   }
 }
+
+// ══════════════════════════════════════════════════════════════
+// MIDI SETTINGS POPUP
+// ══════════════════════════════════════════════════════════════
+function openMidiPopup() {
+  const popup = document.getElementById('midiPopup');
+  popup.style.display = 'flex';
+  midiPopupRefresh();
+  // Fermer sur clic extérieur
+  setTimeout(() => {
+    popup.addEventListener('click', e => {
+      if (e.target === popup) closeMidiPopup();
+    }, { once: true });
+  }, 10);
+}
+
+function closeMidiPopup() {
+  document.getElementById('midiPopup').style.display = 'none';
+}
+
+function midiPopupRefresh() {
+  const inputSel  = document.getElementById('midiInputSelect');
+  const outputSel = document.getElementById('midiOutputSelect');
+  const status    = document.getElementById('midiPopupStatus');
+
+  if (!midiState.access) {
+    status.textContent = 'Web MIDI not available';
+    return;
+  }
+
+  // ── Inputs ──
+  const inputs = [...midiState.access.inputs.values()];
+  const activeInputIds = new Set(midiState.inputs.map(i => i.id));
+  inputSel.innerHTML = '<option value="">— All inputs —</option>';
+  inputs.forEach(i => {
+    const opt = document.createElement('option');
+    opt.value = i.id;
+    opt.textContent = i.name;
+    if (activeInputIds.has(i.id)) opt.selected = true;
+    inputSel.appendChild(opt);
+  });
+  if (inputs.length === 0) {
+    inputSel.innerHTML = '<option value="">No input detected</option>';
+  }
+
+  // ── Outputs ──
+  const outputs = [...midiState.access.outputs.values()];
+  const selOutId = midiState.selectedOutput?.id || '';
+  outputSel.innerHTML = '<option value="">— No output —</option>';
+  outputs.forEach(o => {
+    const opt = document.createElement('option');
+    opt.value = o.id;
+    opt.textContent = o.name;
+    if (o.id === selOutId) opt.selected = true;
+    outputSel.appendChild(opt);
+  });
+  if (outputs.length === 0) {
+    outputSel.innerHTML = '<option value="">No output detected</option>';
+  }
+
+  const n = midiState.inputs.length;
+  status.textContent = n > 0 ? `${n} input${n>1?'s':''} connected` : 'No input connected';
+}
+
+
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('midiPopupClose').addEventListener('click', closeMidiPopup);
+  document.getElementById('midiDot').addEventListener('click', openMidiPopup);
+  document.getElementById('midiLbl').addEventListener('click', openMidiPopup);
+  document.getElementById('midiDot').style.cursor = 'pointer';
+  document.getElementById('midiLbl').style.cursor = 'pointer';
+  document.getElementById('midiInputSelect').addEventListener('change', e => {
+    if (!midiState.access) return;
+    const id = e.target.value;
+    [...midiState.access.inputs.values()].forEach(i => midiDisconnectInput(i));
+    midiState.inputs = [];
+    if (id) {
+      const port = midiState.access.inputs.get(id);
+      if (port) midiConnectInput(port);
+    } else {
+      midiState.access.inputs.forEach(i => {
+        if (!i.name.toLowerCase().includes('iac')) midiConnectInput(i);
+      });
+    }
+    midiPopupRefresh();
+  });
+  document.getElementById('midiOutputSelect').addEventListener('change', e => {
+    if (!midiState.access) return;
+    const id = e.target.value;
+    midiState.selectedOutput = id ? (midiState.access.outputs.get(id) || null) : null;
+    document.getElementById('midiPopupStatus').textContent = midiState.selectedOutput
+      ? `Output: ${midiState.selectedOutput.name}` : 'No output selected';
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// MIDI OUT BROWSER
+// ══════════════════════════════════════════════════════════════
+let _midiBrTi = 0;
+
+function openMidiBrowser(ti) {
+  _midiBrTi = ti;
+  const t = S.tracks[ti];
+  const col = trackColor(ti);
+  const label = document.getElementById('midiBrTrackLabel');
+  if (label) { label.textContent = `T${ti+1} · MIDI OUT`; label.style.color = col; }
+  updateMidiBrChannel();
+  updateMidiBrPort();
+  document.getElementById('midiBrowser').classList.add('open');
+}
+
+function _updateMidiWatermark(ti) {
+  const wm = document.getElementById('midiTrackWatermark');
+  const t = S.tracks[ti];
+  if (wm) wm.textContent = `MIDI Track  ·  Channel ${t.midiChannel || 1}`;
+}
+
+function closeMidiBrowser() {
+  document.getElementById('midiBrowser').classList.remove('open');
+}
+
+function updateMidiBrChannel() {
+  const t = S.tracks[_midiBrTi];
+  const ch = t.midiChannel || 1;
+  const el = document.getElementById('midiBrChVal');
+  if (el) el.textContent = ch;
+}
+
+function updateMidiBrPort() {
+  const port = midiState.selectedOutput;
+  const name = port ? port.name : 'No port selected';
+  const el = document.getElementById('midiBrPortDetail');
+  if (el) el.textContent = name;
+  const header = document.getElementById('midiBrPortName');
+  if (header) header.textContent = port ? `→ ${name}` : '— no output —';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('midiBrCloseBtn').addEventListener('click', closeMidiBrowser);
+  document.getElementById('midiBrTrackLabel').addEventListener('click', function() { openTrackTypePopup(this, _midiBrTi); });
+
+  document.getElementById('midiBrChDown').addEventListener('click', () => {
+    const t = S.tracks[_midiBrTi];
+    t.midiChannel = Math.max(1, (t.midiChannel || 1) - 1);
+    updateMidiBrChannel();
+    oledForce(`T${_midiBrTi+1} MIDI OUT`, `Ch ${t.midiChannel}`, getTrackOutput(_midiBrTi)?.name || 'no port');
+    _updateMidiWatermark(_midiBrTi);
+    renderFXPanel();
+  });
+  document.getElementById('midiBrChUp').addEventListener('click', () => {
+    const t = S.tracks[_midiBrTi];
+    t.midiChannel = Math.min(16, (t.midiChannel || 1) + 1);
+    updateMidiBrChannel();
+    oledForce(`T${_midiBrTi+1} MIDI OUT`, `Ch ${t.midiChannel}`, getTrackOutput(_midiBrTi)?.name || 'no port');
+    _updateMidiWatermark(_midiBrTi);
+    renderFXPanel();
+  });
+});
 
 // ── Gamepad polling loop ─────────────────────────────────────
 let _gpPrevButtons = {};
@@ -15585,6 +15867,29 @@ requestAnimationFrame(pollGamepad);
     });
   }
 
+  // enc0 en mode master — double-tap → reset BPM à 120
+  const elEnc0 = document.getElementById('enc0');
+  if (elEnc0) {
+    elEnc0.addEventListener('click', function() {
+      if (S.tracks[S.currentTrack]?.mode !== 'master') return;
+      const now = Date.now();
+      if (_tap['enc0_bpm'] && now - _tap['enc0_bpm'] < 350) {
+        _tap['enc0_bpm'] = 0;
+        setBpm(120);
+        oledForce('BPM', '120', 'RESET');
+        svg('enc0').setAttribute('stroke', '#aaa');
+        svg('enc0').setAttribute('stroke-width', '2.5');
+        setTimeout(() => {
+          svg('enc0').setAttribute('stroke', '#383838');
+          svg('enc0').setAttribute('stroke-width', '1.5');
+          S._oledLocked = false;
+        }, 800);
+      } else {
+        _tap['enc0_bpm'] = now;
+      }
+    });
+  }
+
   // encVol — double-tap → reset volume master à 0.65
   const elVol = document.getElementById('encVol');
   if (elVol) {
@@ -15626,13 +15931,65 @@ requestAnimationFrame(pollGamepad);
 <!-- ══ TRACK TYPE POPUP ══ -->
 <div id="trackTypePopup">
   <div class="typePopupItem" data-type="sf2">
-    <span class="typePopupDot" style="background:#3399ff"></span> SF2 Synth
+    <span class="typePopupDot" style="background:#3399ff"></span> SF2 Player
   </div>
   <div class="typePopupItem" data-type="junox">
     <span class="typePopupDot" style="background:#4cf"></span> JUNO Synth
   </div>
   <div class="typePopupItem" data-type="drum">
-    <span class="typePopupDot" style="background:#ff6b00"></span> Drum Track
+    <span class="typePopupDot" style="background:#ff6b00"></span> Drum Module
+  </div>
+  <div class="typePopupItem" data-type="midi">
+    <span class="typePopupDot" style="background:#44ff88"></span> MIDI Output
+  </div>
+</div>
+
+<!-- ══ MIDI OUT BROWSER ════════════════════════════════════════ -->
+<div id="midiBrowser" class="brOverlay">
+  <div id="midiBrHeader" class="brHeader">
+    <button id="midiBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#44ff88" title="Change track type">T · MIDI OUT</button>
+    <span id="midiBrPortName" class="brCurrentLabel" style="color:#44ff88">—</span>
+    <button id="midiBrCloseBtn" class="brCloseBtn">✕</button>
+  </div>
+  <div class="brBody" style="flex-direction:column;align-items:center;justify-content:center;gap:32px;padding:40px 20px">
+    <!-- Canal MIDI -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px">
+      <span style="font-size:10px;color:#555;text-transform:uppercase;letter-spacing:1.5px">MIDI Channel</span>
+      <div style="display:flex;align-items:center;gap:24px">
+        <button id="midiBrChDown" style="background:#1a1a1e;border:1px solid #333;border-radius:50%;width:40px;height:40px;color:#888;font-size:20px;cursor:pointer;font-family:'DM Mono',monospace">−</button>
+        <span id="midiBrChVal" style="font-size:52px;font-family:'DM Mono',monospace;color:#44ff88;min-width:60px;text-align:center;font-weight:600">1</span>
+        <button id="midiBrChUp" style="background:#1a1a1e;border:1px solid #333;border-radius:50%;width:40px;height:40px;color:#888;font-size:20px;cursor:pointer;font-family:'DM Mono',monospace">+</button>
+      </div>
+      <span style="font-size:10px;color:#333;letter-spacing:1px">1 — 16</span>
+    </div>
+    <!-- Port info -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+      <span style="font-size:10px;color:#444;text-transform:uppercase;letter-spacing:1px">Output Port</span>
+      <span id="midiBrPortDetail" style="font-size:13px;color:#555;font-family:'DM Mono',monospace">No port selected</span>
+      <span style="font-size:10px;color:#333">Configure in MIDI settings ↑</span>
+    </div>
+  </div>
+</div>
+<!-- ══ MIDI SETTINGS POPUP ══ -->
+<div id="midiPopup" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+  <div style="background:#1a1a1c;border:1px solid #444;border-radius:10px;padding:22px 26px;min-width:300px;max-width:420px;font-family:'DM Mono',monospace">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <span style="color:#44ff88;font-size:11px;letter-spacing:1px;text-transform:uppercase">MIDI Settings</span>
+      <button id="midiPopupClose" style="background:none;border:none;color:#666;font-size:18px;cursor:pointer;padding:0 4px">✕</button>
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="display:block;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Input</label>
+      <select id="midiInputSelect" style="width:100%;background:#111;border:1px solid #333;border-radius:5px;color:#eee;font-family:'DM Mono',monospace;font-size:12px;padding:7px 10px;outline:none;cursor:pointer">
+        <option value="">— No input —</option>
+      </select>
+    </div>
+    <div style="margin-bottom:6px">
+      <label style="display:block;font-size:10px;color:#666;text-transform:uppercase;letter-spacing:1px;margin-bottom:6px">Output</label>
+      <select id="midiOutputSelect" style="width:100%;background:#111;border:1px solid #333;border-radius:5px;color:#eee;font-family:'DM Mono',monospace;font-size:12px;padding:7px 10px;outline:none;cursor:pointer">
+        <option value="">— No output —</option>
+      </select>
+    </div>
+    <div id="midiPopupStatus" style="margin-top:12px;font-size:10px;color:#555;text-align:center;min-height:14px"></div>
   </div>
 </div>
 </body>
