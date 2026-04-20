@@ -4687,9 +4687,46 @@ async function initSF2() {
     console.log(`[SF2] FluidSynth WASM prêt — ${instanceCount} instances`);
     // Construire les chaînes FX (une par track)
     setTimeout(() => { for (let ti = 0; ti < 8; ti++) fxRebuildChain(ti); }, 100);
+    // Charger la banque GM par défaut en arrière-plan
+    loadDefaultGM();
   } catch(e) {
     sf2Initializing = false;
     console.error('[SF2] Init failed:', e);
+  }
+}
+
+// Charger la banque GM par défaut depuis le serveur
+const GM_DEFAULT_URL  = './GeneralUser-GS.sf2';
+const GM_DEFAULT_NAME = 'GeneralUser-GS.sf2';
+let   _gmDefaultBuf   = null; // ArrayBuffer mis en cache après le 1er fetch
+
+async function loadDefaultGM() {
+  // Ne charger que les tracks SF2 qui n'ont pas encore de banque
+  const tracksToLoad = [];
+  for (let ti = 0; ti < 8; ti++) {
+    const t = S.tracks[ti];
+    if (t.mode !== 'drum' && t.mode !== 'master' && t.outputMode !== 'midi' && t.outputMode !== 'drum' && t.outputMode !== 'junox') {
+      if (!trackSF2[ti] || !trackSF2[ti].sfName) tracksToLoad.push(ti);
+    }
+  }
+  if (!tracksToLoad.length) return;
+
+  try {
+    oled('GM', 'Chargement…', 'GeneralUser GS');
+    if (!_gmDefaultBuf) {
+      const resp = await fetch(GM_DEFAULT_URL);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      _gmDefaultBuf = await resp.arrayBuffer();
+    }
+    for (const ti of tracksToLoad) {
+      await sf2LoadBank(ti, _gmDefaultBuf.slice(0), GM_DEFAULT_NAME);
+    }
+    S._oledLocked = false;
+    oled('GM prête', 'GeneralUser GS', `${tracksToLoad.length} track${tracksToLoad.length>1?'s':''}`);
+    setTimeout(() => { if (!S._oledLocked) updateOled(); }, 2000);
+  } catch(e) {
+    console.warn('[GM] Impossible de charger la banque par défaut :', e.message);
+    S._oledLocked = false;
   }
 }
 
