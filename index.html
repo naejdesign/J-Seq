@@ -111,6 +111,14 @@ body {
 </head>
 <body>
 
+<div id="splashScreen" style="position:fixed;inset:0;background:#1a1a1c;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:'DM Mono',monospace;">
+  <div style="color:#888;font-size:14px;letter-spacing:0.1em;margin-bottom:24px;">J-seq</div>
+  <div id="splashMsg" style="color:#aaa;font-size:13px;margin-bottom:16px;">Initialisation…</div>
+  <div style="width:220px;height:3px;background:#2a2a2e;border-radius:2px;overflow:hidden;">
+    <div id="splashBar" style="height:100%;width:0%;background:#888;transition:width 0.1s;border-radius:2px;"></div>
+  </div>
+  <div id="splashPct" style="color:#555;font-size:11px;margin-top:10px;">0%</div>
+</div>
 <div id="device">
 <svg id="moveSVG" viewBox="0 0 860 482" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
 <defs>
@@ -4711,14 +4719,13 @@ async function loadDefaultGM() {
       if (!trackSF2[ti] || !trackSF2[ti].sfName) tracksToLoad.push(ti);
     }
   }
-  if (!tracksToLoad.length) return;
+  if (!tracksToLoad.length) { splashHide(); return; }
 
   try {
-    oled('GM', 'Chargement…', 'GeneralUser GS');
+    splashUpdate('Loading GeneralUser GS…', 5);
     if (!_gmDefaultBuf) {
       const resp = await fetch(GM_DEFAULT_URL);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      // Progression via stream
       const contentLength = resp.headers.get('Content-Length');
       const total = contentLength ? parseInt(contentLength) : 0;
       const reader = resp.body.getReader();
@@ -4731,10 +4738,10 @@ async function loadDefaultGM() {
         received += value.length;
         if (total > 0) {
           const pct = Math.round(received / total * 100);
-          oledForce('GM', `${pct}%`, 'GeneralUser GS');
+          splashUpdate(`Downloading… ${pct}%`, Math.round(5 + pct * 0.7));
         } else {
           const mb = (received / 1048576).toFixed(1);
-          oledForce('GM', `${mb} MB…`, 'GeneralUser GS');
+          splashUpdate(`Downloading… ${mb} MB`, 30);
         }
       }
       const all = new Uint8Array(received);
@@ -4742,32 +4749,16 @@ async function loadDefaultGM() {
       for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.length; }
       _gmDefaultBuf = all.buffer;
     }
+    splashUpdate('Loading soundbank…', 80);
     for (const ti of tracksToLoad) {
       await sf2LoadBank(ti, _gmDefaultBuf.slice(0), GM_DEFAULT_NAME);
     }
-    // Injecter la GM dans le browser SF2 si pas de catalogue existant
-    if (!sf2Browser.catalogue.length) {
-      const ti0 = tracksToLoad[0];
-      const presets = trackSF2[ti0]?.presets || [];
-      const entries = presets.map(p => ({
-        name:     p.name || `Preset ${p.program}`,
-        file:     GM_DEFAULT_NAME,
-        bank:     p.bank,
-        program:  p.program,
-        category: 'General MIDI'
-      }));
-      sf2BrowserLoadCatalogue(entries);
-      // Marquer la SF2 comme disponible sans dossier (chargée en mémoire)
-      sf2Browser.gmLoaded = true;
-    }
-    S._oledLocked = false;
-    oled('GM prête', 'GeneralUser GS', `${tracksToLoad.length} track${tracksToLoad.length>1?'s':''}`);
-    setTimeout(() => { if (!S._oledLocked) updateOled(); }, 2000);
-    // Peupler le catalogue du browser SF2 avec les presets de la GM
     _populateGMCatalogue(tracksToLoad[0]);
+    splashUpdate('Ready', 100);
+    setTimeout(() => splashHide(), 300);
   } catch(e) {
     console.warn('[GM] Impossible de charger la banque par défaut :', e.message);
-    S._oledLocked = false;
+    splashHide();
   }
 }
 
@@ -4784,7 +4775,7 @@ function _populateGMCatalogue(ti) {
     bank:        p.bank,
     program:     p.program
   }));
-  sf2BrowserLoadCatalogue(entries);
+  sf2BrowserLoadCatalogue(entries, true);
   sf2Browser.gmDefault = true;
 }
 
@@ -13775,7 +13766,7 @@ async function loadSF2Catalogue(dirHandle) {
   }
 }
 
-function sf2BrowserLoadCatalogue(entries) {
+function sf2BrowserLoadCatalogue(entries, keepOrder) {
   // ── 1. Déduplication des noms au sein de chaque catégorie ──────────────
   // On regroupe par catégorie, puis on numérote les doublons : "Piano 1", "Piano 2"…
   const byCategory = {};
@@ -13799,14 +13790,14 @@ function sf2BrowserLoadCatalogue(entries) {
         e.displayName = e.name;
       }
     }
-    // Tri alphabétique par displayName
-    byCategory[cat].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    // Tri alphabétique seulement si pas mode banque brute
+    if (!keepOrder) byCategory[cat].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
-  // Reconstruire la liste aplatie
-  sf2Browser.catalogue = Object.keys(byCategory).sort().flatMap(cat => byCategory[cat]);
-  // Catégories triées alphabétiquement
-  sf2Browser.categories = Object.keys(byCategory).sort((a,b) => a.localeCompare(b));
+  // Reconstruire la liste aplatie (ordre original si keepOrder)
+  const catKeys = keepOrder ? Object.keys(byCategory) : Object.keys(byCategory).sort();
+  sf2Browser.catalogue = catKeys.flatMap(cat => byCategory[cat]);
+  sf2Browser.categories = keepOrder ? catKeys : catKeys.sort((a,b) => a.localeCompare(b));
   sf2Browser.activeCategory = null;
   console.log(`[SF2] Catalogue : ${sf2Browser.catalogue.length} sons, ${sf2Browser.categories.length} catégories`);
   sf2HideLoading();
@@ -13972,8 +13963,10 @@ async function sf2LoadAndPreview(idx) {
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
     const presets = sf2GetPresets(ti, sfontId);
     sf2TempBank[ti] = { name, sfontId, presets };
-    _sf2LoadingTrack[ti] = false; // ── libérer le mutex avant la preview ──
-    sf2DoPreview(ti, sfontId, 0, 0);
+    _sf2LoadingTrack[ti] = false;
+    const _prvBank = sound.bank ?? 0;
+    const _prvProg = sound.program ?? 0;
+    sf2DoPreview(ti, sfontId, _prvBank, _prvProg);
   } catch(e) {
     console.error('[SF2] Erreur chargement preview :', e);
     _sf2LoadingTrack[ti] = false;
