@@ -552,7 +552,7 @@ body {
   </div>
   <div id="sf2Body" class="brBody">
     <div id="sf2FileCol" class="brLeftCol">
-      <h3>Catégories</h3>
+      <h3>Categories / Banks</h3>
       <div id="sf2FileList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Choisir un dossier…</div></div>
     </div>
     <div id="sf2PresetCol" class="brRightCol">
@@ -4701,16 +4701,6 @@ const GM_DEFAULT_NAME = 'GeneralUser-GS.sf2';
 let   _gmDefaultBuf   = null; // ArrayBuffer mis en cache après le 1er fetch
 
 
-const GM_CATEGORIES = [
-  'Piano','Chromatic Perc','Organ','Guitar','Bass','Strings','Ensemble',
-  'Brass','Reed','Pipe','Synth Lead','Synth Pad','Synth Effects','Ethnic',
-  'Percussive','Sound Effects'
-];
-function gmCategoryForPreset(bank, program) {
-  if (bank === 128) return 'Drums';
-  if (bank !== 0) return `Bank ${bank}`;
-  return GM_CATEGORIES[Math.floor(program / 8)] || 'Other';
-}
 
 async function loadDefaultGM() {
   // Ne charger que les tracks SF2 qui n'ont pas encore de banque
@@ -4728,7 +4718,29 @@ async function loadDefaultGM() {
     if (!_gmDefaultBuf) {
       const resp = await fetch(GM_DEFAULT_URL);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      _gmDefaultBuf = await resp.arrayBuffer();
+      // Progression via stream
+      const contentLength = resp.headers.get('Content-Length');
+      const total = contentLength ? parseInt(contentLength) : 0;
+      const reader = resp.body.getReader();
+      const chunks = [];
+      let received = 0;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+        received += value.length;
+        if (total > 0) {
+          const pct = Math.round(received / total * 100);
+          oledForce('GM', `${pct}%`, 'GeneralUser GS');
+        } else {
+          const mb = (received / 1048576).toFixed(1);
+          oledForce('GM', `${mb} MB…`, 'GeneralUser GS');
+        }
+      }
+      const all = new Uint8Array(received);
+      let offset = 0;
+      for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.length; }
+      _gmDefaultBuf = all.buffer;
     }
     for (const ti of tracksToLoad) {
       await sf2LoadBank(ti, _gmDefaultBuf.slice(0), GM_DEFAULT_NAME);
@@ -4762,8 +4774,10 @@ async function loadDefaultGM() {
 function _populateGMCatalogue(ti) {
   const presets = trackSF2[ti]?.presets;
   if (!presets || !presets.length) return;
+  // Colonne gauche = nom de la banque, colonne droite = tous les programmes
+  const bankName = GM_DEFAULT_NAME.replace('.sf2','');
   const entries = presets.map(p => ({
-    category:    gmCategoryForPreset(p.bank, p.program),
+    category:    bankName,
     name:        p.name,
     displayName: p.name,
     file:        GM_DEFAULT_NAME,
@@ -4771,7 +4785,6 @@ function _populateGMCatalogue(ti) {
     program:     p.program
   }));
   sf2BrowserLoadCatalogue(entries);
-  // Marquer le fileHandle comme GM par défaut (pas besoin de dossier)
   sf2Browser.gmDefault = true;
 }
 
