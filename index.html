@@ -3721,7 +3721,7 @@ function renderFXPageMain(ti) {
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
       txt.setAttribute('id', 'midiTrackWatermark');
       txt.setAttribute('x', String(sx + w/2));
-      txt.setAttribute('y', String(sy + h/2 + 10));
+      txt.setAttribute('y', '248');
       txt.setAttribute('text-anchor', 'middle');
       txt.setAttribute('font-family', "'DM Mono',monospace");
       txt.setAttribute('font-size', '22');
@@ -7897,7 +7897,10 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     e.preventDefault();
     setDirBtnLit('btnLeft', true);
     if (S._loopHeld)         compressPattern();
-    else if (anyStepHeld())  nudgeHeldSteps(-1);
+    else if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong && window._moveBarInsertFn) {
+      const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
+      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+    } else if (anyStepHeld())  nudgeHeldSteps(-1);
     else if (S.shiftHeld)    navBar(-1);
     else                     moveStepCursor(-1);
     return;
@@ -7906,7 +7909,10 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     e.preventDefault();
     setDirBtnLit('btnRight', true);
     if (S._loopHeld)         stretchPattern();
-    else if (anyStepHeld())  nudgeHeldSteps(1);
+    else if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong && window._moveBarInsertFn) {
+      const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
+      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+    } else if (anyStepHeld())  nudgeHeldSteps(1);
     else if (S.shiftHeld)    navBar(1);
     else                     moveStepCursor(1);
     return;
@@ -8500,6 +8506,7 @@ function transposeHeldSteps(octaveDelta) {
 // Décale les steps tenus d'une position (nudge)
 // État du step "flottant" en cours de nudge
 var _nudgeFloating = null; // { data, lastValidPos, originalPos }
+var _loopNudging = false; // true quand une bar loop est en cours de déplacement tactile
 
 function nudgeHeldSteps(delta) {
   const bar = currentStepBar();
@@ -8733,6 +8740,8 @@ for (let i = 0; i < 16; i++) {
           // Delete : seulement sur bars actives
           if (idx < activeClipObj().numBars) loopDeleteBar(idx);
         } else {
+          stepCursorPos = idx;
+          showStepCursor();
           pressLoopStep(idx);
         }
         return;
@@ -9080,9 +9089,17 @@ svg('btnMute').addEventListener('mouseup', () => {
 // ── Illumination générique boutons (style uniforme) ─────────────
 function setBtnLit(id, on, color) {
   const g = svg(id);
-  // Pour btnSets et btnSession : amener le bouton actif au premier plan
-  if (on && (id === 'btnSets' || id === 'btnSession') && g.parentNode) {
-    g.parentNode.appendChild(g);
+  // Pour btnSets et btnSession : gestion du premier plan
+  if (id === 'btnSets' || id === 'btnSession') {
+    if (on && g.parentNode) {
+      // Actif → premier plan
+      g.parentNode.appendChild(g);
+    } else if (!on && g.parentNode) {
+      // Éteint → vérifier si l'autre est actif, le remettre au premier plan
+      const otherId = id === 'btnSets' ? 'btnSession' : 'btnSets';
+      const other = svg(otherId);
+      if (other && other.parentNode) other.parentNode.appendChild(other);
+    }
   }
   if (!g) return;
   const col = color || '#aaa';
@@ -9304,7 +9321,10 @@ svg('btnLeft').addEventListener('mouseup',   () => setDirBtnLit('btnLeft',  fals
 svg('btnLeft').addEventListener('mouseleave',() => setDirBtnLit('btnLeft',  false));
 svg('btnLeft').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (anyStepHeld())     nudgeHeldSteps(-1);
+  if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+  } else if (anyStepHeld()) nudgeHeldSteps(-1);
   else if (S.shiftHeld)  navBar(-1);
   else                   moveStepCursor(-1);
 });
@@ -9318,7 +9338,10 @@ svg('btnRight').addEventListener('mouseup',   () => setDirBtnLit('btnRight', fal
 svg('btnRight').addEventListener('mouseleave',() => setDirBtnLit('btnRight', false));
 svg('btnRight').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (anyStepHeld())     nudgeHeldSteps(1);
+  if (S.mode === 'loop' && _gamepadBHeld && _gamepadBLong && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+  } else if (anyStepHeld()) nudgeHeldSteps(1);
   else if (S.shiftHeld)  navBar(1);
   else                   moveStepCursor(1);
 });
@@ -13036,12 +13059,16 @@ function pressLoopStep(idx) {
       // Premier step avec contenu tenu
       S._loopBarHeld = idx;
       S.currentBar   = idx;
+      _gamepadBHeld  = true;
+      _gamepadBLong  = true;
+      _gamepadBHeldIdx = idx;
+      saveUndo();
       renderLoopMode();
       const barNotes = countBarNotes(idx);
       const t = S.tracks[S.currentTrack];
       const hint = t.mode === 'drum' ?
         `${barNotes} hit${barNotes!==1?'s':''}` : `${barNotes} note${barNotes!==1?'s':''}`;
-      oled('BAR ' + (idx+1), hint, 'tenu+autre = région');
+      oled('SAISIE', `Bar ${idx+1}`, `${hint} · dpad=déplacer`);
     }
   } else {
     // 2ème step tenu → prévisualiser la nouvelle région
@@ -13070,6 +13097,8 @@ function releaseLoopStep(idx) {
     oled('LOOP REGION', `Bar ${lo+1} → ${clip.loopEnd+1}`, `${len} bar${len>1?'s':''}`);
   } else if (S._loopBarHeld === idx) {
     S._loopBarHeld = -1;
+    _gamepadBHeld  = false;
+    _gamepadBLong  = false;
     loopBarTranspose._cumul = 0; // reset compteur transpose
     clearStepNoteIllumination();
     renderPads();
@@ -13284,7 +13313,8 @@ function loopDeleteBar(barIdx) {
 .typePopupItem:hover { background: #2a2a2e; color: #fff; }
 .typePopupItem.active { color: #fff; font-weight: 600; }
 .typePopupItem.locked { color: #444; cursor: not-allowed; }
-.typePopupDot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.typePopupIcon { width: 20px; height: 20px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.typePopupIcon svg { width: 20px; height: 20px; }
 
 .brTrackLabel {
   font-size: 16px;
@@ -14721,6 +14751,8 @@ function moveStepCursor(delta) {
 // Gamepad button B : appui court = toggle step, appui long = hold step
 var _gamepadBHeldIdx = -1; // index du step pressé via gamepad
 
+window.gamepadBDown = function() { gamepadBDown(); };
+window.gamepadBUp = function() { gamepadBUp(); };
 function gamepadBDown() {
   if (_gamepadBHeld) return;
   // Junox browser ouvert → bouton A = confirmer le preset sélectionné
@@ -15150,6 +15182,7 @@ function joyTrackSelect(axisId, rawValue, groupStart) {
   };
 }
 
+
 function pollGamepad() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
   for (const gp of gamepads) {
@@ -15306,6 +15339,8 @@ function moveBarInsert(fromIdx, direction) {
 
   return toIdx;
 }
+window._moveBarInsertFn = moveBarInsert;
+
 
 function dpadAction(name) {
       // Priorité 0 : Junox browser ouvert → navigation presets
@@ -15947,16 +15982,16 @@ requestAnimationFrame(pollGamepad);
 <!-- ══ TRACK TYPE POPUP ══ -->
 <div id="trackTypePopup">
   <div class="typePopupItem" data-type="sf2">
-    <span class="typePopupDot" style="background:#3399ff"></span> SF2 Player
+    <span class="typePopupIcon"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="5" cy="18" rx="3" ry="2" transform="rotate(-15,5,18)"/><line x1="8" y1="17" x2="8" y2="7"/><ellipse cx="13" cy="18" rx="3" ry="2" transform="rotate(-15,13,18)"/><line x1="16" y1="17" x2="16" y2="7"/><line x1="8" y1="7" x2="16" y2="7"/></svg></span> SF2 Player
   </div>
   <div class="typePopupItem" data-type="junox">
-    <span class="typePopupDot" style="background:#4cf"></span> JUNO Synth
+    <span class="typePopupIcon"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12 C3 6 5 6 7 12 C9 18 11 18 13 12 C15 6 17 6 19 12 C21 18 23 18 24 12"/></svg></span> JUNO Synth
   </div>
   <div class="typePopupItem" data-type="drum">
-    <span class="typePopupDot" style="background:#ff6b00"></span> Drum Module
+    <span class="typePopupIcon"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="5"/></svg></span> Drum Module
   </div>
   <div class="typePopupItem" data-type="midi">
-    <span class="typePopupDot" style="background:#44ff88"></span> MIDI Output
+    <span class="typePopupIcon"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5,3 A9,9 0 1,1 10.5,3 L10.5,5.5 L13.5,5.5 Z" stroke-width="1.8"/><line x1="6.5" y1="14" x2="8.5" y2="13" stroke-width="1.5"/><line x1="8.5" y1="18" x2="10" y2="15.5" stroke-width="1.5"/><line x1="12" y1="19" x2="12" y2="16.5" stroke-width="1.5"/><line x1="15.5" y1="18" x2="14" y2="15.5" stroke-width="1.5"/><line x1="17.5" y1="14" x2="15.5" y2="13" stroke-width="1.5"/></svg></span> MIDI Output
   </div>
 </div>
 
