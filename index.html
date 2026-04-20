@@ -13579,6 +13579,7 @@ async function loadSF2Catalogue(dirHandle) {
   try {
     // Indexer tous les FileHandles SF2 du dossier
     sf2Browser.fileHandles = {};
+  sf2Browser.lazyMode = false;
     for await (const entry of dirHandle.values()) {
       if (entry.kind !== 'file') continue;
       if (entry.name.toLowerCase().endsWith('.sf2')) {
@@ -13598,8 +13599,19 @@ async function loadSF2Catalogue(dirHandle) {
     }
     sf2HideLoading();
     if (!sf2Browser.catalogue.length) {
-      document.getElementById('sf2FileList').innerHTML =
-        '<div style="padding:12px 14px;font-size:12px;color:#555">library.json introuvable dans ce dossier</div>';
+      // Pas de library.json → générer un catalogue depuis les SF2 du dossier
+      const sf2Names = Object.keys(sf2Browser.fileHandles);
+      if (sf2Names.length === 0) {
+        document.getElementById('sf2FileList').innerHTML =
+          '<div style="padding:12px 14px;font-size:12px;color:#555">Aucun fichier .sf2 trouvé</div>';
+      } else {
+        // Entrée par banque : la colonne gauche = nom du fichier SF2
+        // Les programmes seront chargés en lazy au clic
+        sf2Browser.categories = sf2Names;
+        sf2Browser.catalogue   = []; // sera peuplé au clic sur une banque
+        sf2Browser.lazyMode    = true;
+        renderSF2CategoryList();
+      }
     }
   } catch(e) {
     sf2HideLoading();
@@ -13683,10 +13695,42 @@ function renderSF2CategoryList() {
 
 function sf2SelectCategory(cat, resetSearch) {
   sf2Browser.activeCategory = cat;
-  sf2Browser.allSounds = sf2Browser.catalogue.filter(e => e.category === cat);
   if (resetSearch) document.getElementById('sf2PresetSearch').value = '';
   renderSF2CategoryList();
+
+  // Mode lazy (dossier sans library.json) : charger les presets de la SF2 sélectionnée
+  if (sf2Browser.lazyMode) {
+    sf2LoadBankPresets(cat);
+    return;
+  }
+
+  sf2Browser.allSounds = sf2Browser.catalogue.filter(e => e.category === cat);
   renderSF2SoundList(sf2Browser.allSounds);
+}
+
+async function sf2LoadBankPresets(fileName) {
+  const ti = sf2Browser.trackIdx;
+  sf2ShowLoading('Chargement presets…');
+  try {
+    const handle = sf2Browser.fileHandles[fileName];
+    if (!handle) { sf2HideLoading(); return; }
+    const file = await handle.getFile();
+    const buf  = await file.arrayBuffer();
+    const sfontId = await jsSynths[ti].loadSFont(buf);
+    const presets = sf2GetPresets(ti, sfontId);
+    sf2TempBank[ti] = { name: fileName, sfontId, presets };
+    // Construire le catalogue pour cette banque
+    const bankName = fileName.replace('.sf2','');
+    const entries  = presets.map(p => ({
+      category: bankName, name: p.name, displayName: p.name,
+      file: fileName, bank: p.bank, program: p.program
+    }));
+    sf2BrowserLoadCatalogue(entries, true);
+    sf2HideLoading();
+  } catch(e) {
+    console.error('[SF2] Erreur chargement presets :', e);
+    sf2HideLoading();
+  }
 }
 
 // ── Rendu colonne droite : sons ────────────────────────────────────────────
