@@ -4724,31 +4724,10 @@ async function loadDefaultGM() {
   try {
     splashUpdate('Loading GeneralUser GS…', 5);
     if (!_gmDefaultBuf) {
+      splashUpdate('Downloading soundbank…', 10);
       const resp = await fetch(GM_DEFAULT_URL);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      const contentLength = resp.headers.get('Content-Length');
-      const total = contentLength ? parseInt(contentLength) : 0;
-      // Cloner avant de lire le stream (évite conflit avec le Service Worker)
-      const reader = resp.clone().body.getReader();
-      const chunks = [];
-      let received = 0;
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-        received += value.length;
-        if (total > 0) {
-          const pct = Math.round(received / total * 100);
-          splashUpdate(`Downloading… ${pct}%`, Math.round(5 + pct * 0.7));
-        } else {
-          const mb = (received / 1048576).toFixed(1);
-          splashUpdate(`Downloading… ${mb} MB`, 30);
-        }
-      }
-      const all = new Uint8Array(received);
-      let offset = 0;
-      for (const chunk of chunks) { all.set(chunk, offset); offset += chunk.length; }
-      _gmDefaultBuf = all.buffer;
+      _gmDefaultBuf = await resp.arrayBuffer();
     }
     splashUpdate('Loading soundbank…', 80);
     for (const ti of tracksToLoad) {
