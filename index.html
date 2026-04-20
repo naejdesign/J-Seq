@@ -112,12 +112,11 @@ body {
 <body>
 
 <div id="splashScreen" style="position:fixed;inset:0;background:#1a1a1c;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;font-family:'DM Mono',monospace;">
-  <div style="color:#888;font-size:14px;letter-spacing:0.1em;margin-bottom:24px;">J-seq</div>
-  <div id="splashMsg" style="color:#aaa;font-size:13px;margin-bottom:16px;">Initialisation…</div>
-  <div style="width:220px;height:3px;background:#2a2a2e;border-radius:2px;overflow:hidden;">
-    <div id="splashBar" style="height:100%;width:0%;background:#888;transition:width 0.1s;border-radius:2px;"></div>
+  <div style="color:#555;font-size:13px;letter-spacing:0.15em;margin-bottom:20px;">J-seq</div>
+  <div id="splashMsg" style="color:#888;font-size:12px;margin-bottom:14px;">Loading…</div>
+  <div style="width:200px;height:2px;background:#2a2a2e;border-radius:2px;">
+    <div id="splashBar" style="height:100%;width:0%;background:#666;border-radius:2px;transition:width 0.2s;"></div>
   </div>
-  <div id="splashPct" style="color:#555;font-size:11px;margin-top:10px;">0%</div>
 </div>
 <div id="device">
 <svg id="moveSVG" viewBox="0 0 860 482" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
@@ -4655,6 +4654,108 @@ document.addEventListener('dblclick', e => {
 let previewTimer = null;
 const PREVIEW_NOTE = 60; // C4
 
+// ══ Banque GM par défaut ══════════════════════════════════════════════════
+
+const _GM_URL  = './GeneralUser-GS.sf2';
+const _GM_NAME = 'GeneralUser-GS.sf2';
+
+function _splashMsg(txt, pct) {
+  const m = document.getElementById('splashMsg');
+  const b = document.getElementById('splashBar');
+  if (m) m.textContent = txt;
+  if (b) b.style.width = pct + '%';
+}
+function _splashHide() {
+  const s = document.getElementById('splashScreen');
+  if (!s) return;
+  s.style.transition = 'opacity 0.5s';
+  s.style.opacity = '0';
+  setTimeout(() => s.remove(), 500);
+}
+
+async function _gmIdbGet() {
+  return new Promise(res => {
+    try {
+      const req = indexedDB.open('jseq-gm', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('sf2');
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction('sf2', 'readonly');
+        const r2 = tx.objectStore('sf2').get('gm');
+        r2.onsuccess = e2 => res(e2.target.result || null);
+        r2.onerror   = () => res(null);
+      };
+      req.onerror = () => res(null);
+    } catch(e) { res(null); }
+  });
+}
+async function _gmIdbSet(buf) {
+  return new Promise(res => {
+    try {
+      const req = indexedDB.open('jseq-gm', 1);
+      req.onupgradeneeded = e => e.target.result.createObjectStore('sf2');
+      req.onsuccess = e => {
+        const tx = e.target.result.transaction('sf2', 'readwrite');
+        tx.objectStore('sf2').put(buf, 'gm');
+        tx.oncomplete = () => res();
+        tx.onerror    = () => res();
+      };
+      req.onerror = () => res();
+    } catch(e) { res(); }
+  });
+}
+
+async function _loadGMAndHideSplash() {
+  try {
+    // Tracks SF2 sans banque
+    const tracks = [];
+    for (let ti = 0; ti < 8; ti++) {
+      const t = S.tracks[ti];
+      if (t.mode === 'drum' || t.mode === 'master') continue;
+      if (t.outputMode === 'midi' || t.outputMode === 'junox' || t.outputMode === 'drum') continue;
+      if (trackSF2[ti] && trackSF2[ti].sfName) continue;
+      tracks.push(ti);
+    }
+    if (!tracks.length) { _splashHide(); return; }
+
+    // Chercher en IDB d'abord
+    _splashMsg('Loading soundbank…', 20);
+    let buf = await _gmIdbGet();
+
+    if (!buf) {
+      // Pas en cache → télécharger
+      _splashMsg('Downloading soundbank…', 10);
+      const resp = await fetch(_GM_URL);
+      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      buf = await resp.arrayBuffer();
+      _splashMsg('Saving to device…', 70);
+      await _gmIdbSet(buf);
+    }
+
+    // Charger sur chaque track
+    _splashMsg('Loading soundbank…', 80);
+    for (const ti of tracks) {
+      await sf2LoadBank(ti, buf.slice(0), _GM_NAME);
+    }
+
+    // Peupler le browser
+    const presets = trackSF2[tracks[0]]?.presets || [];
+    const bankName = _GM_NAME.replace('.sf2', '');
+    const entries = presets.map(p => ({
+      category: bankName, name: p.name, displayName: p.name,
+      file: _GM_NAME, bank: p.bank, program: p.program
+    }));
+    sf2BrowserLoadCatalogue(entries, true);
+
+    _splashMsg('Ready', 100);
+    setTimeout(_splashHide, 400);
+  } catch(e) {
+    console.warn('[GM]', e.message);
+    _splashHide();
+  }
+}
+
+// ══ FluidSynth init ════════════════════════════════════════════════════════
+
 async function initSF2() {
   if (sf2Ready || sf2Initializing) return;
   sf2Initializing = true;
@@ -4695,132 +4796,12 @@ async function initSF2() {
     console.log(`[SF2] FluidSynth WASM prêt — ${instanceCount} instances`);
     // Construire les chaînes FX (une par track)
     setTimeout(() => { for (let ti = 0; ti < 8; ti++) fxRebuildChain(ti); }, 100);
-    // Charger la banque GM par défaut en arrière-plan
-    loadDefaultGM();
+    // Charger la GM par défaut (bloque le splash jusqu'à la fin)
+    _loadGMAndHideSplash();
   } catch(e) {
     sf2Initializing = false;
     console.error('[SF2] Init failed:', e);
   }
-}
-
-// Charger la banque GM par défaut depuis le serveur
-const GM_DEFAULT_URL  = './GeneralUser-GS.sf2';
-const GM_DEFAULT_NAME = 'GeneralUser-GS.sf2';
-let   _gmDefaultBuf   = null; // ArrayBuffer en mémoire (session courante)
-
-// ── IndexedDB pour persister la GM entre sessions ──
-const GM_IDB_NAME    = 'jseq-gm';
-const GM_IDB_STORE   = 'banks';
-const GM_IDB_KEY     = 'GeneralUser-GS';
-const GM_IDB_VERSION = 1;
-
-function gmIdbOpen() {
-  return new Promise((res, rej) => {
-    const req = indexedDB.open(GM_IDB_NAME, GM_IDB_VERSION);
-    req.onupgradeneeded = e => e.target.result.createObjectStore(GM_IDB_STORE);
-    req.onsuccess = e => res(e.target.result);
-    req.onerror   = e => rej(e.target.error);
-  });
-}
-async function gmIdbGet() {
-  try {
-    const db = await gmIdbOpen();
-    return new Promise((res, rej) => {
-      const tx  = db.transaction(GM_IDB_STORE, 'readonly');
-      const req = tx.objectStore(GM_IDB_STORE).get(GM_IDB_KEY);
-      req.onsuccess = e => res(e.target.result || null);
-      req.onerror   = e => rej(e.target.error);
-    });
-  } catch(e) { return null; }
-}
-async function gmIdbSet(buf) {
-  try {
-    const db = await gmIdbOpen();
-    return new Promise((res, rej) => {
-      const tx  = db.transaction(GM_IDB_STORE, 'readwrite');
-      const req = tx.objectStore(GM_IDB_STORE).put(buf, GM_IDB_KEY);
-      req.onsuccess = () => res();
-      req.onerror   = e => rej(e.target.error);
-    });
-  } catch(e) { console.warn('[GM] IDB write error:', e); }
-}
-
-
-
-function splashUpdate(msg, pct) {
-  const el    = document.getElementById('splashMsg');
-  const bar   = document.getElementById('splashBar');
-  const pctEl = document.getElementById('splashPct');
-  if (el)    el.textContent       = msg;
-  if (bar)   bar.style.width      = pct + '%';
-  if (pctEl) pctEl.textContent    = pct + '%';
-}
-function splashHide() {
-  const s = document.getElementById('splashScreen');
-  if (!s) return;
-  s.style.transition = 'opacity 0.4s';
-  s.style.opacity = '0';
-  setTimeout(() => { if (s.parentNode) s.parentNode.removeChild(s); }, 400);
-}
-
-async function loadDefaultGM() {
-  // Ne charger que les tracks SF2 qui n'ont pas encore de banque
-  const tracksToLoad = [];
-  for (let ti = 0; ti < 8; ti++) {
-    const t = S.tracks[ti];
-    if (t.mode !== 'drum' && t.mode !== 'master' && t.outputMode !== 'midi' && t.outputMode !== 'drum' && t.outputMode !== 'junox') {
-      if (!trackSF2[ti] || !trackSF2[ti].sfName) tracksToLoad.push(ti);
-    }
-  }
-  if (!tracksToLoad.length) { splashHide(); return; }
-
-  try {
-    splashUpdate('Loading GeneralUser GS…', 5);
-    if (!_gmDefaultBuf) {
-      // Essayer depuis IndexedDB d'abord (déjà téléchargé)
-      splashUpdate('Loading soundbank…', 10);
-      const cached = await gmIdbGet();
-      if (cached) {
-        _gmDefaultBuf = cached;
-        splashUpdate('Loading soundbank…', 40);
-      } else {
-        // Premier lancement : télécharger et stocker en IDB
-        splashUpdate('Downloading soundbank…', 10);
-        const resp = await fetch(GM_DEFAULT_URL);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        _gmDefaultBuf = await resp.arrayBuffer();
-        splashUpdate('Saving to device…', 75);
-        await gmIdbSet(_gmDefaultBuf);
-      }
-    }
-    splashUpdate('Loading soundbank…', 80);
-    for (const ti of tracksToLoad) {
-      await sf2LoadBank(ti, _gmDefaultBuf.slice(0), GM_DEFAULT_NAME);
-    }
-    _populateGMCatalogue(tracksToLoad[0]);
-    splashUpdate('Ready', 100);
-    setTimeout(() => splashHide(), 300);
-  } catch(e) {
-    console.warn('[GM] Impossible de charger la banque par défaut :', e.message);
-    splashHide();
-  }
-}
-
-function _populateGMCatalogue(ti) {
-  const presets = trackSF2[ti]?.presets;
-  if (!presets || !presets.length) return;
-  // Colonne gauche = nom de la banque, colonne droite = tous les programmes
-  const bankName = GM_DEFAULT_NAME.replace('.sf2','');
-  const entries = presets.map(p => ({
-    category:    bankName,
-    name:        p.name,
-    displayName: p.name,
-    file:        GM_DEFAULT_NAME,
-    bank:        p.bank,
-    program:     p.program
-  }));
-  sf2BrowserLoadCatalogue(entries, true);
-  sf2Browser.gmDefault = true;
 }
 
 // Cache persistant par track : sf2BankCache[ti][fileName] = { sfontId, presets }
@@ -7872,7 +7853,6 @@ function setNumpadLit(code, on) {
 }
 
 function setShiftOn(on) {
-  if (!on) _loopShiftStep1 = -1;
   S.shiftHeld = on;
   setBtnLit('btnShift', on, '#f0a020');
   if (on) {
@@ -7893,7 +7873,6 @@ function setShiftOn(on) {
 
 document.addEventListener('keydown', e => {
   if (e.target.tagName === 'INPUT') return;
-  console.log('KEYDOWN raw:', e.key, 'target:', e.target.tagName, e.target.id, 'repeat:', e.repeat);
   if (e.repeat) return; // ignorer l'auto-repeat
   const key = e.key.toLowerCase();
 
@@ -8029,10 +8008,7 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     e.preventDefault();
     setDirBtnLit('btnLeft', true);
     if (S._loopHeld)         compressPattern();
-    else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
-      const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
-      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
-    } else if (anyStepHeld())  nudgeHeldSteps(-1);
+    else if (anyStepHeld())  nudgeHeldSteps(-1);
     else if (S.shiftHeld)    navBar(-1);
     else                     moveStepCursor(-1);
     return;
@@ -8041,10 +8017,7 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     e.preventDefault();
     setDirBtnLit('btnRight', true);
     if (S._loopHeld)         stretchPattern();
-    else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
-      const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
-      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
-    } else if (anyStepHeld())  nudgeHeldSteps(1);
+    else if (anyStepHeld())  nudgeHeldSteps(1);
     else if (S.shiftHeld)    navBar(1);
     else                     moveStepCursor(1);
     return;
@@ -8638,11 +8611,6 @@ function transposeHeldSteps(octaveDelta) {
 // Décale les steps tenus d'une position (nudge)
 // État du step "flottant" en cours de nudge
 var _nudgeFloating = null; // { data, lastValidPos, originalPos }
-window._loopSaisieActive = false;
-window._loopSaisieIdx = -1;
-var _loopStepHoldTimer = null; // timer 300ms pour saisie d'une bar en loop
-var _loopStepHoldIdx   = -1;   // index de la bar en cours de hold
-var _loopShiftStep1    = -1;   // 1er step pour définition région avec shift (souris/tactile)
 
 function nudgeHeldSteps(delta) {
   const bar = currentStepBar();
@@ -8876,40 +8844,7 @@ for (let i = 0; i < 16; i++) {
           // Delete : seulement sur bars actives
           if (idx < activeClipObj().numBars) loopDeleteBar(idx);
         } else {
-          // Shift + tap souris/tactile = définir région de boucle
-          if (S.shiftHeld) {
-            if (_loopShiftStep1 === -1) {
-              _loopShiftStep1 = idx;
-              stepCursorPos = idx; updateStepCursor();
-              oled('RÉGION', `Bar ${idx+1} →`, 'shift+tap 2ème bar');
-            } else {
-              const lo = Math.min(_loopShiftStep1, idx);
-              const hi = Math.max(_loopShiftStep1, idx);
-              const clip = activeClipObj();
-              saveUndo();
-              clip.loopStart = lo;
-              clip.loopEnd   = Math.min(hi, clip.numBars - 1);
-              _loopShiftStep1 = -1;
-              renderLoopMode();
-              const len = clip.loopEnd - clip.loopStart + 1;
-              oled('LOOP REGION', `Bar ${lo+1} → ${clip.loopEnd+1}`, `${len} bar${len>1?'s':''}`);
-            }
-            return;
-          }
-          // Timer 300ms pour saisie nudge
-          stepCursorPos = idx; showStepCursor();
-          _loopStepHoldIdx = idx;
-          _loopStepHoldTimer = setTimeout(() => {
-            _loopStepHoldTimer = null;
-            window._loopSaisieActive = true;
-            window._loopSaisieIdx = idx;
-                  S._loopBarHeld = idx;
-            S.currentBar   = idx;
-            saveUndo();
-            renderLoopMode();
-            const barNotes = countBarNotes(idx);
-            oled('SAISIE', `Bar ${idx+1}`, `${barNotes} note${barNotes!==1?'s':''} · ←/→ déplacer`);
-          }, 300);
+          pressLoopStep(idx);
         }
         return;
       }
@@ -8937,28 +8872,7 @@ for (let i = 0; i < 16; i++) {
       pressStep(idx);
     });
     stepEl.addEventListener('mouseup', function(e) {
-      if (S.mode === 'loop') {
-        // Annuler le timer si pas encore expiré → tap court = rien
-        if (_loopStepHoldTimer) {
-          clearTimeout(_loopStepHoldTimer);
-          _loopStepHoldTimer = null;
-          _loopStepHoldIdx = -1;
-          return;
-        }
-        _loopStepHoldIdx = -1;
-        // Long press : valider le nudge
-        if (window._loopSaisieActive) {
-          window._loopSaisieActive = false;
-          window._loopSaisieIdx = -1;
-          S._loopBarHeld = -1;
-          renderLoopMode();
-          const clip = activeClipObj();
-          oled('LOOP MODE', trackInfo(), `${clip.numBars} bar${clip.numBars>1?'s':''}`);
-        } else {
-          releaseLoopStep(idx);
-        }
-        return;
-      }
+      if (S.mode === 'loop') { releaseLoopStep(idx); return; }
       // Après un nudge, heldSteps a l'index courant (pas l'original)
       // On cherche l'index réel dans heldSteps
       const currentIdx = heldSteps.has(idx) ? idx
@@ -9509,10 +9423,7 @@ svg('btnLeft').addEventListener('mouseup',   () => setDirBtnLit('btnLeft',  fals
 svg('btnLeft').addEventListener('mouseleave',() => setDirBtnLit('btnLeft',  false));
 svg('btnLeft').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
-    const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
-    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
-  } else if (anyStepHeld()) nudgeHeldSteps(-1);
+  if (anyStepHeld())     nudgeHeldSteps(-1);
   else if (S.shiftHeld)  navBar(-1);
   else                   moveStepCursor(-1);
 });
@@ -9526,10 +9437,7 @@ svg('btnRight').addEventListener('mouseup',   () => setDirBtnLit('btnRight', fal
 svg('btnRight').addEventListener('mouseleave',() => setDirBtnLit('btnRight', false));
 svg('btnRight').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
-    const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
-    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
-  } else if (anyStepHeld()) nudgeHeldSteps(1);
+  if (anyStepHeld())     nudgeHeldSteps(1);
   else if (S.shiftHeld)  navBar(1);
   else                   moveStepCursor(1);
 });
@@ -13834,14 +13742,14 @@ function sf2BrowserLoadCatalogue(entries, keepOrder) {
         e.displayName = e.name;
       }
     }
-    // Tri alphabétique seulement si pas mode banque brute
+    // Tri alphabétique sauf si ordre original demandé
     if (!keepOrder) byCategory[cat].sort((a, b) => a.displayName.localeCompare(b.displayName));
   }
 
-  // Reconstruire la liste aplatie (ordre original si keepOrder)
-  const catKeys = keepOrder ? Object.keys(byCategory) : Object.keys(byCategory).sort();
-  sf2Browser.catalogue = catKeys.flatMap(cat => byCategory[cat]);
-  sf2Browser.categories = keepOrder ? catKeys : catKeys.sort((a,b) => a.localeCompare(b));
+  // Reconstruire la liste aplatie
+  const _catKeys = keepOrder ? Object.keys(byCategory) : Object.keys(byCategory).sort();
+  sf2Browser.catalogue = _catKeys.flatMap(cat => byCategory[cat]);
+  sf2Browser.categories = keepOrder ? _catKeys : _catKeys.sort((a,b) => a.localeCompare(b));
   sf2Browser.activeCategory = null;
   console.log(`[SF2] Catalogue : ${sf2Browser.catalogue.length} sons, ${sf2Browser.categories.length} catégories`);
   sf2HideLoading();
@@ -13977,22 +13885,9 @@ async function sf2LoadAndPreview(idx) {
     sf2TempBank[ti] = null;
   }
 
-  // Charger le SF2 depuis le dossier (ou GM en mémoire)
+  // Charger le SF2 depuis le dossier
   try {
     let file;
-    // Cas spécial : GM déjà en mémoire
-    if (name === GM_DEFAULT_NAME && _gmDefaultBuf) {
-      if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
-      const sfontId = await jsSynths[ti].loadSFont(_gmDefaultBuf.slice(0));
-      if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
-      const presets = sf2GetPresets(ti, sfontId);
-      sf2TempBank[ti] = { name, sfontId, presets };
-      _sf2LoadingTrack[ti] = false;
-      const prvBank = sound.bank ?? 0;
-      const prvProg = sound.program ?? 0;
-      sf2DoPreview(ti, sfontId, prvBank, prvProg);
-      return;
-    }
     if (sf2Browser.useFileHandles) {
       const handle = sf2Browser.fileHandles[name];
       if (!handle) { console.warn('[SF2] Handle introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
@@ -14002,15 +13897,14 @@ async function sf2LoadAndPreview(idx) {
       if (!file) { console.warn('[SF2] Fichier introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
     }
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; } // supplanté
+    const buf     = await file.arrayBuffer();
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
     const sfontId = await jsSynths[ti].loadSFont(buf);
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
     const presets = sf2GetPresets(ti, sfontId);
     sf2TempBank[ti] = { name, sfontId, presets };
-    _sf2LoadingTrack[ti] = false;
-    const _prvBank = sound.bank ?? 0;
-    const _prvProg = sound.program ?? 0;
-    sf2DoPreview(ti, sfontId, _prvBank, _prvProg);
+    _sf2LoadingTrack[ti] = false; // ── libérer le mutex avant la preview ──
+    sf2DoPreview(ti, sfontId, 0, 0);
   } catch(e) {
     console.error('[SF2] Erreur chargement preview :', e);
     _sf2LoadingTrack[ti] = false;
@@ -14068,10 +13962,7 @@ function sf2SoundConfirm(idx) {
 
   const ts      = trackSF2[ti];
   const oldName = ts.sfName;
-  // Utiliser le bank/program du son sélectionné si disponible, sinon premier preset
-  const preset = (sound.bank !== undefined && sound.program !== undefined)
-    ? { bank: sound.bank, program: sound.program }
-    : (bankData.presets?.[0] ?? { bank: 0, program: 0 });
+  const preset = (sound.bank !== undefined) ? { bank: sound.bank, program: sound.program } : (bankData.presets?.[0] ?? { bank: 0, program: 0 });
 
   ts.sfName  = name;
   ts.sfontId = bankData.sfontId;
@@ -14900,7 +14791,6 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 // Curseur visible sur les 16 steps, déplacé par croix directionnelle
 var stepCursorPos = 0;
 var stepCursorVisible = false;
-console.log('SCRIPT6 START');
 var _gamepadBHeld = false;
 var _gamepadBTimer = null;
 var _gamepadBLong = false;
@@ -15107,6 +14997,7 @@ function initTypeButtons() {
       const ti = _typePopupTi;
       closeTrackTypePopup();
       if (ti < 0) return;
+
       await switchTrackType(ti, newType);
 
       // Ouvrir le browser correspondant au nouveau type
@@ -15305,6 +15196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderFXPanel();
   });
 });
+
 // ── Gamepad polling loop ─────────────────────────────────────
 let _gpPrevButtons = {};
 let _gpPrevAxes = [0, 0, 0, 0];
@@ -15377,55 +15269,6 @@ function joyTrackSelect(axisId, rawValue, groupStart) {
     interval: null
   };
 }
-
-// ── Déplacer une bar par insertion (gamepad A+dpad en loop mode) ──
-function moveBarInsert(fromIdx, direction) {
-  // direction = +1 (droite) ou -1 (gauche)
-  const clip = activeClipObj();
-  const maxBar = clip.numBars - 1;
-  const toIdx = fromIdx + direction;
-  if (toIdx < 0 || toIdx > maxBar) return fromIdx;
-  if (fromIdx < 0 || fromIdx > maxBar) return fromIdx;
-
-  const srcBars = clip.bars[fromIdx]
-    ? clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
-    : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
-
-  const srcDrum = clip.drumBars.map(padSeq =>
-    padSeq[fromIdx]
-      ? padSeq[fromIdx].map(st => ({...st}))
-      : Array.from({length:16}, () => ({on:false, vel:0.787}))
-  );
-
-  if (direction > 0) {
-    for (let i = fromIdx; i < toIdx; i++) {
-      clip.bars[i] = clip.bars[i+1]
-        ? clip.bars[i+1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
-        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
-      clip.drumBars.forEach(padSeq => {
-        padSeq[i] = padSeq[i+1]
-          ? padSeq[i+1].map(st => ({...st}))
-          : Array.from({length:16}, () => ({on:false, vel:0.787}));
-      });
-    }
-  } else {
-    for (let i = fromIdx; i > toIdx; i--) {
-      clip.bars[i] = clip.bars[i-1]
-        ? clip.bars[i-1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
-        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
-      clip.drumBars.forEach(padSeq => {
-        padSeq[i] = padSeq[i-1]
-          ? padSeq[i-1].map(st => ({...st}))
-          : Array.from({length:16}, () => ({on:false, vel:0.787}));
-      });
-    }
-  }
-
-  clip.bars[toIdx] = srcBars;
-  clip.drumBars.forEach((padSeq, pi) => { padSeq[toIdx] = srcDrum[pi]; });
-  return toIdx;
-}
-window._moveBarInsertFn = moveBarInsert;
 
 function pollGamepad() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -15529,6 +15372,60 @@ function pollGamepad() {
 
     // D-pad buttons (standard: 12=up, 13=down, 14=left, 15=right)
 
+    
+// ── Déplacer une bar par insertion (gamepad A+dpad en loop mode) ──
+// La bar "saisie" se déplace dans le sens du dpad, les autres se décalent.
+// Sens détermine l'insertion : vient de gauche → insère après, vient de droite → insère avant.
+function moveBarInsert(fromIdx, direction) {
+  // direction = +1 (droite) ou -1 (gauche)
+  const clip = activeClipObj();
+  const maxBar = clip.numBars - 1;
+  const toIdx = fromIdx + direction;
+  if (toIdx < 0 || toIdx > maxBar) return fromIdx; // bord atteint
+  if (fromIdx < 0 || fromIdx > maxBar) return fromIdx; // sécurité
+
+  // Extraire la bar source (mélo + drums)
+  const srcBars = clip.bars[fromIdx]
+    ? clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+    : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+
+  const srcDrum = clip.drumBars.map(padSeq =>
+    padSeq[fromIdx]
+      ? padSeq[fromIdx].map(st => ({...st}))
+      : Array.from({length:16}, () => ({on:false, vel:0.787}))
+  );
+
+  // Décaler les bars entre from et to
+  if (direction > 0) {
+    for (let i = fromIdx; i < toIdx; i++) {
+      clip.bars[i] = clip.bars[i+1]
+        ? clip.bars[i+1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+      clip.drumBars.forEach(padSeq => {
+        padSeq[i] = padSeq[i+1]
+          ? padSeq[i+1].map(st => ({...st}))
+          : Array.from({length:16}, () => ({on:false, vel:0.787}));
+      });
+    }
+  } else {
+    for (let i = fromIdx; i > toIdx; i--) {
+      clip.bars[i] = clip.bars[i-1]
+        ? clip.bars[i-1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+      clip.drumBars.forEach(padSeq => {
+        padSeq[i] = padSeq[i-1]
+          ? padSeq[i-1].map(st => ({...st}))
+          : Array.from({length:16}, () => ({on:false, vel:0.787}));
+      });
+    }
+  }
+
+  // Placer la bar source à la nouvelle position
+  clip.bars[toIdx] = srcBars;
+  clip.drumBars.forEach((padSeq, pi) => { padSeq[toIdx] = srcDrum[pi]; });
+
+  return toIdx;
+}
 
 function dpadAction(name) {
       // Priorité 0 : Junox browser ouvert → navigation presets
