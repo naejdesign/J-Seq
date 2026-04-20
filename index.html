@@ -4700,6 +4700,18 @@ const GM_DEFAULT_URL  = './GeneralUser-GS.sf2';
 const GM_DEFAULT_NAME = 'GeneralUser-GS.sf2';
 let   _gmDefaultBuf   = null; // ArrayBuffer mis en cache après le 1er fetch
 
+
+const GM_CATEGORIES = [
+  'Piano','Chromatic Perc','Organ','Guitar','Bass','Strings','Ensemble',
+  'Brass','Reed','Pipe','Synth Lead','Synth Pad','Synth Effects','Ethnic',
+  'Percussive','Sound Effects'
+];
+function gmCategoryForPreset(bank, program) {
+  if (bank === 128) return 'Drums';
+  if (bank !== 0) return `Bank ${bank}`;
+  return GM_CATEGORIES[Math.floor(program / 8)] || 'Other';
+}
+
 async function loadDefaultGM() {
   // Ne charger que les tracks SF2 qui n'ont pas encore de banque
   const tracksToLoad = [];
@@ -4721,13 +4733,46 @@ async function loadDefaultGM() {
     for (const ti of tracksToLoad) {
       await sf2LoadBank(ti, _gmDefaultBuf.slice(0), GM_DEFAULT_NAME);
     }
+    // Injecter la GM dans le browser SF2 si pas de catalogue existant
+    if (!sf2Browser.catalogue.length) {
+      const ti0 = tracksToLoad[0];
+      const presets = trackSF2[ti0]?.presets || [];
+      const entries = presets.map(p => ({
+        name:     p.name || `Preset ${p.program}`,
+        file:     GM_DEFAULT_NAME,
+        bank:     p.bank,
+        program:  p.program,
+        category: 'General MIDI'
+      }));
+      sf2BrowserLoadCatalogue(entries);
+      // Marquer la SF2 comme disponible sans dossier (chargée en mémoire)
+      sf2Browser.gmLoaded = true;
+    }
     S._oledLocked = false;
     oled('GM prête', 'GeneralUser GS', `${tracksToLoad.length} track${tracksToLoad.length>1?'s':''}`);
     setTimeout(() => { if (!S._oledLocked) updateOled(); }, 2000);
+    // Peupler le catalogue du browser SF2 avec les presets de la GM
+    _populateGMCatalogue(tracksToLoad[0]);
   } catch(e) {
     console.warn('[GM] Impossible de charger la banque par défaut :', e.message);
     S._oledLocked = false;
   }
+}
+
+function _populateGMCatalogue(ti) {
+  const presets = trackSF2[ti]?.presets;
+  if (!presets || !presets.length) return;
+  const entries = presets.map(p => ({
+    category:    gmCategoryForPreset(p.bank, p.program),
+    name:        p.name,
+    displayName: p.name,
+    file:        GM_DEFAULT_NAME,
+    bank:        p.bank,
+    program:     p.program
+  }));
+  sf2BrowserLoadCatalogue(entries);
+  // Marquer le fileHandle comme GM par défaut (pas besoin de dossier)
+  sf2Browser.gmDefault = true;
 }
 
 // Cache persistant par track : sf2BankCache[ti][fileName] = { sfontId, presets }
@@ -13884,9 +13929,22 @@ async function sf2LoadAndPreview(idx) {
     sf2TempBank[ti] = null;
   }
 
-  // Charger le SF2 depuis le dossier
+  // Charger le SF2 depuis le dossier (ou GM en mémoire)
   try {
     let file;
+    // Cas spécial : GM déjà en mémoire
+    if (name === GM_DEFAULT_NAME && _gmDefaultBuf) {
+      if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
+      const sfontId = await jsSynths[ti].loadSFont(_gmDefaultBuf.slice(0));
+      if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
+      const presets = sf2GetPresets(ti, sfontId);
+      sf2TempBank[ti] = { name, sfontId, presets };
+      _sf2LoadingTrack[ti] = false;
+      const prvBank = sound.bank ?? 0;
+      const prvProg = sound.program ?? 0;
+      sf2DoPreview(ti, sfontId, prvBank, prvProg);
+      return;
+    }
     if (sf2Browser.useFileHandles) {
       const handle = sf2Browser.fileHandles[name];
       if (!handle) { console.warn('[SF2] Handle introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
@@ -13896,7 +13954,6 @@ async function sf2LoadAndPreview(idx) {
       if (!file) { console.warn('[SF2] Fichier introuvable :', name); _sf2LoadingTrack[ti] = false; return; }
     }
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; } // supplanté
-    const buf     = await file.arrayBuffer();
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
     const sfontId = await jsSynths[ti].loadSFont(buf);
     if (_sf2LoadToken[ti] !== myToken) { _sf2LoadingTrack[ti] = false; return; }
@@ -13961,7 +14018,10 @@ function sf2SoundConfirm(idx) {
 
   const ts      = trackSF2[ti];
   const oldName = ts.sfName;
-  const preset  = bankData.presets?.[0] ?? { bank: 0, program: 0 };
+  // Utiliser le bank/program du son sélectionné si disponible, sinon premier preset
+  const preset = (sound.bank !== undefined && sound.program !== undefined)
+    ? { bank: sound.bank, program: sound.program }
+    : (bankData.presets?.[0] ?? { bank: 0, program: 0 });
 
   ts.sfName  = name;
   ts.sfontId = bankData.sfontId;
