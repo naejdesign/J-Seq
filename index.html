@@ -4747,6 +4747,22 @@ async function gmIdbSet(buf) {
 
 
 
+function splashUpdate(msg, pct) {
+  const el    = document.getElementById('splashMsg');
+  const bar   = document.getElementById('splashBar');
+  const pctEl = document.getElementById('splashPct');
+  if (el)    el.textContent       = msg;
+  if (bar)   bar.style.width      = pct + '%';
+  if (pctEl) pctEl.textContent    = pct + '%';
+}
+function splashHide() {
+  const s = document.getElementById('splashScreen');
+  if (!s) return;
+  s.style.transition = 'opacity 0.4s';
+  s.style.opacity = '0';
+  setTimeout(() => { if (s.parentNode) s.parentNode.removeChild(s); }, 400);
+}
+
 async function loadDefaultGM() {
   // Ne charger que les tracks SF2 qui n'ont pas encore de banque
   const tracksToLoad = [];
