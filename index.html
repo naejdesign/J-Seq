@@ -13748,12 +13748,16 @@ async function sf2LoadBankPresets(fileName) {
 
     sf2TempBank[ti] = { name: fileName, sfontId, presets };
 
-    const bankName = fileName.replace('.sf2','');
-    const entries  = presets.map(p => ({
-      category: bankName, name: p.name, displayName: p.name,
+    // En mode lazy : ne pas écraser categories, juste afficher les sons
+    const sounds = presets.map(p => ({
+      category: fileName.replace('.sf2',''), name: p.name, displayName: p.name,
       file: fileName, bank: p.bank, program: p.program
     }));
-    sf2BrowserLoadCatalogue(entries, true);
+    sf2Browser.allSounds       = sounds;
+    sf2Browser.currentFiltered = sounds;
+    sf2Browser.activeCategory  = fileName;
+    renderSF2CategoryList();
+    renderSF2SoundList(sounds);
     sf2HideLoading();
   } catch(e) {
     console.error('[SF2] Erreur chargement presets :', e);
