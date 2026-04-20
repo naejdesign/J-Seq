@@ -7742,7 +7742,7 @@ function setNumpadLit(code, on) {
 }
 
 function setShiftOn(on) {
-  if (!on) _loopShiftStep1 = -1; // reset sélection région si shift relâché
+  if (!on) _loopShiftStep1 = -1;
   S.shiftHeld = on;
   setBtnLit('btnShift', on, '#f0a020');
   if (on) {
@@ -8512,7 +8512,7 @@ window._loopSaisieActive = false;
 window._loopSaisieIdx = -1;
 var _loopStepHoldTimer = null; // timer 300ms pour saisie d'une bar en loop
 var _loopStepHoldIdx   = -1;   // index de la bar en cours de hold
-var _loopShiftStep1    = -1;   // 1er step pour définition région avec shift
+var _loopShiftStep1    = -1;   // 1er step pour définition région avec shift (souris/tactile)
 
 function nudgeHeldSteps(delta) {
   const bar = currentStepBar();
@@ -8746,15 +8746,13 @@ for (let i = 0; i < 16; i++) {
           // Delete : seulement sur bars actives
           if (idx < activeClipObj().numBars) loopDeleteBar(idx);
         } else {
-          // Shift + tap = définir région de boucle
+          // Shift + tap souris/tactile = définir région de boucle
           if (S.shiftHeld) {
             if (_loopShiftStep1 === -1) {
-              // Premier tap : mémoriser le step de départ
               _loopShiftStep1 = idx;
               stepCursorPos = idx; updateStepCursor();
               oled('RÉGION', `Bar ${idx+1} →`, 'shift+tap 2ème bar');
             } else {
-              // Deuxième tap : appliquer la région
               const lo = Math.min(_loopShiftStep1, idx);
               const hi = Math.max(_loopShiftStep1, idx);
               const clip = activeClipObj();
@@ -8768,7 +8766,7 @@ for (let i = 0; i < 16; i++) {
             }
             return;
           }
-          // Sans shift : timer 300ms pour saisie nudge
+          // Timer 300ms pour saisie nudge
           stepCursorPos = idx; showStepCursor();
           _loopStepHoldIdx = idx;
           _loopStepHoldTimer = setTimeout(() => {
@@ -8810,13 +8808,11 @@ for (let i = 0; i < 16; i++) {
     });
     stepEl.addEventListener('mouseup', function(e) {
       if (S.mode === 'loop') {
-        // Annuler le timer si pas encore expiré → tap court = sélection simple
+        // Annuler le timer si pas encore expiré → tap court = rien
         if (_loopStepHoldTimer) {
           clearTimeout(_loopStepHoldTimer);
           _loopStepHoldTimer = null;
           _loopStepHoldIdx = -1;
-          // Tap court sans shift : sélectionner la bar (comportement original)
-          if (!S.shiftHeld) pressLoopStep(idx);
           return;
         }
         _loopStepHoldIdx = -1;
