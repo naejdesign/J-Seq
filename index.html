@@ -13723,14 +13723,31 @@ async function sf2LoadBankPresets(fileName) {
   const ti = sf2Browser.trackIdx;
   sf2ShowLoading('Chargement presets…');
   try {
-    const handle = sf2Browser.fileHandles[fileName];
-    if (!handle) { sf2HideLoading(); return; }
-    const file = await handle.getFile();
-    const buf  = await file.arrayBuffer();
+    // Récupérer le fichier (File API ou FileHandle)
+    let file;
+    if (sf2Browser.useFileHandles && sf2Browser.fileHandles[fileName]) {
+      file = await sf2Browser.fileHandles[fileName].getFile();
+    } else if (sf2Browser.fallbackFiles && sf2Browser.fallbackFiles[fileName]) {
+      file = sf2Browser.fallbackFiles[fileName];
+    } else { sf2HideLoading(); return; }
+
+    const buf     = await file.arrayBuffer();
     const sfontId = await jsSynths[ti].loadSFont(buf);
-    const presets = sf2GetPresets(ti, sfontId);
+
+    // Lire les presets directement depuis FluidSynth
+    const presets = [];
+    try {
+      const sf = jsSynths[ti].getSFontObject(sfontId);
+      if (sf) {
+        for (const p of sf.getPresetIterable()) {
+          presets.push({ bank: p.bankNum, program: p.num, name: p.name || `P${p.num}` });
+        }
+        presets.sort((a,b) => a.bank !== b.bank ? a.bank-b.bank : a.program-b.program);
+      }
+    } catch(e) { console.warn('[SF2] getPresets:', e); }
+
     sf2TempBank[ti] = { name: fileName, sfontId, presets };
-    // Construire le catalogue pour cette banque
+
     const bankName = fileName.replace('.sf2','');
     const entries  = presets.map(p => ({
       category: bankName, name: p.name, displayName: p.name,
