@@ -4706,7 +4706,44 @@ async function initSF2() {
 // Charger la banque GM par défaut depuis le serveur
 const GM_DEFAULT_URL  = './GeneralUser-GS.sf2';
 const GM_DEFAULT_NAME = 'GeneralUser-GS.sf2';
-let   _gmDefaultBuf   = null; // ArrayBuffer mis en cache après le 1er fetch
+let   _gmDefaultBuf   = null; // ArrayBuffer en mémoire (session courante)
+
+// ── IndexedDB pour persister la GM entre sessions ──
+const GM_IDB_NAME    = 'jseq-gm';
+const GM_IDB_STORE   = 'banks';
+const GM_IDB_KEY     = 'GeneralUser-GS';
+const GM_IDB_VERSION = 1;
+
+function gmIdbOpen() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open(GM_IDB_NAME, GM_IDB_VERSION);
+    req.onupgradeneeded = e => e.target.result.createObjectStore(GM_IDB_STORE);
+    req.onsuccess = e => res(e.target.result);
+    req.onerror   = e => rej(e.target.error);
+  });
+}
+async function gmIdbGet() {
+  try {
+    const db = await gmIdbOpen();
+    return new Promise((res, rej) => {
+      const tx  = db.transaction(GM_IDB_STORE, 'readonly');
+      const req = tx.objectStore(GM_IDB_STORE).get(GM_IDB_KEY);
+      req.onsuccess = e => res(e.target.result || null);
+      req.onerror   = e => rej(e.target.error);
+    });
+  } catch(e) { return null; }
+}
+async function gmIdbSet(buf) {
+  try {
+    const db = await gmIdbOpen();
+    return new Promise((res, rej) => {
+      const tx  = db.transaction(GM_IDB_STORE, 'readwrite');
+      const req = tx.objectStore(GM_IDB_STORE).put(buf, GM_IDB_KEY);
+      req.onsuccess = () => res();
+      req.onerror   = e => rej(e.target.error);
+    });
+  } catch(e) { console.warn('[GM] IDB write error:', e); }
+}
 
 
 
@@ -4724,10 +4761,21 @@ async function loadDefaultGM() {
   try {
     splashUpdate('Loading GeneralUser GS…', 5);
     if (!_gmDefaultBuf) {
-      splashUpdate('Downloading soundbank…', 10);
-      const resp = await fetch(GM_DEFAULT_URL);
-      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-      _gmDefaultBuf = await resp.arrayBuffer();
+      // Essayer depuis IndexedDB d'abord (déjà téléchargé)
+      splashUpdate('Loading soundbank…', 10);
+      const cached = await gmIdbGet();
+      if (cached) {
+        _gmDefaultBuf = cached;
+        splashUpdate('Loading soundbank…', 40);
+      } else {
+        // Premier lancement : télécharger et stocker en IDB
+        splashUpdate('Downloading soundbank…', 10);
+        const resp = await fetch(GM_DEFAULT_URL);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        _gmDefaultBuf = await resp.arrayBuffer();
+        splashUpdate('Saving to device…', 75);
+        await gmIdbSet(_gmDefaultBuf);
+      }
     }
     splashUpdate('Loading soundbank…', 80);
     for (const ti of tracksToLoad) {

@@ -1,4 +1,4 @@
-const CACHE = 'jseq-v24';
+const CACHE = 'jseq-v25';
 const ASSETS = [
   './index.html',
   './manifest.json',
@@ -11,6 +11,9 @@ const ASSETS = [
   './atmos.wav',
   './impulse_rev.wav'
 ];
+
+// Fichiers à ne PAS mettre en cache SW (gérés par IndexedDB côté app)
+const BYPASS_CACHE = ['GeneralUser-GS.sf2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(
@@ -29,6 +32,12 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
+  const url = e.request.url;
+  // Bypass SW pour les fichiers SF2 volumineux (gérés par IndexedDB)
+  if (BYPASS_CACHE.some(f => url.endsWith(f))) {
+    e.respondWith(fetch(e.request));
+    return;
+  }
   e.respondWith(
     caches.match(e.request).then(r => r || fetch(e.request).then(res => {
       caches.open(CACHE).then(c => c.put(e.request, res.clone()));
