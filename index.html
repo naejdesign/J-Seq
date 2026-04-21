@@ -5777,9 +5777,10 @@ const S = {
   mode: 'note',
   currentTrack: 0,
   page: 0,          // 0 = page 1 (T1-T4), 1 = page 2 (T5-T8/Master)
-  octave: 3,
-  bpm: 120,
-  selectedDrumPad: 0,
+   octave: 3,
+   bpm: 120,
+   swing: 0,         // 0..100 (UI). Interne : 50..75 via swingDelay()
+   selectedDrumPad: 0,
   tracks: Array.from({length:8}, (_,i) => ({
     color: TRACK_COLORS[i],
     mode: TRACK_MODES[i],
@@ -5844,6 +5845,19 @@ let schedTimer = null, nextTime = 0, globalTick = 0;
 
 function stepDur() { return 60 / S.bpm / 4; }
 
+// ── Swing global ──────────────────────────────────────────────
+// S.swing : valeur affichée 0..100 (UI / OLED / encodeur).
+// Interne : décalage temporel des steps IMPAIRS du grid de 16e.
+// 0%  → aucun swing (steps réguliers)
+// 100% → swing max = 50% de la durée d'un step (équivalent ~75% MPC)
+function swingDelay() {
+  const amount = Math.max(0, Math.min(100, S.swing || 0)) / 100; // 0..1
+  return amount * 0.5 * stepDur();
+}
+function currentStepSwingOffset(tick) {
+  return (tick % 2 === 1) ? swingDelay() : 0;
+}
+
 function getSound(ti) {
   const t = S.tracks[ti];
   if (t.mode === 'master') return { name: 'MASTER', fn: () => {} };
@@ -5873,6 +5887,11 @@ let _songCurrentColumn = 0;     // colonne session en cours (0-7)
 
 function scheduler() {
   while (nextTime < actx.currentTime + 0.12) {
+    // Swing global : décale les steps impairs (les "&") du grid de 16e.
+    // Appliqué uniquement au scheduling des notes/playhead, PAS à l'avancement
+    // de nextTime — le grid de référence reste droit.
+    const swingOff = currentStepSwingOffset(globalTick);
+    const schedTime = nextTime + swingOff;
     const anySolo = S.tracks.some(t => t.soloed);
 
     // Switch quantisé : au début de la région de chaque track
@@ -5888,7 +5907,7 @@ function scheduler() {
         }
         t.queuedClip = null;
         if (S.mode === 'session') {
-          const delay = Math.max(0, (nextTime - actx.currentTime) * 1000);
+          const delay = Math.max(0, (schedTime - actx.currentTime) * 1000);
           setTimeout(() => { if (S.mode === 'session') renderSessionMode(); }, delay);
         }
       }
@@ -5982,7 +6001,7 @@ function scheduler() {
           const prob = st.prob !== undefined ? st.prob : 100;
           if (Math.random() * 100 > prob) continue;
           const dShift = st.shift || 0;
-          const dNoteTime = nextTime + dShift * stepDur();
+          const dNoteTime = schedTime + dShift * stepDur();
           const dDelayMs = Math.max(0, (dNoteTime - actx.currentTime) * 1000);
           const capVol = st.vel * t.volume;
           const capTi = ti, capPad = padIdx, capStepTune = st.tune || 0;
@@ -6010,7 +6029,7 @@ function scheduler() {
           const prob = st.prob !== undefined ? st.prob : 100;
           if (Math.random() * 100 <= prob) {
             const shift = st.shift || 0;
-            const noteTime = nextTime + shift * stepDur();
+            const noteTime = schedTime + shift * stepDur();
             const playDelayMs = Math.max(0, (noteTime - actx.currentTime) * 1000);
             const capNotes = [st.note, ...(st.extraNotes || [])];
             const capLen = st.len || 1, capTi = ti;
@@ -6082,7 +6101,7 @@ function scheduler() {
       const posInLoop = trackTick[S.currentTrack] % loopSteps;
       const capBar    = loopStart + Math.floor(posInLoop / 16);
       const capStep   = posInLoop % 16;
-      const delay     = Math.max(0, (nextTime - actx.currentTime) * 1000);
+      const delay     = Math.max(0, (schedTime - actx.currentTime) * 1000);
       setTimeout(() => {
         if (!S.playing) return;
         if (projectModeActive) return; // project mode = pas de rendu visuel séquenceur
@@ -9931,7 +9950,7 @@ document.addEventListener('mouseup', () => {
       if (t.mode === 'drum') {
         oledForce('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
       } else if (t.mode === 'master') {
-        oledForce('MASTER', 'Master Track', `BPM ${S.bpm}`);
+        oledForce('MASTER', `BPM ${S.bpm}`, `Swing ${S.swing||0}%`);
       } else {
         oledForce('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
       }
@@ -10154,6 +10173,7 @@ const PROJECT_KEY   = (n) => `mwv_project_${n}`;
 // ── Remet l'état séquenceur à zéro total (nouveau projet vierge) ──
 function resetStateToEmpty() {
   S.bpm = 120;
+  S.swing = 0;
   S.masterVolume = 0.80;
   S.octave = 3;
   S.playing = false;
@@ -10272,6 +10292,7 @@ function serializeProject() {
   return {
     version: 2,
     bpm: S.bpm,
+    swing: S.swing || 0,
     masterVolume: S.masterVolume,
     octave: S.octave,
     masterFX: JSON.parse(JSON.stringify(masterFX)),
@@ -10366,6 +10387,7 @@ function serializeProject() {
 function deserializeProject(data, slot) {
   if (!data || (data.version !== 1 && data.version !== 2)) return false;
   S.bpm = data.bpm ?? 120;
+  S.swing = Math.max(0, Math.min(100, data.swing ?? 0));
   S.masterVolume = data.masterVolume ?? 0.80;
   S.octave = data.octave ?? 3;
   if (masterGain) masterGain.gain.value = S.masterVolume;
@@ -11078,14 +11100,18 @@ function updateEncArcs() {
     if (lbl) { lbl.textContent = text; lbl.setAttribute('fill', color); }
   }
 
-  // ── Mode master : enc0 = BPM, autres masqués ──
+  // ── Mode master : enc0 = BPM, enc1 = SWING, autres masqués ──
   if (t.mode === 'master') {
-    // enc0 : BPM actif
+    // enc0 : BPM actif (pas d'arc — affichage textuel sur OLED)
     hideArc('encArc0');
     setEncRing(0, true, col);
     setLabel(0, 'BPM', col);
-    // enc1-5 : masqués
-    for (let i = 1; i < 6; i++) {
+    // enc1 : SWING (arc unipolaire 0..100)
+    setEncRing(1, true, col);
+    setLabel(1, 'SWING', col);
+    setArcUni('encArc1', (S.swing || 0) / 100, col);
+    // enc2-5 : masqués
+    for (let i = 2; i < 6; i++) {
       hideArc('encArc' + i);
       setEncRing(i, false, col);
       setLabel(i, '', '#2a2a2a');
@@ -11215,8 +11241,7 @@ function getHeldSt() {
     ? activeClip().drumBars[S.selectedDrumPad][S.currentBar][idx]
     : activeClip().bars[S.currentBar][idx];
   return {st, idx};
-}
-
+    }
 
 
 var encDrags = [null, null, null, null];
@@ -11249,6 +11274,16 @@ ENC_DEFS.forEach((def, i) => {
         startVal: S.bpm, masterBpmMode: true, moved: false };
       S._oledLocked = true;
       oledForce('BPM', `${S.bpm}`, S.playing ? '▶ playing' : '■ stopped');
+      e.preventDefault();
+      return;
+    }
+
+    // Priorité 0bis : master track + enc1 → SWING (0..100)
+    if (t.mode === 'master' && i === 1) {
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
+        startVal: S.swing || 0, masterSwingMode: true, moved: false };
+      S._oledLocked = true;
+      oledForce('SWING', `${S.swing || 0}%`, (S.swing || 0) === 0 ? 'straight' : 'shuffle');
       e.preventDefault();
       return;
     }
@@ -11479,6 +11514,20 @@ document.addEventListener('mousemove', e => {
         setBpm(S.bpm + Math.round(delta / 2));
         oledForce('BPM', `${S.bpm}`, S.playing ? '▶ playing' : '■ stopped');
       }
+      return;
+    }
+
+    // Master track SWING (enc1) — 0..100
+    if (encDrags[i].masterSwingMode) {
+      if (Math.abs(delta) < 0.5) return;
+      encDrags[i].moved = true;
+      const newSwing = Math.max(0, Math.min(100, (S.swing || 0) + Math.round(delta / 2)));
+      if (newSwing !== S.swing) {
+        S.swing = newSwing;
+        if (typeof scheduleAutosave === 'function') scheduleAutosave();
+      }
+      oledForce('SWING', `${S.swing}%`, S.swing === 0 ? 'straight' : 'shuffle');
+      updateEncArcs();
       return;
     }
 
@@ -15268,7 +15317,7 @@ function _gpRestoreOled() {
   S._oledLocked = false;
   const t = S.tracks[S.currentTrack];
   if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
-  else if (t.mode === 'master') oled('MASTER', 'Master Track', `BPM ${S.bpm}`);
+  else if (t.mode === 'master') oled('MASTER', `BPM ${S.bpm}`, `Swing ${S.swing||0}%`);
   else oled('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
 }
 
@@ -16130,6 +16179,31 @@ requestAnimationFrame(pollGamepad);
         }, 800);
       } else {
         _tap['enc0_bpm'] = now;
+      }
+    });
+  }
+
+  // enc1 en mode master — double-tap → reset SWING à 0
+  const elEnc1 = document.getElementById('enc1');
+  if (elEnc1) {
+    elEnc1.addEventListener('click', function() {
+      if (S.tracks[S.currentTrack]?.mode !== 'master') return;
+      const now = Date.now();
+      if (_tap['enc1_swing'] && now - _tap['enc1_swing'] < 350) {
+        _tap['enc1_swing'] = 0;
+        S.swing = 0;
+        if (typeof scheduleAutosave === 'function') scheduleAutosave();
+        oledForce('SWING', '0%', 'RESET');
+        svg('enc1').setAttribute('stroke', '#aaa');
+        svg('enc1').setAttribute('stroke-width', '2.5');
+        if (typeof updateEncArcs === 'function') updateEncArcs();
+        setTimeout(() => {
+          svg('enc1').setAttribute('stroke', '#383838');
+          svg('enc1').setAttribute('stroke-width', '1.5');
+          S._oledLocked = false;
+        }, 800);
+      } else {
+        _tap['enc1_swing'] = now;
       }
     });
   }
