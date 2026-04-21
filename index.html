@@ -520,7 +520,7 @@ body {
   <div id="drumBrHeader" class="brHeader">
     <button id="drumBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#ff6b00" title="Change track type">T1 · DRUM</button>
     <span id="drumBrPadLabel" class="brTrackLabel" style="color:#888;font-size:12px">PAD 1</span>
-    <button id="drumBrFolderBtn" class="brFolderBtn">📁 Dossier samples</button>
+    <button id="drumBrFolderBtn" class="brFolderBtn">📁 Samples folder</button>
     <label id="drumBrRevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
       <input type="checkbox" id="drumBrReverse" style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
       Reverse
@@ -533,11 +533,11 @@ body {
       <h3>Synth</h3>
       <div id="drumBrSynthList"></div>
       <h3 style="margin-top:2px">Samples</h3>
-      <div id="drumBrFolderList"><div style="padding:10px 14px;font-size:13px;color:#333">Choisir un dossier…</div></div>
+      <div id="drumBrFolderList"><div style="padding:10px 14px;font-size:13px;color:#333">Choose a folder…</div></div>
     </div>
     <div id="drumBrRightCol" class="brRightCol">
-      <h3>Fichiers <span id="drumBrFileCount" class="brCount"></span><input id="drumBrSearch" class="brSearch" type="text" placeholder="Rechercher…"></h3>
-      <div id="drumBrFileList" class="brList"><div style="padding:10px 14px;font-size:13px;color:#333">Sélectionner un dossier…</div></div>
+      <h3>Files <span id="drumBrFileCount" class="brCount"></span><input id="drumBrSearch" class="brSearch" type="text" placeholder="Search…"></h3>
+      <div id="drumBrFileList" class="brList"><div style="padding:10px 14px;font-size:13px;color:#333">Select a folder…</div></div>
     </div>
   </div>
 </div>
@@ -545,7 +545,7 @@ body {
   <div id="sf2Loading" class="brLoading"><div class="brSpinner"></div><span id="sf2LoadMsg">Chargement…</span></div>
   <div id="sf2Header" class="brHeader">
     <button id="sf2TrackLabel" class="brTrackLabel brTypeBtn" style="color:#ff6b00" title="Change track type">TRACK 1</button>
-    <button id="sf2FolderBtn" class="brFolderBtn">📁 Dossier SF2</button>
+    <button id="sf2FolderBtn" class="brFolderBtn">📁 SF2 folder</button>
     <label id="sf2PrevLabel" style="display:flex;align-items:center;gap:8px;font-size:14px;color:#888;cursor:pointer;white-space:nowrap;user-select:none">
       <input type="checkbox" id="sf2PreviewChk" style="width:18px;height:18px;cursor:pointer;accent-color:#ff6b00">
       Preview
@@ -555,12 +555,12 @@ body {
   </div>
   <div id="sf2Body" class="brBody">
     <div id="sf2FileCol" class="brLeftCol">
-      <h3>Catégories</h3>
-      <div id="sf2FileList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Choisir un dossier…</div></div>
+      <h3>Categories / Banks</h3>
+      <div id="sf2FileList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Choose a folder…</div></div>
     </div>
     <div id="sf2PresetCol" class="brRightCol">
-      <h3>Sons <span id="sf2PresetCount" class="brCount"></span><input id="sf2PresetSearch" class="brSearch" type="text" placeholder="Rechercher…"></h3>
-      <div id="sf2PresetList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Sélectionner une catégorie…</div></div>
+      <h3>Sounds <span id="sf2PresetCount" class="brCount"></span><input id="sf2PresetSearch" class="brSearch" type="text" placeholder="Search…"></h3>
+      <div id="sf2PresetList" class="brList"><div style="padding:12px 14px;font-size:13px;color:#333">Select a category…</div></div>
     </div>
   </div>
 </div>
@@ -1495,7 +1495,7 @@ async function switchTrackType(ti, newType) {
   updateSendArcs();
 
   const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNOX' : newType === 'midi' ? 'MIDI OUT' : 'SF2';
-  oled(`T${ti+1} → ${typeName}`, 'type changé', trackInfo());
+  oled(`T${ti+1} → ${typeName}`, 'type changed', trackInfo());
   console.log(`[switchTrackType] T${ti+1}: ${oldOutputMode} → ${newType}`);
 
   // Pour Junox : ouvrir le browser immédiatement, puis init audio en arrière-plan
@@ -5744,7 +5744,7 @@ function makeClip() {
     originalBars: null,
     originalDrumBars: null,
     originalNumBars: 1,
-    columnRepeats: 0, // 0=Free (manuel), 1+=nombre de répétitions pour le song mode
+    columnRepeats: 0, // 0=Free (manuel), 1+=nombre de repeats pour le song mode
     drumBars: Array.from({length:16}, () =>
       Array.from({length:8}, () =>
         Array.from({length:16}, () => ({on:false, vel:0.787, tune:0}))
@@ -5868,7 +5868,7 @@ function clipLoopSteps(clip) {
 let trackTick = [0, 0, 0, 0, 0, 0, 0, 0];
 
 // Song mode — auto-avancement des colonnes
-let _songColumnRepeatCount = 0; // compteur de répétitions de la colonne courante
+let _songColumnRepeatCount = 0; // compteur de repeats de la colonne courante
 let _songCurrentColumn = 0;     // colonne session en cours (0-7)
 
 function scheduler() {
@@ -6348,7 +6348,7 @@ function togglePlay() {
     svg('playIcon').setAttribute('fill', '#888');
     svg('btnPlay').querySelector('rect').setAttribute('stroke', '#444');
     S._oledLocked = false;
-    oled('STOP', 'Annulé', trackInfo());
+    oled('STOP', 'Cancelled', trackInfo());
     return;
   }
   // Si Record actif → décompte 1 mesure avant de lancer
@@ -6406,7 +6406,7 @@ function startCountdown(onDone) {
   ensureAudio();
   if (countdownTimer) { clearTimeout(countdownTimer); }
   let count = 4;
-  oled('⏺ REC', `${count}`, 'décompte...');
+  oled('⏺ REC', `${count}`, 'countdown...');
   sndMetronome(true);
 
   // Pré-initialiser nextTime pour que recQuantizeStep puisse fonctionner
@@ -6422,7 +6422,7 @@ function startCountdown(onDone) {
     // Mettre à jour nextTime à chaque beat du décompte
     nextTime = actx.currentTime + count * beatDur + stepDur();
     if (count > 0) {
-      oled('⏺ REC', `${count}`, 'décompte...');
+      oled('⏺ REC', `${count}`, 'countdown...');
       sndMetronome(false);
       countdownTimer = setTimeout(cdTick, beatDur * 1000);
     } else {
@@ -6442,7 +6442,7 @@ function tapTempoHit() {
   tapTimes.push(now);
   if (tapTimes.length > 8) tapTimes.shift();
   if (tapTimes.length < 2) {
-    oled('TAP TEMPO', '…', 'encore une fois');
+    oled('TAP TEMPO', '…', 'one more time');
     return;
   }
   const intervals = [];
@@ -6617,27 +6617,27 @@ function restoreSnapshot(snap) {
 function doUndo() {
   // On peut undo si cursor > 0 (il y a un état antérieur dans la pile)
   if (undoStack.cursor <= 0 || undoStack.history.length < 2) {
-    oledForce('UNDO', 'rien à annuler', '');
+    oledForce('UNDO', 'nothing to undo', '');
     setTimeout(() => S._oledLocked = false, 1500);
     return;
   }
   undoStack.cursor--;
   restoreSnapshot(undoStack.history[undoStack.cursor]);
   const remaining = undoStack.cursor;
-  oledForce('UNDO', 'annulé', remaining > 0 ? `encore ${remaining}` : 'début');
+  oledForce('UNDO', 'cancelled', remaining > 0 ? `left: ${remaining}` : 'start');
   setTimeout(() => S._oledLocked = false, 1200);
 }
 
 function doRedo() {
   if (undoStack.cursor >= undoStack.history.length - 1) {
-    oledForce('REDO', 'rien à rétablir', '');
+    oledForce('REDO', 'nothing to redo', '');
     setTimeout(() => S._oledLocked = false, 1500);
     return;
   }
   undoStack.cursor++;
   restoreSnapshot(undoStack.history[undoStack.cursor]);
   const remaining = undoStack.history.length - 1 - undoStack.cursor;
-  oledForce('REDO', 'rétabli', remaining > 0 ? `encore ${remaining}` : 'fin');
+  oledForce('REDO', 'restored', remaining > 0 ? `left: ${remaining}` : 'end');
   setTimeout(() => S._oledLocked = false, 1200);
 }
 
@@ -6930,7 +6930,7 @@ function selectTrack(ti) {
   if (isMaster) {
     if (S.mode === 'loop') {
       S.mode = 'note';
-      S._loopBarHeld = -1; S._loopBar2 = -1;
+      S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
       setBtnLit('btnLoop', false, '#3ddc84');
     }
   }
@@ -7427,7 +7427,7 @@ function duplicatePattern() {
   syncLoopRegion(activeClip());
   renderSteps();
   oled('DUPLICATE', `${srcCount}→${newCount} bars`, trackInfo());
-  status(`Pattern dupliqué → ${newCount} bars`);
+  status(`Pattern duplicated → ${newCount} bars`);
 }
 
 // ── Loop + − : diviser la longueur du pattern par 2 ──
@@ -7440,7 +7440,7 @@ function halvePattern() {
   syncLoopRegion(activeClip());
   renderSteps();
   oled('HALVE', `→ ${newCount} bar${newCount>1?'s':''}`, trackInfo());
-  status(`Pattern divisé → ${newCount} bars`);
+  status(`Pattern halved → ${newCount} bars`);
 }
 
 // ── Sauvegarde de l'original (appelé avant tout stretch/compress) ──
@@ -7543,19 +7543,19 @@ function restoreOriginal(t) {
 function stretchPattern() {
   saveUndo();
   const t = S.tracks[S.currentTrack];
-  if (activeClip().stretchState >= 1) { status('Déjà au maximum stretch ×2'); oled('STRETCH', 'max atteint', '←=original/compress'); return; }
+  if (activeClip().stretchState >= 1) { status('Already at max stretch ×2'); oled('STRETCH', 'max reached', '←=original/compress'); return; }
   snapshotOriginal(t);
   if (activeClip().stretchState === -1) {
     // Compressé → revenir à l'original
     restoreOriginal(t);
     activeClip().stretchState = 0;
     oled('STRETCH', 'back to original', trackInfo());
-    status('Pattern restauré (original)');
+    status('Pattern restored (original)');
   } else {
     // Original → stretchée
     applyStretchFromOriginal(t);
     activeClip().stretchState = 1;
-    oled('STRETCH ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bars`, '2× plus lent');
+    oled('STRETCH ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bars`, '2× slower');
     status(`Stretch ×2 → ${activeClip().numBars} bars`);
   }
   S.currentBar = Math.min(S.currentBar, activeClip().numBars - 1);
@@ -7566,19 +7566,19 @@ function stretchPattern() {
 function compressPattern() {
   saveUndo();
   const t = S.tracks[S.currentTrack];
-  if (activeClip().stretchState <= -1) { status('Déjà au maximum compress ×2'); oled('COMPRESS', 'max atteint', '→=original/stretch'); return; }
+  if (activeClip().stretchState <= -1) { status('Already at max compress ×2'); oled('COMPRESS', 'max reached', '→=original/stretch'); return; }
   snapshotOriginal(t);
   if (activeClip().stretchState === 1) {
     // Stretchée → revenir à l'original
     restoreOriginal(t);
     activeClip().stretchState = 0;
     oled('COMPRESS', 'back to original', trackInfo());
-    status('Pattern restauré (original)');
+    status('Pattern restored (original)');
   } else {
     // Original → compressée
     applyCompressFromOriginal(t);
     activeClip().stretchState = -1;
-    oled('COMPRESS ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bar${activeClip().numBars>1?'s':''}`, '2× plus rapide');
+    oled('COMPRESS ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bar${activeClip().numBars>1?'s':''}`, '2× faster');
     status(`Compress ×2 → ${activeClip().numBars} bars`);
   }
   S.currentBar = Math.min(S.currentBar, activeClip().numBars - 1);
@@ -7668,7 +7668,7 @@ function addBar() {
   const regionLen = loopEnd - loopStart + 1;
   const relPos    = S.currentBar - loopStart + 1;
   oled(`BAR ${relPos}/${regionLen}`, `+1 bar`, trackInfo());
-  status(`Clip étendu → ${clip.numBars} bar${clip.numBars>1?'s':''}`);
+  status(`Clip extended → ${clip.numBars} bar${clip.numBars>1?'s':''}`);
 }
 
 function removeBar() {
@@ -7687,7 +7687,7 @@ function removeBar() {
   const regionLen = loopEnd - loopStart + 1;
   const relPos    = Math.max(1, S.currentBar - loopStart + 1);
   oled(`BAR ${relPos}/${regionLen}`, `-1 bar`, trackInfo());
-  status(`Clip réduit → ${clip.numBars} bar${clip.numBars>1?'s':''}`);
+  status(`Clip shortened → ${clip.numBars} bar${clip.numBars>1?'s':''}`);
 }
 
 const DEFAULT_OCTAVE = 3; // registre de base : C3 en bas à gauche
@@ -7747,6 +7747,7 @@ function setNumpadLit(code, on) {
 function setShiftOn(on) {
   S.shiftHeld = on;
   setBtnLit('btnShift', on, '#f0a020');
+  if (!on) _loopShiftStep1 = -1; // reset région en cours si shift relâché
   if (on) {
     oled('SHIFT', 'Shift...', '');
   } else {
@@ -7855,19 +7856,19 @@ document.addEventListener('keydown', e => {
   const _trkKeyMap = { '&':0, '1':0, 'é':1, '2':1, '"':2, '3':2, "'":3, '4':3 };
   if (key in _trkKeyMap) {
     const slot = _trkKeyMap[key];
+    S._heldTrack = slot; // immédiat → encVol peut lire _heldTrack pendant le hold
     _trkTapCount[`k${slot}`] = (_trkTapCount[`k${slot}`] || 0) + 1;
     clearTimeout(_trkTapTimer[`k${slot}`]);
     _trkTapTimer[`k${slot}`] = setTimeout(() => {
       const count = _trkTapCount[`k${slot}`] || 0;
       _trkTapCount[`k${slot}`] = 0;
       if (count >= 2) {
+        S._heldTrack = -1;
         const newPage = S.page === 0 ? 1 : 0;
         switchPage(newPage, newPage * 4 + slot);
       } else {
-        S._heldTrack = slot;
         handleTrackButtonClick(slot);
-        S._heldTrack = -1;
-S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
+        // _heldTrack reste actif tant que la touche est physiquement tenue (keyup le remet à -1)
       }
     }, 300);
     return;
@@ -7900,7 +7901,10 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     e.preventDefault();
     setDirBtnLit('btnLeft', true);
     if (S._loopHeld)         compressPattern();
-    else if (anyStepHeld())  nudgeHeldSteps(-1);
+    else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+      const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
+      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+    } else if (anyStepHeld())  nudgeHeldSteps(-1);
     else if (S.shiftHeld)    navBar(-1);
     else                     moveStepCursor(-1);
     return;
@@ -7909,7 +7913,10 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     e.preventDefault();
     setDirBtnLit('btnRight', true);
     if (S._loopHeld)         stretchPattern();
-    else if (anyStepHeld())  nudgeHeldSteps(1);
+    else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+      const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
+      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+    } else if (anyStepHeld())  nudgeHeldSteps(1);
     else if (S.shiftHeld)    navBar(1);
     else                     moveStepCursor(1);
     return;
@@ -7954,7 +7961,7 @@ S._heldDrumPad = -1; // pad drum maintenu → encVol contrôle son volume
     setModeButtonLit(true);
     if (S.mode === 'loop') {
       S.mode = 'note';
-      S._loopBarHeld = -1; S._loopBar2 = -1;
+      S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
       setBtnLit('btnLoop', false, '#3ddc84');
     }
     const otherMode = S.mode === 'note' ? 'session' : 'note';
@@ -8093,10 +8100,10 @@ function routingItems() {
   if (routingMenuStep === 'mode') return ['SF2 (FluidSynth)', 'MIDI Out'];
   if (routingMenuStep === 'sf2_preset') {
     const presets = trackSF2[routingMenuTi].presets;
-    return presets.length ? presets.map(p => p.name) : ['(aucun preset)'];
+    return presets.length ? presets.map(p => p.name) : ['(no preset)'];
   }
   if (routingMenuStep === 'port') {
-    if (!midiState.access) return ['(aucun port)'];
+    if (!midiState.access) return ['(no port)'];
     return [...midiState.access.outputs.values()].map(o => o.name);
   }
   if (routingMenuStep === 'channel') {
@@ -8130,7 +8137,7 @@ function renderRoutingMenu() {
   const ts = trackSF2[ti];
 
   if (routingMenuStep === 'sf2_load') {
-    const sfName = ts.sfontId >= 0 ? ts.sfName.replace('.sf2','').slice(0,14) : 'aucune';
+    const sfName = ts.sfontId >= 0 ? ts.sfName.replace('.sf2','').slice(0,14) : 'none';
     oledForce(`T${ti+1} · SF2`, sfName, 'wheel=load · tap=preset');
     renderTrackButtons();
     return;
@@ -8195,7 +8202,7 @@ function confirmRoutingMenu() {
         routingMenuStep = 'sf2_preset';
         renderRoutingMenu();
       } catch(err) {
-        oledForce(`T${ti+1} · SF2`, 'Erreur !', err.message.slice(0,14));
+        oledForce(`T${ti+1} · SF2`, 'Error!', err.message.slice(0,14));
         setTimeout(() => { S._oledLocked = false; routingMenuMode = false; }, 1000);
       }
     };
@@ -8477,7 +8484,7 @@ function transposeHeldSteps(octaveDelta) {
   const bar = currentStepBar();
   const newOctave = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE, S.octave + octaveDelta));
   if (newOctave === S.octave && octaveDelta !== 0) {
-    oledForce('TRANSPOSE', 'limite atteinte', '');
+    oledForce('TRANSPOSE', 'limit reached', '');
     return;
   }
   const semis = octaveDelta * 12;
@@ -8574,7 +8581,7 @@ function nudgeHeldSteps(delta) {
   const sign = c > 0 ? '+' : '';
   const arrow = delta > 0 ? '→' : '←';
   if (destOccupied) {
-    oled('NUDGE', `${arrow} survol`, `Step ${newPos+1} occupé`);
+    oled('NUDGE', `${arrow} hover`, `Step ${newPos+1} occupied`);
   } else {
     oled('NUDGE', `${arrow} ${sign}${c} step${Math.abs(c)>1?'s':''}`, `Bar ${S.currentBar+1}`);
   }
@@ -8687,6 +8694,12 @@ function releaseStep(idx) {
   if (!wasLong && !didAction) toggleStep(idx);
 }
 
+window._loopSaisieActive = false;
+window._loopSaisieIdx    = -1;
+var _loopStepHoldTimer   = null; // timer 300ms pour saisie d'une bar en loop
+var _loopStepHoldIdx     = -1;   // index de la bar en cours de hold
+var _loopShiftStep1      = -1;   // 1er step pour définition région avec shift
+
 // Step buttons
 for (let i = 0; i < 16; i++) {
   const stepEl = svg('step' + i);
@@ -8736,7 +8749,40 @@ for (let i = 0; i < 16; i++) {
           // Delete : seulement sur bars actives
           if (idx < activeClipObj().numBars) loopDeleteBar(idx);
         } else {
-          pressLoopStep(idx);
+          // Shift + tap souris/tactile = définir région de boucle
+          if (S.shiftHeld) {
+            if (_loopShiftStep1 === -1) {
+              _loopShiftStep1 = idx;
+              stepCursorPos = idx; updateStepCursor();
+              oled('RÉGION', `Bar ${idx+1} →`, 'shift+tap 2ème bar');
+            } else {
+              const lo = Math.min(_loopShiftStep1, idx);
+              const hi = Math.max(_loopShiftStep1, idx);
+              const clip = activeClipObj();
+              saveUndo();
+              clip.loopStart = lo;
+              clip.loopEnd   = Math.min(hi, clip.numBars - 1);
+              _loopShiftStep1 = -1;
+              renderLoopMode();
+              const len = clip.loopEnd - clip.loopStart + 1;
+              oled('LOOP REGION', `Bar ${lo+1} → ${clip.loopEnd+1}`, `${len} bar${len>1?'s':''}`);
+            }
+            return;
+          }
+          // Timer 300ms pour saisie nudge
+          stepCursorPos = idx; showStepCursor();
+          _loopStepHoldIdx = idx;
+          _loopStepHoldTimer = setTimeout(() => {
+            _loopStepHoldTimer = null;
+            window._loopSaisieActive = true;
+            window._loopSaisieIdx = idx;
+                  S._loopBarHeld = idx;
+            S.currentBar   = idx;
+            saveUndo();
+            renderLoopMode();
+            const barNotes = countBarNotes(idx);
+            oled('SAISIE', `Bar ${idx+1}`, `${barNotes} note${barNotes!==1?'s':''} · ←/→ déplacer`);
+          }, 300);
         }
         return;
       }
@@ -8764,7 +8810,28 @@ for (let i = 0; i < 16; i++) {
       pressStep(idx);
     });
     stepEl.addEventListener('mouseup', function(e) {
-      if (S.mode === 'loop') { releaseLoopStep(idx); return; }
+      if (S.mode === 'loop') {
+        // Annuler le timer si pas encore expiré → tap court = rien
+        if (_loopStepHoldTimer) {
+          clearTimeout(_loopStepHoldTimer);
+          _loopStepHoldTimer = null;
+          _loopStepHoldIdx = -1;
+          return;
+        }
+        _loopStepHoldIdx = -1;
+        // Long press : valider le nudge
+        if (window._loopSaisieActive) {
+          window._loopSaisieActive = false;
+          window._loopSaisieIdx = -1;
+          S._loopBarHeld = -1;
+          renderLoopMode();
+          const clip = activeClipObj();
+          oled('LOOP MODE', trackInfo(), `${clip.numBars} bar${clip.numBars>1?'s':''}`);
+        } else {
+          releaseLoopStep(idx);
+        }
+        return;
+      }
       // Après un nudge, heldSteps a l'index courant (pas l'original)
       // On cherche l'index réel dans heldSteps
       const currentIdx = heldSteps.has(idx) ? idx
@@ -8916,7 +8983,7 @@ for (let r = 0; r < 4; r++) {
         // ── MODE SESSION ──
         if (S.mode === 'session') {
           const sessionTi = S.page * 4 + row;
-          // Shift + clic sur clip master → éditer les répétitions de colonne
+          // Shift + clic sur clip master → éditer les repeats de colonne
           if (S.shiftHeld && S.tracks[sessionTi].mode === 'master') {
             openColumnRepeatEditor(col);
             return;
@@ -8943,10 +9010,10 @@ for (let r = 0; r < 4; r++) {
               const hasAny = barSteps.some(st => st.on);
               if (hasAny) {
                 barSteps.forEach(st => { st.on = false; });
-                oledForce('BAR ' + (S._loopBarHeld+1), `Pad ${drumPadIdx+1} effacé`, getDrumPadName(S.currentTrack, drumPadIdx));
+                oledForce('BAR ' + (S._loopBarHeld+1), `Pad ${drumPadIdx+1} cleared`, getDrumPadName(S.currentTrack, drumPadIdx));
               } else {
                 barSteps[0] = { on: true, vel: 0.787 };
-                oledForce('BAR ' + (S._loopBarHeld+1), `Pad ${drumPadIdx+1} ajouté`, getDrumPadName(S.currentTrack, drumPadIdx));
+                oledForce('BAR ' + (S._loopBarHeld+1), `Pad ${drumPadIdx+1} added`, getDrumPadName(S.currentTrack, drumPadIdx));
               }
               triggerDrumPad(drumPadIdx, 0.7);
               illuminateLoopBarNotes(S._loopBarHeld);
@@ -9072,7 +9139,7 @@ svg('btnMute').addEventListener('mousedown', () => {
   if (projectModeActive) return;
   S._mHeld = true;
   setBtnLit('btnMute', true, '#ff6b00');
-  oled('MUTE', 'Mute...', '');
+  oled('MUTE', S.shiftHeld ? 'Solo...' : 'Mute...', '');
 });
 svg('btnMute').addEventListener('mouseup', () => {
   // Géré dans document mouseup — ne rien faire ici
@@ -9178,24 +9245,34 @@ svg('btnCopy').addEventListener('mousedown', () => {
 });
 
 document.addEventListener('mouseup', (e) => {
-  // Delete/Copy/Mute/Shift : désactiver SEULEMENT si mouseup revient sur le bouton
-  // Si le doigt a glissé sur un pad/step, le bouton reste actif → multi-actions en une passe
-  if (S._deleteHeld && svg('btnDelete').contains(e.target)) {
+  // Tout relâchement de souris (où que ce soit) termine le geste :
+  // on désactive systématiquement les boutons "tenus" pour éviter qu'ils
+  // restent illuminés si l'utilisateur relâche en dehors de leur zone.
+  if (S._deleteHeld) {
     S._deleteHeld = false; setDeleteLit(false);
   }
-  if (S._copyHeld && svg('btnCopy').contains(e.target)) {
-    // Reset source pour permettre un nouveau cycle src→dst
+  if (S._copyHeld) {
     S._copySource = null;
-    // Ne désactiver que si on a déjà fait au moins un collage (ou si pas de source en cours)
-    // En pratique : relâcher sur le bouton = fin de session de copie
     S._copyHeld = false; setCopyLit(false);
   }
-  if (S._mHeld && svg('btnMute').contains(e.target)) {
+  if (S._mHeld) {
     S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00');
   }
-  // Shift : désactiver au mouseup sur le bouton OU partout (comportement clavier physique)
-  if (S.shiftHeld && !heldKeys.has('Numpad3')) {
-    if (svg('btnShift').contains(e.target)) setShiftOn(false);
+  // Shift : désactiver SEULEMENT si on relâche sur le bouton Shift lui-même.
+  // Sinon, on casse la feature "Shift + 2 clics steps = région de loop"
+  // qui exige que Shift reste actif entre les deux clics. Le bouton est aussi
+  // protégé par mouseup/mouseleave directs ci-dessous pour éviter l'anneau bloqué.
+  if (S.shiftHeld && !heldKeys.has('Numpad3') && svg('btnShift').contains(e.target)) {
+    setShiftOn(false);
+  }
+  // Bouton LOOP en mode "hold" (combo) : si on relâche n'importe où, fin du combo
+  if (S._loopHeld) {
+    if (loopPressTimer !== null) { clearTimeout(loopPressTimer); loopPressTimer = null; }
+    setLoopHeld(false);
+  } else if (loopPressTimer !== null) {
+    // Appui en cours mais relâché hors du bouton avant le long-press → annuler
+    clearTimeout(loopPressTimer);
+    loopPressTimer = null;
   }
 });
 
@@ -9212,7 +9289,7 @@ svg('btnSession').addEventListener('mousedown', () => {
   setModeButtonLit(true);
   if (S.mode === 'loop') {
     S.mode = 'note';
-    S._loopBarHeld = -1; S._loopBar2 = -1;
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     setBtnLit('btnLoop', false, '#3ddc84');
   }
   const otherMode = S.mode === 'note' ? 'session' : 'note';
@@ -9315,7 +9392,10 @@ svg('btnLeft').addEventListener('mouseup',   () => setDirBtnLit('btnLeft',  fals
 svg('btnLeft').addEventListener('mouseleave',() => setDirBtnLit('btnLeft',  false));
 svg('btnLeft').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (anyStepHeld())     nudgeHeldSteps(-1);
+  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+  } else if (anyStepHeld()) nudgeHeldSteps(-1);
   else if (S.shiftHeld)  navBar(-1);
   else                   moveStepCursor(-1);
 });
@@ -9329,15 +9409,26 @@ svg('btnRight').addEventListener('mouseup',   () => setDirBtnLit('btnRight', fal
 svg('btnRight').addEventListener('mouseleave',() => setDirBtnLit('btnRight', false));
 svg('btnRight').addEventListener('click', () => {
   if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (anyStepHeld())     nudgeHeldSteps(1);
+  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, 'relâche pour valider'); }
+  } else if (anyStepHeld()) nudgeHeldSteps(1);
   else if (S.shiftHeld)  navBar(1);
   else                   moveStepCursor(1);
 });
 svg('btnShift').addEventListener('mousedown', () => {
   setShiftOn(true);
 });
+
 svg('btnShift').addEventListener('mouseup', () => {
-  // Désactiver uniquement si on relâche sur le bouton (géré dans document mouseup)
+  // Géré par le document.mouseup ci-dessus (qui vérifie e.target).
+});
+// Si la souris quitte le bouton Shift en étant relâchée hors zone, l'anneau
+// reste sinon allumé : on l'éteint ici si le bouton n'est plus enfoncé.
+svg('btnShift').addEventListener('mouseleave', (e) => {
+  if (S.shiftHeld && !heldKeys.has('Numpad3') && e.buttons === 0) {
+    setShiftOn(false);
+  }
 });
 // ── Bouton Mode (burger) ──────────────────────────────────────
 // Appui court = switch définitif · Appui long = mode provisoire
@@ -9365,7 +9456,7 @@ function enterMode(m) {
   if (m === 'session') {
     // Désactiver loop mode si actif
     if (S._loopBarHeld >= 0 || S._loopBar2 >= 0) {
-      S._loopBarHeld = -1; S._loopBar2 = -1;
+      S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     }
     setBtnLit('btnLoop', false, '#3ddc84');
     hideStepCursor();
@@ -9377,7 +9468,7 @@ function enterMode(m) {
     oled('SESSION', `Track ${S.currentTrack+1}`, `Clip ${t.activeClip+1}`);
   } else {
     S.currentBar = 0;
-    // Cacher les labels de répétitions master (session only)
+    // Cacher les labels de repeats master (session only)
     for (let c = 0; c < 8; c++) {
       const lbl = document.getElementById(`masterRepLbl_${c}`);
       if (lbl) lbl.style.display = 'none';
@@ -9409,7 +9500,7 @@ svg('btnSets').addEventListener('click', () => {
 function renderSessionMode() {
   if (projectModeActive) return;
   const pageOffset = S.page * 4;
-  // Cacher les labels de répétitions master si pas sur la page du master
+  // Cacher les labels de repeats master si pas sur la page du master
   const masterOnPage = S.tracks.slice(pageOffset, pageOffset + 4).some(t => t.mode === 'master');
   for (let c = 0; c < 8; c++) {
     const lbl = document.getElementById(`masterRepLbl_${c}`);
@@ -9461,7 +9552,7 @@ function renderSessionMode() {
         const lbl = document.getElementById(`${pfx}_${r}_${c}`);
         if (lbl) lbl.textContent = '';
       });
-      // Afficher le nombre de répétitions sur les clips master
+      // Afficher le nombre de repeats sur les clips master
       if (t.mode === 'master') {
         const repeats = clip.columnRepeats || 0;
         const lblId = `masterRepLbl_${c}`;
@@ -9522,7 +9613,7 @@ function sessionSelectClip(trackIdx, clipIdx) {
       oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, 'en attente...');
     } else {
       t.playingClip = clipIdx;
-      oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, 'sélectionné');
+      oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, 'selected');
     }
   }
   renderSessionMode();
@@ -9559,7 +9650,7 @@ function sessionCopyClip(trackIdx, clipIdx) {
 
 // ── Copier un step mélodique vers un autre (même bar) ──
 
-// ── Song mode : éditeur de répétitions de colonne ──
+// ── Song mode : éditeur de repeats de colonne ──
 var _repeatEditorOpen = false;
 var _repeatEditorCol = 0;
 
@@ -9692,7 +9783,7 @@ function renderColumnRepeatEditor(val) {
   g.appendChild(closeHit);
 
   svg('moveSVG').appendChild(g);
-  oledForce('SONG MODE', `Col ${_repeatEditorCol+1}`, val === 0 ? 'FREE (manuel)' : `${val} répétitions`);
+  oledForce('SONG MODE', `Col ${_repeatEditorCol+1}`, val === 0 ? 'FREE (manual)' : `${val} repeats`);
 }
 
 function copyStep(srcIdx, dstIdx) {
@@ -9736,7 +9827,7 @@ function deleteDrumPad(padIdx) {
     clip.drumBars[padIdx][b] = Array.from({length:16}, () => ({on:false, vel:0.787}));
   }
   renderSteps();
-  oledForce('DELETE', `Pad ${padIdx+1}`, 'vidé');
+  oledForce('DELETE', `Pad ${padIdx+1}`, 'cleared');
 }
 function sessionDeleteClip(trackIdx, clipIdx) {
   saveUndo(trackIdx);
@@ -9813,7 +9904,7 @@ document.addEventListener('mouseup', () => {
     const firstIdx = volDrag.stepIdx;
     const bar = currentStepBar();
     const vel = bar[firstIdx]?.vel || 0.8;
-    oledForce(`STEP ${firstIdx+1}`, `VÉL: ${Math.round(vel*127)}`, `(${Math.round(vel*100)}%)`);
+    oledForce(`STEP ${firstIdx+1}`, `VEL: ${Math.round(vel*127)}`, `(${Math.round(vel*100)}%)`);
     keepOledLocked = true;
     setTimeout(() => { S._oledLocked = false; }, 1000);
   }
@@ -9925,7 +10016,7 @@ svg('encVol').addEventListener('touchmove', function(e) {
     st.vel = newVel;
     svg(`sled${volDrag.stepIdx}`).setAttribute('fill', trackColor(S.currentTrack));
     svg(`sled${volDrag.stepIdx}`).setAttribute('opacity', newVel.toFixed(2));
-    oledForce(`STEP ${volDrag.stepIdx+1}`, `VÉL: ${Math.round(newVel*127)}`, `(${Math.round(newVel*100)}%)`);
+    oledForce(`STEP ${volDrag.stepIdx+1}`, `VEL: ${Math.round(newVel*127)}`, `(${Math.round(newVel*100)}%)`);
   }
 }, { passive: false });
 
@@ -10025,7 +10116,7 @@ document.addEventListener('mousemove', e => {
     const col = trackColor(S.currentTrack);
     svg(`sled${volDrag.stepIdx}`).setAttribute('fill', col);
     svg(`sled${volDrag.stepIdx}`).setAttribute('opacity', newVel.toFixed(2));
-    oledForce(`STEP ${volDrag.stepIdx+1}`, `VÉL: ${Math.round(newVel*127)}`, `(${Math.round(newVel*100)}%)`);
+    oledForce(`STEP ${volDrag.stepIdx+1}`, `VEL: ${Math.round(newVel*127)}`, `(${Math.round(newVel*100)}%)`);
   }
 });
 
@@ -10486,7 +10577,7 @@ function clearAllDynamicLabels() {
       });
     }
   }
-  // Cacher les labels de répétitions master
+  // Cacher les labels de repeats master
   for (let c = 0; c < 8; c++) {
     const lbl = document.getElementById(`masterRepLbl_${c}`);
     if (lbl) lbl.style.display = 'none';
@@ -10539,7 +10630,7 @@ function enterProjectMode() {
   // Désactiver loop mode si actif
   if (S.mode === 'loop') {
     S.mode = 'note';
-    S._loopBarHeld = -1; S._loopBar2 = -1;
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     setBtnLit('btnLoop', false, '#3ddc84');
   }
   projectModeActive = true;
@@ -10724,7 +10815,7 @@ function clearProjectLabels() {
       if (projectSelected?.slot === slot) projectSelected = null;
       projectDelete(slot);
       renderProjectMode();
-      oledForce('DELETE', `P${projectPage+1}·${slotNum}`, 'effacé');
+      oledForce('DELETE', `P${projectPage+1}·${slotNum}`, 'erased');
     }
     return;
   }
@@ -10753,7 +10844,7 @@ function clearProjectLabels() {
       } catch(e) { console.warn('copy failed:', e); }
       S._copySource = null;
       renderProjectMode();
-      oledForce('COPY', 'copié ✓', `→ P${projectPage+1}·${slotNum}`);
+      oledForce('COPY', 'copied ✓', `→ P${projectPage+1}·${slotNum}`);
     }
     return;
   }
@@ -12133,7 +12224,7 @@ function midiCC(cc, value) {
       if (res && res.st.on) {
         const cur = res.st.vel ?? 0.8;
         res.st.vel = Math.max(0, Math.min(1, cur + d));
-        oledForce(`STEP ${res.idx+1}`, `VÉL: ${Math.round(res.st.vel*127)}`,
+        oledForce(`STEP ${res.idx+1}`, `VEL: ${Math.round(res.st.vel*127)}`,
                   `(${Math.round(res.st.vel*100)}%)`);
         if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
         updateEncArcs();
@@ -12188,7 +12279,7 @@ function midiCC(cc, value) {
     setModeButtonLit(true);
     if (S.mode === 'loop') {
       S.mode = 'note';
-      S._loopBarHeld = -1; S._loopBar2 = -1;
+      S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
       setBtnLit('btnLoop', false, '#3ddc84');
     }
     const otherMode = S.mode === 'note' ? 'session' : 'note';
@@ -12388,7 +12479,7 @@ function midiConnectInput(input) {
   input.onmidimessage = midiOnMessage;
   midiState.inputs.push(input);
   midiSetIndicator(true);
-  oledForce('MIDI', input.name.slice(0, 16), 'connecté');
+  oledForce('MIDI', input.name.slice(0, 16), 'connected');
   setTimeout(() => S._oledLocked = false, 2000);
 }
 
@@ -12397,7 +12488,7 @@ function midiDisconnectInput(input) {
   midiState.inputs.forEach(i => { if (i.id === input.id) i.onmidimessage = null; });
   midiState.inputs = midiState.inputs.filter(i => i.id !== input.id);
   midiSetIndicator(midiState.inputs.length > 0);
-  if (midiState.inputs.length === 0) oledForce('MIDI', 'déconnecté', '');
+  if (midiState.inputs.length === 0) oledForce('MIDI', 'disconnected', '');
 }
 
 function midiInit() {
@@ -12456,7 +12547,7 @@ function midiInit() {
     };
   }).catch(err => {
     console.warn('MIDI access denied:', err);
-    oledForce('MIDI', 'accès refusé', 'vérif navigateur');
+    oledForce('MIDI', 'access denied', 'check browser');
   });
 }
 
@@ -12841,7 +12932,7 @@ function toggleLoopMode() {
   if (S.mode === 'session') return;
   if (S.mode === 'loop') {
     S.mode = 'note';
-    S._loopBarHeld = -1; S._loopBar2 = -1;
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     setBtnLit('btnLoop', false, '#3ddc84');
     clearStepNoteIllumination();
     // Naviguer vers loopStart pour que le séquenceur reparte du début de la région
@@ -12852,7 +12943,7 @@ function toggleLoopMode() {
     oled('NOTE MODE', trackInfo(), `Clip ${S.tracks[S.currentTrack].activeClip + 1}`);
   } else {
     S.mode = 'loop';
-    S._loopBarHeld = -1; S._loopBar2 = -1;
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     setBtnLit('btnLoop', true, '#3ddc84');
     const clip = activeClipObj();
     if (clip.loopStart === undefined) clip.loopStart = 0;
@@ -13024,7 +13115,7 @@ function pressLoopStep(idx) {
     saveUndo();
     clip.loopStart = idx;
     clip.loopEnd   = idx;
-    S._loopBarHeld = -1; S._loopBar2 = -1;
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     renderLoopMode();
     oled('SOLO BAR', `Bar ${idx+1}`, '1 bar loop');
     return;
@@ -13042,7 +13133,7 @@ function pressLoopStep(idx) {
       clip.loopStart = Math.min(clip.loopStart ?? 0, idx);
       S.currentBar   = idx;
       renderLoopMode();
-      oled('ÉTENDRE', `→ ${clip.numBars} bar${clip.numBars>1?'s':''}`, 'tenu = éditer');
+      oled('EXTEND', `→ ${clip.numBars} bar${clip.numBars>1?'s':''}`, 'hold = edit');
     } else {
       // Premier step avec contenu tenu
       S._loopBarHeld = idx;
@@ -13075,7 +13166,7 @@ function releaseLoopStep(idx) {
     // Définir la région de loop — ne touche pas aux bars hors région
     clip.loopStart = lo;
     clip.loopEnd   = Math.min(hi, clip.numBars - 1);
-    S._loopBarHeld = -1; S._loopBar2 = -1;
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
     renderLoopMode();
     const len = clip.loopEnd - clip.loopStart + 1;
     oled('LOOP REGION', `Bar ${lo+1} → ${clip.loopEnd+1}`, `${len} bar${len>1?'s':''}`);
@@ -13153,11 +13244,11 @@ function loopBarTranspose(semitones) {
   });
 
   if (transposed === 0 && !limitHit) {
-    oledForce('BAR ' + (S._loopBarHeld+1), 'aucune note', '');
+    oledForce('BAR ' + (S._loopBarHeld+1), 'no notes', '');
     return;
   }
   if (limitHit) {
-    oledForce('TRANSPOSE', 'limite atteinte', `bar ${S._loopBarHeld+1}`);
+    oledForce('TRANSPOSE', 'limit reached', `bar ${S._loopBarHeld+1}`);
     return;
   }
 
@@ -13215,7 +13306,7 @@ function loopDeleteBar(barIdx) {
     if (clip.drumBars[p] && clip.drumBars[p][barIdx] !== undefined)
       clip.drumBars[p][barIdx] = Array.from({length:16}, () => ({on:false, vel:0.8}));
   }
-  oledForce('DELETE', `Bar ${barIdx+1}`, 'vidée');
+  oledForce('DELETE', `Bar ${barIdx+1}`, 'cleared');
   renderLoopMode();
 }
 
@@ -13491,7 +13582,7 @@ function openSF2Browser(ti) {
   const ts = trackSF2[ti];
   // Afficher le son actif dans le header
   document.getElementById('sf2CurrentPreset').textContent =
-    ts.sfName ? ts.sfName.replace(/\.sf2$/i,'') : 'Aucun son chargé';
+    ts.sfName ? ts.sfName.replace(/\.sf2$/i,'') : 'No sound loaded';
   document.getElementById('sf2PresetSearch').value = '';
   document.getElementById('sf2Browser').classList.add('open');
 
@@ -13573,7 +13664,7 @@ document.getElementById('sf2FolderBtn').addEventListener('click', async () => {
       const sf2Names = files.filter(f => f.name.toLowerCase().endsWith('.sf2')).map(f => f.name);
       if (sf2Names.length === 0) {
         document.getElementById('sf2FileList').innerHTML =
-          '<div style="padding:12px 14px;font-size:12px;color:#555">Aucun fichier .sf2 trouvé</div>';
+          '<div style="padding:12px 14px;font-size:12px;color:#555">No .sf2 files found</div>';
       } else {
         sf2Browser.categories = sf2Names;
         sf2Browser.catalogue   = [];
@@ -13617,7 +13708,7 @@ async function loadSF2Catalogue(dirHandle) {
       const sf2Names = Object.keys(sf2Browser.fileHandles);
       if (sf2Names.length === 0) {
         document.getElementById('sf2FileList').innerHTML =
-          '<div style="padding:12px 14px;font-size:12px;color:#555">Aucun fichier .sf2 trouvé</div>';
+          '<div style="padding:12px 14px;font-size:12px;color:#555">No .sf2 files found</div>';
       } else {
         // Entrée par banque : la colonne gauche = nom du fichier SF2
         // Les programmes seront chargés en lazy au clic
@@ -13777,7 +13868,7 @@ function renderSF2SoundList(sounds) {
   document.getElementById('sf2PresetCount').textContent = `(${sounds.length})`;
   const list = document.getElementById('sf2PresetList');
   if (!sounds.length) {
-    list.innerHTML = '<div style="padding:10px;font-size:12px;color:#333">Aucun son</div>';
+    list.innerHTML = '<div style="padding:10px;font-size:12px;color:#333">No sounds</div>';
     return;
   }
   list.innerHTML = sounds.map((s, i) => {
@@ -14100,7 +14191,7 @@ function createDemoProject() {
   // T4-T7 : vides
   const emptyTrackClips = () => Array.from({length:8}, () => emptyClip(1));
 
-  // T8 = Master — vide (l'utilisateur remplira les automations BPM et répétitions)
+  // T8 = Master — vide (l'utilisateur remplira les automations BPM et repeats)
   const t8clips = Array.from({length:8}, () => emptyClip(1));
 
   // Assembler les tracks
@@ -14457,7 +14548,7 @@ function openDrumBrowser() {
   drumBrRenderFolderList();
   document.getElementById('drumBrSearch').value = '';
   document.getElementById('drumBrFileList').innerHTML =
-    '<div style="padding:8px 10px;font-size:9px;color:#333">Sélectionner un dossier…</div>';
+    '<div style="padding:8px 10px;font-size:9px;color:#333">Select a folder…</div>';
   document.getElementById('drumBrFileCount').textContent = '';
   document.getElementById('drumBrowser').classList.add('open');
 }
@@ -14516,11 +14607,11 @@ function drumBrConfirmSynth(typeName) {
 function drumBrRenderFolderList() {
   const list = document.getElementById('drumBrFolderList');
   if (!drumBr.dirHandle) {
-    list.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#333">Choisir un dossier…</div>';
+    list.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#333">Choose a folder…</div>';
     return;
   }
   if (!drumBr.folders.length) {
-    list.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#333">Pas de sous-dossiers</div>';
+    list.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#333">No subfolders</div>';
     drumBrLoadFolder(drumBr.dirHandle, '__root__');
     return;
   }
@@ -14574,7 +14665,7 @@ function drumBrRenderFileList() {
   document.getElementById('drumBrFileCount').textContent = `(${files.length})`;
   const list = document.getElementById('drumBrFileList');
   if (!files.length) {
-    list.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#333">Aucun fichier audio</div>';
+    list.innerHTML = '<div style="padding:10px 14px;font-size:13px;color:#333">No audio files</div>';
     return;
   }
   const curFile = S.tracks[S.currentTrack].drumPads?.[drumBr.padIdx]?.fileName || '';
@@ -14676,7 +14767,7 @@ document.getElementById('drumBrFolderBtn').addEventListener('click', async () =>
       try { const db = await openIDB(); await idbSet(db, 'drumDirHandle', handle); } catch(e) {}
       drumBrRenderFolderList();
       document.getElementById('drumBrFileList').innerHTML =
-        '<div style="padding:10px 14px;font-size:13px;color:#333">Sélectionner un dossier…</div>';
+        '<div style="padding:10px 14px;font-size:13px;color:#333">Select a folder…</div>';
       return;
     } catch(e) { if (e.name === 'AbortError') return; }
   }
@@ -15188,7 +15279,7 @@ const _gpShoulders = [
            up:   () => { setShiftOn(false); } },
   { idx: 6, down: () => { S._deleteHeld = true; setDeleteLit(true); oled('DELETE', 'Delete...', ''); },
            up:   () => { S._deleteHeld = false; setDeleteLit(false); _gpRestoreOled(); } },
-  { idx: 7, down: () => { S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', 'Mute...', ''); },
+  { idx: 7, down: () => { S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', S.shiftHeld ? 'Solo...' : 'Mute...', ''); },
            up:   () => { S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); _gpRestoreOled(); } },
 ];
 
@@ -15237,6 +15328,53 @@ function joyTrackSelect(axisId, rawValue, groupStart) {
     interval: null
   };
 }
+
+function moveBarInsert(fromIdx, direction) {
+  const clip = activeClipObj();
+  const maxBar = clip.numBars - 1;
+  const toIdx = fromIdx + direction;
+  if (toIdx < 0 || toIdx > maxBar) return fromIdx;
+  if (fromIdx < 0 || fromIdx > maxBar) return fromIdx;
+
+  const srcBars = clip.bars[fromIdx]
+    ? clip.bars[fromIdx].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+    : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+
+  const srcDrum = clip.drumBars.map(padSeq =>
+    padSeq[fromIdx]
+      ? padSeq[fromIdx].map(st => ({...st}))
+      : Array.from({length:16}, () => ({on:false, vel:0.787}))
+  );
+
+  if (direction > 0) {
+    for (let i = fromIdx; i < toIdx; i++) {
+      clip.bars[i] = clip.bars[i+1]
+        ? clip.bars[i+1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+      clip.drumBars.forEach(padSeq => {
+        padSeq[i] = padSeq[i+1]
+          ? padSeq[i+1].map(st => ({...st}))
+          : Array.from({length:16}, () => ({on:false, vel:0.787}));
+      });
+    }
+  } else {
+    for (let i = fromIdx; i > toIdx; i--) {
+      clip.bars[i] = clip.bars[i-1]
+        ? clip.bars[i-1].map(st => ({...st, extraNotes: st.extraNotes ? [...st.extraNotes] : []}))
+        : Array.from({length:16}, () => ({on:false, note:60, vel:0.787}));
+      clip.drumBars.forEach(padSeq => {
+        padSeq[i] = padSeq[i-1]
+          ? padSeq[i-1].map(st => ({...st}))
+          : Array.from({length:16}, () => ({on:false, vel:0.787}));
+      });
+    }
+  }
+
+  clip.bars[toIdx] = srcBars;
+  clip.drumBars.forEach((padSeq, pi) => { padSeq[toIdx] = srcDrum[pi]; });
+  return toIdx;
+}
+window._moveBarInsertFn = moveBarInsert;
 
 function pollGamepad() {
   const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -15395,6 +15533,8 @@ function moveBarInsert(fromIdx, direction) {
   return toIdx;
 }
 
+window._moveBarInsertFn = moveBarInsert;
+
 function dpadAction(name) {
       // Priorité 0 : Junox browser ouvert → navigation presets
       const junoxOpen = document.getElementById('junoxBrowser').classList.contains('open');
@@ -15470,7 +15610,7 @@ function dpadAction(name) {
             updateStepCursor();
             renderLoopMode();
             illuminateLoopBarNotes(newPos);
-            oled('DÉPLACER', `Bar → pos ${newPos+1}`, 'relâche A pour valider');
+            oled('MOVE', `Bar → pos ${newPos+1}`, 'release A to confirm');
           }
         }
         if (name === 'up')   loopBarTranspose(1);
@@ -15582,20 +15722,20 @@ function openProjectBrowser(slot) {
       </div>
       <div class="brItem" style="pointer-events:none;opacity:0.3">
         <span class="brName">⬆ Importer ZIP</span>
-        <span class="brSub">slot occupé</span>
+        <span class="brSub">slot in use</span>
       </div>`;
     document.getElementById('prjExportBtn').addEventListener('click', () => exportProjectZip(slot, data));
 
   } else {
     // ── Slot vide : import ──
-    rightTitle.textContent = 'Charger un projet';
+    rightTitle.textContent = 'Load a project';
     contentList.innerHTML = `<div style="padding:16px;font-size:13px;color:#555;line-height:1.6">
-      Sélectionne un fichier .zip<br>exporté depuis J-seq<br>pour charger ce projet.
+      Select a .zip file<br>exported from J-seq<br>to load this project.
     </div>`;
     actionList.innerHTML = `
       <div class="brItem" style="pointer-events:none;opacity:0.3">
         <span class="brName">⬇ Exporter ZIP</span>
-        <span class="brSub">slot vide</span>
+        <span class="brSub">empty slot</span>
       </div>
       <div class="brItem" id="prjImportBtn" style="cursor:pointer">
         <span class="brName">⬆ Importer ZIP</span>
@@ -15799,14 +15939,14 @@ function projectToMidiFiles(data) {
 
 async function exportProjectZip(slot, data) {
   const btn = document.getElementById('prjExportBtn');
-  if (btn) btn.textContent = '⏳ Génération…';
+  if (btn) btn.textContent = '⏳ Generating…';
 
   try {
     const zip = new JSZip();
-    const name = (data._meta?.name || 'projet').replace(/[^a-zA-Z0-9_\-]/g, '_');
+    const name = (data._meta?.name || 'project').replace(/[^a-zA-Z0-9_\-]/g, '_');
 
     // JSON complet pour re-import
-    zip.file('_projet.json', JSON.stringify(data, null, 2));
+    zip.file('_project.json', JSON.stringify(data, null, 2));
 
     // Fichiers MIDI par piste/clip
     const midiFiles = projectToMidiFiles(data);
@@ -15828,7 +15968,7 @@ async function exportProjectZip(slot, data) {
 
   } catch(e) {
     console.error('Export ZIP error:', e);
-    oledForce('EXPORT', 'Erreur', e.message?.slice(0,16) || '');
+    oledForce('EXPORT', 'Error', e.message?.slice(0,16) || '');
   }
 }
 
@@ -15841,9 +15981,9 @@ document.getElementById('prjBrFileInput').addEventListener('change', async funct
 
   try {
     const zip = await JSZip.loadAsync(file);
-    const jsonFile = zip.file('_projet.json');
+    const jsonFile = zip.file('_project.json');
     if (!jsonFile) {
-      oledForce('IMPORT', 'Erreur', 'pas de _projet.json');
+      oledForce('IMPORT', 'Error', 'no _project.json');
       return;
     }
     const jsonText = await jsonFile.async('string');
@@ -15852,12 +15992,12 @@ document.getElementById('prjBrFileInput').addEventListener('change', async funct
     // Trouver le slot cible (le slot vide sélectionné)
     const slot = projectSelected?.slot;
     if (slot === undefined || slot === null) {
-      oledForce('IMPORT', 'Erreur', 'aucun slot sélectionné');
+      oledForce('IMPORT', 'Error', 'no slot selected');
       return;
     }
 
     // Sauvegarder dans le slot
-    const name = data._meta?.name || 'Importé';
+    const name = data._meta?.name || 'Imported';
     localStorage.setItem(PROJECT_KEY(slot), JSON.stringify(data));
 
     closeProjectBrowser();
@@ -15867,7 +16007,7 @@ document.getElementById('prjBrFileInput').addEventListener('change', async funct
 
   } catch(e) {
     console.error('Import ZIP error:', e);
-    oledForce('IMPORT', 'Erreur', e.message?.slice(0,16) || '');
+    oledForce('IMPORT', 'Error', e.message?.slice(0,16) || '');
   }
 });
 
