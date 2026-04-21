@@ -5778,9 +5778,11 @@ const S = {
   currentTrack: 0,
   page: 0,          // 0 = page 1 (T1-T4), 1 = page 2 (T5-T8/Master)
    octave: 3,
-   bpm: 120,
-   swing: 0,         // 0..100 (UI). Interne : 50..75 via swingDelay()
-   selectedDrumPad: 0,
+    bpm: 120,
+    swing: 0,         // 0..100 (UI). Interne : 50..75 via swingDelay()
+    groove: 0,        // 0..100 (UI). Humanize + Accent + Backbeat push
+    grooveSeed: (Math.random() * 0xFFFFFFFF) >>> 0, // seed déterministe pour humanize
+    selectedDrumPad: 0,
   tracks: Array.from({length:8}, (_,i) => ({
     color: TRACK_COLORS[i],
     mode: TRACK_MODES[i],
@@ -5858,6 +5860,47 @@ function currentStepSwingOffset(tick) {
   return (tick % 2 === 1) ? swingDelay() : 0;
 }
 
+// ── Groove global ─────────────────────────────────────────────
+// S.groove : valeur affichée 0..100 (UI / OLED / encodeur).
+// 3 effets combinés :
+//   1. Humanize : micro-décalage temporel aléatoire (déterministe via seed)
+//   2. Backbeat push : steps 5 et 13 (snares 4/4) légèrement en retard
+//   3. Accent : modulation vélocité (downbeats accentués, "e&a" adoucis)
+// 0%  → aucun effet (parfaitement quantisé)
+// 100% → humanize ±8% stepDur, backbeat +12%, accent ±15% vélocité
+function grooveRandom(tick) {
+  // PRNG déterministe (mulberry32-like) basé sur seed + tick
+  let t = ((S.grooveSeed | 0) + tick * 2654435761) >>> 0;
+  t = Math.imul(t ^ (t >>> 15), t | 1);
+  t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296; // 0..1
+}
+function grooveTimingOffset(tick) {
+  const g = S.groove || 0;
+  if (g === 0) return 0;
+  const amount = g / 100;
+  const sd = stepDur();
+  // Humanize : ±8% stepDur max
+  const humanize = (grooveRandom(tick) - 0.5) * 0.16 * sd * amount;
+  // Backbeat push sur steps 5 et 13 (positions snare 4/4, 0-indexées : 4 et 12)
+  const stepInBar = ((tick % 16) + 16) % 16;
+  const backbeat = (stepInBar === 4 || stepInBar === 12)
+    ? 0.12 * sd * amount
+    : 0;
+  return humanize + backbeat;
+}
+function grooveAccent(tick) {
+  const g = S.groove || 0;
+  if (g === 0) return 1;
+  const amount = g / 100;
+  const stepInBar = ((tick % 16) + 16) % 16;
+  // Downbeats (0,4,8,12) accentués ; "e/a" (steps impairs) adoucis
+  const isDownbeat = stepInBar % 4 === 0;
+  const isOffbeat  = stepInBar % 2 === 1;
+  const mod = isDownbeat ? 0.15 : (isOffbeat ? -0.10 : 0);
+  return 1 + (mod * amount);
+}
+
 function getSound(ti) {
   const t = S.tracks[ti];
   if (t.mode === 'master') return { name: 'MASTER', fn: () => {} };
@@ -5888,10 +5931,13 @@ let _songCurrentColumn = 0;     // colonne session en cours (0-7)
 function scheduler() {
   while (nextTime < actx.currentTime + 0.12) {
     // Swing global : décale les steps impairs (les "&") du grid de 16e.
-    // Appliqué uniquement au scheduling des notes/playhead, PAS à l'avancement
+    // Groove global : ajoute humanize + backbeat push (organique).
+    // Appliqués uniquement au scheduling des notes/playhead, PAS à l'avancement
     // de nextTime — le grid de référence reste droit.
-    const swingOff = currentStepSwingOffset(globalTick);
-    const schedTime = nextTime + swingOff;
+    const swingOff  = currentStepSwingOffset(globalTick);
+    const grooveOff = grooveTimingOffset(globalTick);
+    const gAcc      = grooveAccent(globalTick);
+    const schedTime = nextTime + swingOff + grooveOff;
     const anySolo = S.tracks.some(t => t.soloed);
 
     // Switch quantisé : au début de la région de chaque track
@@ -6003,7 +6049,7 @@ function scheduler() {
           const dShift = st.shift || 0;
           const dNoteTime = schedTime + dShift * stepDur();
           const dDelayMs = Math.max(0, (dNoteTime - actx.currentTime) * 1000);
-          const capVol = st.vel * t.volume;
+          const capVol = Math.max(0, Math.min(1, st.vel * t.volume * gAcc));
           const capTi = ti, capPad = padIdx, capStepTune = st.tune || 0;
           if (t.outputMode === 'midi') {
             const durMs = Math.max(20, stepDur() * 1000 * 0.5);
@@ -6035,10 +6081,11 @@ function scheduler() {
             const capLen = st.len || 1, capTi = ti;
             const durMs = capLen * stepDur() * 1000 * 0.9;
             const capVisToken = S._trackVisToken; // token au moment du scheduling
+            const meloVel = Math.max(0, Math.min(1, st.vel * t.volume * gAcc));
             if (t.outputMode === 'midi') {
               setTimeout(() => {
                 if (!S.playing) return;
-                capNotes.forEach(n => midiOutNote(capTi, n, st.vel * t.volume, durMs));
+                capNotes.forEach(n => midiOutNote(capTi, n, meloVel, durMs));
               }, playDelayMs);
             } else if (t.outputMode === 'sf2') {
               const arpDurMs = capLen * stepDur() * 1000 * 0.98; // presque pleine durée pour l'arp
@@ -6047,7 +6094,7 @@ function scheduler() {
                 if (arpIsActive(capTi)) {
                   arpSeqTrigger(capTi, capNotes, arpDurMs);
                 } else {
-                  capNotes.forEach(n => sf2NoteOn(capTi, n, st.vel * t.volume));
+                  capNotes.forEach(n => sf2NoteOn(capTi, n, meloVel));
                   setTimeout(() => capNotes.forEach(n => sf2NoteOff(capTi, n)), durMs);
                 }
               }, playDelayMs);
@@ -6058,12 +6105,12 @@ function scheduler() {
                 if (arpIsActive(capTi)) {
                   arpSeqTrigger(capTi, capNotes, arpDurMsJx);
                 } else {
-                  capNotes.forEach(n => junoxNoteOn(capTi, n, st.vel * t.volume));
+                  capNotes.forEach(n => junoxNoteOn(capTi, n, meloVel));
                   setTimeout(() => capNotes.forEach(n => junoxNoteOff(capTi, n)), durMs);
                 }
               }, playDelayMs);
             } else {
-              const capVol = st.vel * t.volume;
+              const capVol = meloVel;
               setTimeout(() => {
                 if (!S.playing) return;
                 playTrackNote(capTi, st.note, capVol);
@@ -9950,7 +9997,7 @@ document.addEventListener('mouseup', () => {
       if (t.mode === 'drum') {
         oledForce('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
       } else if (t.mode === 'master') {
-        oledForce('MASTER', `BPM ${S.bpm}`, `Swing ${S.swing||0}%`);
+        oledForce('MASTER', `BPM ${S.bpm}  SW ${S.swing||0}%`, `Groove ${S.groove||0}%`);
       } else {
         oledForce('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
       }
@@ -10174,6 +10221,9 @@ const PROJECT_KEY   = (n) => `mwv_project_${n}`;
 function resetStateToEmpty() {
   S.bpm = 120;
   S.swing = 0;
+  S.groove = 0;
+  // Note : on conserve grooveSeed pour reproductibilité du humanize d'un projet à l'autre
+  if (!S.grooveSeed) S.grooveSeed = (Math.random() * 0xFFFFFFFF) >>> 0;
   S.masterVolume = 0.80;
   S.octave = 3;
   S.playing = false;
@@ -10293,6 +10343,8 @@ function serializeProject() {
     version: 2,
     bpm: S.bpm,
     swing: S.swing || 0,
+    groove: S.groove || 0,
+    grooveSeed: S.grooveSeed >>> 0,
     masterVolume: S.masterVolume,
     octave: S.octave,
     masterFX: JSON.parse(JSON.stringify(masterFX)),
@@ -10388,6 +10440,9 @@ function deserializeProject(data, slot) {
   if (!data || (data.version !== 1 && data.version !== 2)) return false;
   S.bpm = data.bpm ?? 120;
   S.swing = Math.max(0, Math.min(100, data.swing ?? 0));
+  S.groove = Math.max(0, Math.min(100, data.groove ?? 0));
+  S.grooveSeed = (data.grooveSeed != null) ? (data.grooveSeed >>> 0)
+                                           : ((Math.random() * 0xFFFFFFFF) >>> 0);
   S.masterVolume = data.masterVolume ?? 0.80;
   S.octave = data.octave ?? 3;
   if (masterGain) masterGain.gain.value = S.masterVolume;
@@ -11100,7 +11155,7 @@ function updateEncArcs() {
     if (lbl) { lbl.textContent = text; lbl.setAttribute('fill', color); }
   }
 
-  // ── Mode master : enc0 = BPM, enc1 = SWING, autres masqués ──
+  // ── Mode master : enc0 = BPM, enc1 = SWING, enc2 = GROOVE, autres masqués ──
   if (t.mode === 'master') {
     // enc0 : BPM actif (pas d'arc — affichage textuel sur OLED)
     hideArc('encArc0');
@@ -11110,8 +11165,12 @@ function updateEncArcs() {
     setEncRing(1, true, col);
     setLabel(1, 'SWING', col);
     setArcUni('encArc1', (S.swing || 0) / 100, col);
-    // enc2-5 : masqués
-    for (let i = 2; i < 6; i++) {
+    // enc2 : GROOVE (arc unipolaire 0..100)
+    setEncRing(2, true, col);
+    setLabel(2, 'GROOVE', col);
+    setArcUni('encArc2', (S.groove || 0) / 100, col);
+    // enc3-5 : masqués
+    for (let i = 3; i < 6; i++) {
       hideArc('encArc' + i);
       setEncRing(i, false, col);
       setLabel(i, '', '#2a2a2a');
@@ -11284,6 +11343,16 @@ ENC_DEFS.forEach((def, i) => {
         startVal: S.swing || 0, masterSwingMode: true, moved: false };
       S._oledLocked = true;
       oledForce('SWING', `${S.swing || 0}%`, (S.swing || 0) === 0 ? 'straight' : 'shuffle');
+      e.preventDefault();
+      return;
+    }
+
+    // Priorité 0ter : master track + enc2 → GROOVE (0..100)
+    if (t.mode === 'master' && i === 2) {
+      encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
+        startVal: S.groove || 0, masterGrooveMode: true, moved: false };
+      S._oledLocked = true;
+      oledForce('GROOVE', `${S.groove || 0}%`, (S.groove || 0) === 0 ? 'tight' : 'humanized');
       e.preventDefault();
       return;
     }
@@ -11527,6 +11596,20 @@ document.addEventListener('mousemove', e => {
         if (typeof scheduleAutosave === 'function') scheduleAutosave();
       }
       oledForce('SWING', `${S.swing}%`, S.swing === 0 ? 'straight' : 'shuffle');
+      updateEncArcs();
+      return;
+    }
+
+    // Master track GROOVE (enc2) — 0..100
+    if (encDrags[i].masterGrooveMode) {
+      if (Math.abs(delta) < 0.5) return;
+      encDrags[i].moved = true;
+      const newGroove = Math.max(0, Math.min(100, (S.groove || 0) + Math.round(delta / 2)));
+      if (newGroove !== S.groove) {
+        S.groove = newGroove;
+        if (typeof scheduleAutosave === 'function') scheduleAutosave();
+      }
+      oledForce('GROOVE', `${S.groove}%`, S.groove === 0 ? 'tight' : 'humanized');
       updateEncArcs();
       return;
     }
@@ -15317,7 +15400,7 @@ function _gpRestoreOled() {
   S._oledLocked = false;
   const t = S.tracks[S.currentTrack];
   if (t.mode === 'drum') oled('DRUM', getDrumPadName(S.currentTrack, S.selectedDrumPad), `pad ${S.selectedDrumPad+1}`);
-  else if (t.mode === 'master') oled('MASTER', `BPM ${S.bpm}`, `Swing ${S.swing||0}%`);
+  else if (t.mode === 'master') oled('MASTER', `BPM ${S.bpm}  SW ${S.swing||0}%`, `Groove ${S.groove||0}%`);
   else oled('SOUND', getTrackSoundName(S.currentTrack), trackInfo());
 }
 
@@ -16204,6 +16287,31 @@ requestAnimationFrame(pollGamepad);
         }, 800);
       } else {
         _tap['enc1_swing'] = now;
+      }
+    });
+  }
+
+  // enc2 en mode master — double-tap → reset GROOVE à 0
+  const elEnc2 = document.getElementById('enc2');
+  if (elEnc2) {
+    elEnc2.addEventListener('click', function() {
+      if (S.tracks[S.currentTrack]?.mode !== 'master') return;
+      const now = Date.now();
+      if (_tap['enc2_groove'] && now - _tap['enc2_groove'] < 350) {
+        _tap['enc2_groove'] = 0;
+        S.groove = 0;
+        if (typeof scheduleAutosave === 'function') scheduleAutosave();
+        oledForce('GROOVE', '0%', 'RESET');
+        svg('enc2').setAttribute('stroke', '#aaa');
+        svg('enc2').setAttribute('stroke-width', '2.5');
+        if (typeof updateEncArcs === 'function') updateEncArcs();
+        setTimeout(() => {
+          svg('enc2').setAttribute('stroke', '#383838');
+          svg('enc2').setAttribute('stroke-width', '1.5');
+          S._oledLocked = false;
+        }, 800);
+      } else {
+        _tap['enc2_groove'] = now;
       }
     });
   }
