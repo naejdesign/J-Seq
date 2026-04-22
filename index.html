@@ -4241,6 +4241,21 @@ function fxHandleDown(e) {
       if (t.mode === 'drum') {
         ensureAudio();
         if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
+        // Mute + tap → toggle mute du pad (priorité sur tout le reste)
+        if (S._mHeld || heldKeys.has('Numpad6')) {
+          if (S.shiftHeld) {
+            // Shift + Mute + Pad = SOLO
+            t.drumPads[padIdx].soloed = !t.drumPads[padIdx].soloed;
+            oledForce('PAD SOLO', `Pad ${padIdx+1}`, t.drumPads[padIdx].soloed ? '● SOLOED' : '○ unsolo');
+          } else {
+            // Mute + Pad = MUTE
+            t.drumPads[padIdx].muted = !t.drumPads[padIdx].muted;
+            oledForce('PAD MUTE', `Pad ${padIdx+1}`, t.drumPads[padIdx].muted ? '● MUTED' : '○ active');
+          }
+          renderDrumPadSelection();
+          e.stopPropagation(); e.preventDefault();
+          return true;
+        }
         // Shift + tap → page avancée
         if (S.shiftHeld) {
           S.selectedDrumPad = padIdx;
@@ -5278,6 +5293,8 @@ function makeDrumPad(typeIdx) {
     volume:     1,
     sendReverb: 0,
     sendDelay:  0,
+    muted:      false,
+    soloed:     false,
   };
 }
 
@@ -5402,6 +5419,7 @@ function drumSynth(pad, vel, dest) {
   }
 
   if (type === 'Kick') {
+    // Corps principal : oscillateur avec pitch drop
     const o = actx.createOscillator(), g = actx.createGain();
     const f0 = 150 * tuneRatio, f1 = 30 * tuneRatio;
     o.frequency.setValueAtTime(f0, t);
@@ -5409,27 +5427,51 @@ function drumSynth(pad, vel, dest) {
     g.gain.setValueAtTime(vel, t);
     g.gain.exponentialRampToValueAtTime(0.001, t + decSec);
     g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
+    // Type d'onde selon tone : sine (sombre) → triangle → square (agressif)
+    o.type = tone < 0.35 ? 'sine' : tone < 0.65 ? 'triangle' : 'square';
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
 
+    // Couche click/punch : bruit très court filtré en haut-médium (transient d'attaque)
+    const clickAmt = Math.pow(tone, 0.7); // plus de click quand tone monte
+    if (clickAmt > 0.05) {
+      const sc = noiseSrc(0.025);
+      const bpC = actx.createBiquadFilter();
+      bpC.type = 'bandpass';
+      bpC.frequency.value = 1200 + tone * 2800; // 1.2kHz → 4kHz selon tone
+      bpC.Q.value = 1.2;
+      const gc = actx.createGain();
+      gc.gain.setValueAtTime(vel * clickAmt * 0.6, t);
+      gc.gain.exponentialRampToValueAtTime(0.001, t + 0.025);
+      gc.gain.linearRampToValueAtTime(0, t + 0.03);
+      sc.connect(bpC); bpC.connect(gc); gc.connect(masterOut);
+      sc.start(t);
+    }
+
   } else if (type === 'Snare') {
-    // Bruit
+    // Bruit principal (dominante)
     const s = noiseSrc(decSec * 0.8), gn = actx.createGain();
-    gn.gain.setValueAtTime(vel * 0.7, t);
+    gn.gain.setValueAtTime(vel * 0.8, t);
     gn.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.8);
     gn.gain.linearRampToValueAtTime(0, t + decSec * 0.8 + 0.02);
     s.connect(gn); buildChain(gn); s.start(t);
-    // Corps
+    // Corps tonal réduit : présence subtile, decay très court
     const o = actx.createOscillator(), og = actx.createGain();
     o.type = 'triangle'; o.frequency.value = 180 * tuneRatio;
-    og.gain.setValueAtTime(vel * 0.4, t);
-    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.4);
-    og.gain.linearRampToValueAtTime(0, t + decSec * 0.4 + 0.02);
+    og.gain.setValueAtTime(vel * 0.18, t);  // réduit de 0.4 → 0.18
+    og.gain.exponentialRampToValueAtTime(0.001, t + decSec * 0.18); // decay plus court
+    og.gain.linearRampToValueAtTime(0, t + decSec * 0.18 + 0.02);
     o.connect(og); buildChain(og);
-    o.start(t); o.stop(t + decSec * 0.4 + 0.04);
+    o.start(t); o.stop(t + decSec * 0.18 + 0.04);
 
   } else if (type === 'Clap') {
-    [0, 0.008, 0.018].forEach(dly => {
+    // Tune contrôle l'espacement entre les 3 frappes : serré (flam) → étalé (triple clap)
+    // tune=0 → 8ms/18ms (défaut), tune négatif → plus serré, tune positif → plus étalé
+    const baseSpread = 0.008;
+    const spreadMult = Math.pow(2, (pad.tune || 0) / 12); // tune=+12 → 2× plus étalé
+    const d1 = baseSpread * spreadMult;
+    const d2 = (baseSpread + 0.010) * spreadMult;
+    [0, d1, d2].forEach(dly => {
       const durC  = Math.max(0.04, decSec * 0.5);
       const buf2  = getNoiseBuffer(durC);
       const s2 = actx.createBufferSource(), g2 = actx.createGain();
@@ -5460,7 +5502,8 @@ function drumSynth(pad, vel, dest) {
 
   } else if (type === 'Tom') {
     const o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine';
+    // Type d'onde selon tone : sine (round/profond) → triangle → square (agressif/électro)
+    o.type = tone < 0.35 ? 'sine' : tone < 0.65 ? 'triangle' : 'square';
     o.frequency.setValueAtTime(160 * tuneRatio, t);
     o.frequency.exponentialRampToValueAtTime(65 * tuneRatio, t + decSec);
     g.gain.setValueAtTime(vel, t);
@@ -5468,6 +5511,21 @@ function drumSynth(pad, vel, dest) {
     g.gain.linearRampToValueAtTime(0, t + decSec + 0.02);
     o.connect(g); buildChain(g);
     o.start(t); o.stop(t + decSec + 0.04);
+    // Couche click d'attaque selon tone (même principe que kick)
+    const clickTom = Math.pow(tone, 0.8);
+    if (clickTom > 0.08) {
+      const scT = noiseSrc(0.02);
+      const bpT = actx.createBiquadFilter();
+      bpT.type = 'bandpass';
+      bpT.frequency.value = 800 + tone * 1800;
+      bpT.Q.value = 1.5;
+      const gcT = actx.createGain();
+      gcT.gain.setValueAtTime(vel * clickTom * 0.4, t);
+      gcT.gain.exponentialRampToValueAtTime(0.001, t + 0.02);
+      gcT.gain.linearRampToValueAtTime(0, t + 0.025);
+      scT.connect(bpT); bpT.connect(gcT); gcT.connect(masterOut);
+      scT.start(t);
+    }
 
   } else if (type === 'Crash') {
     const sC = actx.createBufferSource(), gnC = actx.createGain();
@@ -5644,6 +5702,12 @@ function drumPadPlay(ti, padIdx, vel, stepTune) {
   const pads = t.drumPads;
   if (!pads || !pads[padIdx]) return;
   const pad = pads[padIdx];
+
+  // Mute/Solo par pad
+  const anySoloPad = pads.some(p => p.soloed);
+  if (pad.muted) return;
+  if (anySoloPad && !pad.soloed) return;
+
   const vol = (pad.volume ?? 1) * t.volume;
 
   // Si stepTune non nul, créer un pad temporaire avec tune modifié
@@ -5862,12 +5926,14 @@ function currentStepSwingOffset(tick) {
 
 // ── Groove global ─────────────────────────────────────────────
 // S.groove : valeur affichée 0..100 (UI / OLED / encodeur).
-// 3 effets combinés :
+// 4 effets combinés :
 //   1. Humanize : micro-décalage temporel aléatoire (déterministe via seed)
 //   2. Backbeat push : steps 5 et 13 (snares 4/4) légèrement en retard
 //   3. Accent : modulation vélocité (downbeats accentués, "e&a" adoucis)
-// 0%  → aucun effet (parfaitement quantisé)
-// 100% → humanize ±8% stepDur, backbeat +12%, accent ±15% vélocité
+//   4. Micro-pull (zone haute >60%) : -15% stepDur occasionnel pour casser la régularité
+// Courbe non-linéaire (pow 1.6) : zone basse 0-40% reste douce, zone haute 70-100% bien marquée
+// 0%   → aucun effet (parfaitement quantisé)
+// 100% → humanize ±20% stepDur, backbeat +25%, accent +35%/-25% vélocité, micro-pull actif
 function grooveRandom(tick) {
   // PRNG déterministe (mulberry32-like) basé sur seed + tick
   let t = ((S.grooveSeed | 0) + tick * 2654435761) >>> 0;
@@ -5878,27 +5944,33 @@ function grooveRandom(tick) {
 function grooveTimingOffset(tick) {
   const g = S.groove || 0;
   if (g === 0) return 0;
-  const amount = g / 100;
+  const norm = g / 100;
+  const amount = Math.pow(norm, 1.6); // courbe non-linéaire : douce en bas, forte en haut
   const sd = stepDur();
-  // Humanize : ±8% stepDur max
-  const humanize = (grooveRandom(tick) - 0.5) * 0.16 * sd * amount;
-  // Backbeat push sur steps 5 et 13 (positions snare 4/4, 0-indexées : 4 et 12)
+  // Humanize : ±20% stepDur max
+  const humanize = (grooveRandom(tick) - 0.5) * 0.40 * sd * amount;
+  // Backbeat push +25% sur steps 5 et 13 (positions snare 4/4, 0-indexées : 4 et 12)
   const stepInBar = ((tick % 16) + 16) % 16;
   const backbeat = (stepInBar === 4 || stepInBar === 12)
-    ? 0.12 * sd * amount
+    ? 0.25 * sd * amount
     : 0;
-  return humanize + backbeat;
+  // Micro-pull aléatoire actif au-delà de 60% : casse la régularité quand on pousse fort
+  let pull = 0;
+  if (g > 60 && grooveRandom(tick + 9999) > 0.875) {
+    pull = -0.15 * sd * ((g - 60) / 40);
+  }
+  return humanize + backbeat + pull;
 }
 function grooveAccent(tick) {
   const g = S.groove || 0;
   if (g === 0) return 1;
-  const amount = g / 100;
+  const amount = Math.pow(g / 100, 1.6);
   const stepInBar = ((tick % 16) + 16) % 16;
-  // Downbeats (0,4,8,12) accentués ; "e/a" (steps impairs) adoucis
+  // Downbeats (0,4,8,12) accentués jusqu'à +35% ; "e/a" (steps impairs) adoucis jusqu'à -25%
   const isDownbeat = stepInBar % 4 === 0;
   const isOffbeat  = stepInBar % 2 === 1;
-  const mod = isDownbeat ? 0.15 : (isOffbeat ? -0.10 : 0);
-  return 1 + (mod * amount);
+  const mod = isDownbeat ? 0.35 : (isOffbeat ? -0.25 : 0);
+  return Math.max(0.1, Math.min(1.5, 1 + (mod * amount)));
 }
 
 function getSound(ti) {
@@ -6190,11 +6262,25 @@ function flashDrumPadNew(padIdx) {
   const col_hex = trackColor(S.currentTrack);
   const bg = sg.querySelector('rect');
   if (bg) {
+    // Mémoriser l'apparence d'origine pour la restaurer sans re-render global
+    // (un re-render fermerait la page avancée drum si elle est ouverte)
+    const prevFill   = bg.getAttribute('fill');
+    const prevStroke = bg.getAttribute('stroke');
+    const prevSW     = bg.getAttribute('stroke-width');
     bg.setAttribute('fill', col_hex + 'bb');
     bg.setAttribute('stroke', '#fff');
     bg.setAttribute('stroke-width', '2');
     setTimeout(() => {
-      if (!projectModeActive && S.mode !== 'session') renderDrumPadSelection();
+      if (projectModeActive || S.mode === 'session') return;
+      // Si la page avancée d'un pad est ouverte, ne PAS re-render (cela la fermerait).
+      // On restaure juste l'apparence du slot flashé.
+      if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null) {
+        if (prevFill   !== null) bg.setAttribute('fill', prevFill);     else bg.removeAttribute('fill');
+        if (prevStroke !== null) bg.setAttribute('stroke', prevStroke); else bg.removeAttribute('stroke');
+        if (prevSW     !== null) bg.setAttribute('stroke-width', prevSW); else bg.removeAttribute('stroke-width');
+        return;
+      }
+      renderDrumPadSelection();
     }, 120);
   }
 }
@@ -7126,6 +7212,13 @@ function playPad(row, col) {
 }
 
 function renderDrumPadSelection() {
+  // Si la page avancée d'un pad est en cours d'édition, ne PAS la fermer :
+  // re-render simplement la page avancée (utile quand la lecture déclenche
+  // des re-renders incidents pendant que l'utilisateur édite un pad).
+  if (typeof drumAdvPage !== 'undefined' && drumAdvPage !== null) {
+    try { renderDrumPadAdvanced(drumAdvPage); } catch(_) {}
+    return;
+  }
   drumAdvPage = null; // toujours revenir à la page principale
   if (projectModeActive) return;
   const ti = S.currentTrack;
@@ -7210,6 +7303,37 @@ function renderDrumPadSelection() {
     hit.setAttribute('cursor', 'pointer');
     hit.setAttribute('data-drumpad', padIdx);
     sg.appendChild(hit);
+
+    // Indicateur Mute / Solo pad
+    const anySoloDrum = t.drumPads.some(p => p.soloed);
+    if (pad.muted || (anySoloDrum && !pad.soloed)) {
+      const muteOverlay = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      muteOverlay.setAttribute('x', sx + margin); muteOverlay.setAttribute('y', sy + margin);
+      muteOverlay.setAttribute('width', pw - margin*2); muteOverlay.setAttribute('height', ph - margin*2);
+      muteOverlay.setAttribute('rx', 6);
+      muteOverlay.setAttribute('fill', '#00000088');
+      muteOverlay.setAttribute('pointer-events', 'none');
+      sg.appendChild(muteOverlay);
+      const muteLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      muteLabel.setAttribute('x', sx + pw - margin - 7);
+      muteLabel.setAttribute('y', sy + ph - margin - 5);
+      muteLabel.setAttribute('font-family', "'DM Mono',monospace");
+      muteLabel.setAttribute('font-size', '10');
+      muteLabel.setAttribute('fill', '#ff6b00');
+      muteLabel.setAttribute('pointer-events', 'none');
+      muteLabel.textContent = 'M';
+      sg.appendChild(muteLabel);
+    } else if (pad.soloed) {
+      const soloLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      soloLabel.setAttribute('x', sx + pw - margin - 7);
+      soloLabel.setAttribute('y', sy + ph - margin - 5);
+      soloLabel.setAttribute('font-family', "'DM Mono',monospace");
+      soloLabel.setAttribute('font-size', '10');
+      soloLabel.setAttribute('fill', '#44ff88');
+      soloLabel.setAttribute('pointer-events', 'none');
+      soloLabel.textContent = 'S';
+      sg.appendChild(soloLabel);
+    }
   }
 
   // S'assurer que le panel est visible et les pads SVG cachés
@@ -7857,7 +7981,8 @@ document.addEventListener('keydown', e => {
   }
   // Numpad9 = Loop (position R1 col1) : court = toggle loop mode, long = hold pour combos
   if (e.code === 'Numpad9') {
-    heldKeys.add('Numpad9'); setNumpadLit('Numpad9', true);
+    heldKeys.add('Numpad9');
+    setBtnLit('btnLoop', true, '#3ddc84'); // couleur correcte immédiatement
     S._numpad9PressTime = Date.now();
     S._numpad9LongFired = false;
     S._numpad9Timer = setTimeout(() => {
@@ -7875,7 +8000,10 @@ document.addEventListener('keydown', e => {
   }
   // Numpad6 = Mute (position R2 col1)
   if (e.code === 'Numpad6') {
-    heldKeys.add('Numpad6'); setNumpadLit('Numpad6', true);
+    heldKeys.add('Numpad6');
+    S._mHeld = true;
+    setBtnLit('btnMute', true, '#ff6b00'); // couleur correcte immédiatement
+    oled('MUTE', S.shiftHeld ? 'Solo...' : 'Mute...', '');
     return;
   }
   // Numpad2 = Copy (position R3 col0)
@@ -8101,7 +8229,10 @@ document.addEventListener('keyup', e => {
   }
   // Numpad6 = Mute — pas d'action solo, combo avec track button
   if (e.code === 'Numpad6') {
-    heldKeys.delete('Numpad6'); setNumpadLit('Numpad6', false);
+    heldKeys.delete('Numpad6');
+    S._mHeld = false;
+    setBtnLit('btnMute', false, '#ff6b00');
+    _gpRestoreOled();
     return;
   }
   // Numpad2 = Copy
@@ -8349,9 +8480,11 @@ function switchPage(newPage, targetTrack) {
   oledForce(`PAGE ${newPage + 1}`, `TRACK ${ti + 1}`, newPage === 1 ? 'T5·T6·T7·MST' : 'T1·T2·T3·T4');
 }
 
-function handleTrackButtonClick(slot) {
+function handleTrackButtonClick(slot, mHeldOverride, shiftOverride) {
   if (projectModeActive) return; // ignoré en mode project
   const ti = S.page * 4 + slot;
+  const mHeld    = mHeldOverride    ?? S._mHeld;
+  const shiftNow = shiftOverride    ?? S.shiftHeld;
 
   if (routingMenuMode) {
     routingMenuTi  = ti;
@@ -8360,15 +8493,15 @@ function handleTrackButtonClick(slot) {
     return;
   }
   // Shift + Mute + Track = SOLO (priorité avant Shift seul)
-  if (S.shiftHeld && (heldKeys.has('Numpad6') || S._mHeld)) {
+  if (shiftNow && (heldKeys.has('Numpad6') || mHeld)) {
     soloTrack(ti);
     return;
   }
   // Shift + Track seul : libre (routing menu supprimé)
-  if (S.shiftHeld) {
+  if (shiftNow) {
     return;
   }
-  if (heldKeys.has('Numpad6') || S._mHeld) {
+  if (heldKeys.has('Numpad6') || mHeld) {
     muteTrack(ti);
     return;
   }
@@ -8381,15 +8514,27 @@ function handleTrackButtonClick(slot) {
 S._heldTrack = -1;
 const _trkTapTimer  = {};
 const _trkTapCount  = {};
+// Capture de l'état mute/shift au moment du mousedown (avant reset par document mouseup)
+const _trkClickMHeld = [false, false, false, false];
+const _trkClickShift = [false, false, false, false];
 
 for (let slot = 0; slot < 4; slot++) {
-  svg(`trkBtn${slot}`).addEventListener('mousedown', () => { S._heldTrack = slot; });
+  svg(`trkBtn${slot}`).addEventListener('mousedown', () => {
+    S._heldTrack = slot;
+    _trkClickMHeld[slot] = S._mHeld;
+    _trkClickShift[slot] = S.shiftHeld;
+  });
   svg(`trkBtn${slot}`).addEventListener('mouseup',   () => { if (!volDrag) S._heldTrack = -1; });
   svg(`trkBtn${slot}`).addEventListener('mouseleave',() => { if (!volDrag) S._heldTrack = -1; });
   svg(`trkBtn${slot}`).addEventListener('click', () => {
     if (projectModeActive) return; // ignoré en mode project
     _trkTapCount[slot] = (_trkTapCount[slot] || 0) + 1;
     clearTimeout(_trkTapTimer[slot]);
+    // Capturer l'état mute/solo AU MOMENT DU CLICK (avant que document mouseup ne le reset)
+    const _mHeldNow    = S._mHeld    || _trkClickMHeld[slot];
+    const _shiftNow    = S.shiftHeld || _trkClickShift[slot];
+    _trkClickMHeld[slot] = false;
+    _trkClickShift[slot] = false;
     _trkTapTimer[slot] = setTimeout(() => {
       const count = _trkTapCount[slot] || 0;
       _trkTapCount[slot] = 0;
@@ -8399,7 +8544,7 @@ for (let slot = 0; slot < 4; slot++) {
         const targetTrack = newPage * 4 + slot; // même slot, autre page
         switchPage(newPage, targetTrack);
       } else {
-        handleTrackButtonClick(slot);
+        handleTrackButtonClick(slot, _mHeldNow, _shiftNow);
       }
     }, 300);
   });
@@ -9194,7 +9339,9 @@ for (let r = 0; r < 4; r++) {
         }
         // Clic normal sur pad — ignoré pour les tracks mélodiques (layout clavier supprimé)
         // Seul le mode drum utilise encore les pads via data-drumpad dans enginePanel
-        if (S.tracks[S.currentTrack].mode === 'drum') playPad(row, col);
+        if (S.tracks[S.currentTrack].mode === 'drum') {
+          playPad(row, col);
+        }
       });
     })(r, c);
   }
@@ -9324,12 +9471,13 @@ document.addEventListener('mouseup', (e) => {
   if (S._mHeld) {
     S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00');
   }
-  // Shift : désactiver SEULEMENT si on relâche sur le bouton Shift lui-même.
-  // Sinon, on casse la feature "Shift + 2 clics steps = région de loop"
-  // qui exige que Shift reste actif entre les deux clics. Le bouton est aussi
-  // protégé par mouseup/mouseleave directs ci-dessous pour éviter l'anneau bloqué.
-  if (S.shiftHeld && !heldKeys.has('Numpad3') && svg('btnShift').contains(e.target)) {
-    setShiftOn(false);
+  // Shift : désactiver sur tout mouseup sauf si tenu via clavier physique
+  // ou si une sélection de région loop est en cours (2 taps nécessaires)
+  if (S.shiftHeld && !heldKeys.has('Numpad3') && !heldKeys.has('ShiftLeft') && !heldKeys.has('ShiftRight')) {
+    // Garder actif si le 1er tap de région loop a déjà été posé
+    if (typeof _loopShiftStep1 === 'undefined' || _loopShiftStep1 === -1) {
+      setShiftOn(false);
+    }
   }
   // Bouton LOOP en mode "hold" (combo) : si on relâche n'importe où, fin du combo
   if (S._loopHeld) {
