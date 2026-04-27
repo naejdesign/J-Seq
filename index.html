@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
@@ -38,7 +38,7 @@ body {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
   margin: 0; padding: 0;
-  /* Safe area insets pour notch/barre de statut Android */
+  /* Safe area insets for notch/status bar (Android) */
   padding-top: env(safe-area-inset-top);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
@@ -69,11 +69,11 @@ body {
   display: block;
 }
 
-/* SF2 Browser — se positionne par dessus le SVG, mêmes dimensions */
+/* SF2 Browser — positioned over the SVG, same dimensions */
 #sf2Browser {
   display: none;
   position: absolute;
-  /* Centré comme le SVG avec les mêmes contraintes */
+  /* Centered like the SVG with the same constraints */
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -95,9 +95,9 @@ body {
 
 </style>
 <!-- js-synthesizer (FluidSynth WASM) -->
-<!-- Augmenter la mémoire WASM pour supporter les grosses SF2 -->
+<!-- Increase WASM memory to support large SF2 files -->
 <script>
-  // 256MB initial, 512MB max — nécessaire pour les grosses SF2
+  // 256MB initial, 512MB max — needed for large SF2 files
   var Module = {
     INITIAL_MEMORY: 256 * 1024 * 1024,
     wasmMemory: new WebAssembly.Memory({ initial: 4096, maximum: 8192 }) // 256MB/512MB
@@ -105,7 +105,7 @@ body {
 </script>
 <script src="https://cdn.jsdelivr.net/npm/js-synthesizer@latest/externals/libfluidsynth-2.3.0.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/js-synthesizer@latest/dist/js-synthesizer.js"></script>
-<!-- Tuna.js — effets audio WebAudio -->
+<!-- Tuna.js — WebAudio audio effects -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tunajs@1.0.1/tuna.js"></script>
 </head>
@@ -123,15 +123,15 @@ body {
     <feGaussianBlur in="colored" stdDeviation="2" result="blur"/>
     <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
   </filter>
-  <!-- Clip pour l'écran OLED -->
+  <!-- Clip for OLED screen -->
   <clipPath id="oledClip">
     <rect x="15" y="18" width="129" height="58" rx="2"/>
   </clipPath>
 </defs>
 
-<!-- ══ CORPS ══════════════════════════════════════════════════════ -->
+<!-- ══ BODY ══════════════════════════════════════════════════════ -->
 <rect x="0" y="0" width="860" height="482" fill="#1a1a1c"/>
-<!-- texture légère -->
+<!-- subtle texture -->
 <rect x="0" y="0" width="860" height="482" fill="url(#noise)" opacity="0.03"/>
 
 <!-- ══ OLED ════════════════════════════════════════════════════════
@@ -143,10 +143,10 @@ body {
   <text id="oMain" x="16" y="47"  font-family="'DM Mono',monospace" font-size="14" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
   <text id="oSub"  x="16" y="66"  font-family="'DM Mono',monospace" font-size="9"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
 </g>
-<!-- Zone de clic OLED — par dessus tout, capte les clics sur toute la surface -->
+<!-- OLED click zone — on top of everything, captures all clicks on the surface -->
 <rect id="oledClickZone" x="11" y="20" width="137" height="64" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
 
-<!-- ══ MOLETTE ═══════════════════════════════════════════════════
+<!-- ══ WHEEL ═══════════════════════════════════════════════════
   Centre x=73, centre y=168  rayon=34
 -->
 
@@ -155,7 +155,7 @@ body {
 -->
 </g>
 
-<!-- ══ 4 BOUTONS PISTE oblongs ════════════════════════════════════
+<!-- ══ 4 TRACK BUTTONS oblongs ════════════════════════════════════
   x=154 (juste à gauche des pads qui commencent à x=190)
   gap=5, largeur=28, hauteur des pads
   Rangées y: 107, 152, 197, 242
@@ -217,8 +217,8 @@ body {
   <rect id="pad_3_7" x="638" y="251" width="58" height="44" rx="5" fill="#1e1e20" stroke="#2a2a2c" stroke-width="0.8" cursor="pointer"/>
 </g>
 
-<!-- ══ PANNEAU ENCODEURS MOTEUR (mode note, sf2/midi) ════════════
-     Zone : x=190 y=107 w=510 h=188 — par dessus la matrice de pads
+<!-- ══ ENGINE ENCODER PANEL (note mode, sf2/midi) ════════════
+     Zone: x=190 y=107 w=510 h=188 — over the pad matrix
      4 colonnes × 2 lignes = 8 encodeurs
      Chaque encodeur : w=120 h=88, gap=6
      Col x : 190, 316, 442, 568
@@ -228,7 +228,7 @@ body {
   <!-- Fond semi-transparent -->
   <rect x="190" y="107" width="510" height="188" rx="6" fill="#0f0f11" stroke="#252528" stroke-width="1"/>
 
-  <!-- 8 encodeurs générés dynamiquement par JS -->
+  <!-- 8 encoders generated dynamically by JS -->
   <!-- Structure par encodeur (idx 0-7) :
        - fond         id="enc_bg_{i}"
        - arc piste    id="enc_track_{i}"
@@ -240,7 +240,7 @@ body {
 </g>
 
 
-<!-- ══ 8 ENCODEURS ════════════════════════════════════════════════
+<!-- ══ 8 ENCODERS ════════════════════════════════════════════════
   Bord haut aligné sur OLED y=25 → centre y=25+14=39
   Centrés sur colonnes pads: 219,306 etc  (190+29, 254+29...)
   On recalcule: pad cols x: 190,254,318,382,446,510,574,638 → centres: 219,283,347,411,475,539,603,667
@@ -289,26 +289,26 @@ body {
 
 </g><!-- fin matrixZone -->
 
-<!-- ══ ENCODEUR VOLUME (haut droite) ═════════════════════════════
+<!-- ══ VOLUME ENCODER (top right) ════════════════════════════════
   10mm bord droit = 860-27=833, 15mm haut → y bord=25, centre=25+21=46, r=21
 -->
 <circle id="encVol" cx="795" cy="52" r="22" fill="#252527" stroke="#3a3a3a" stroke-width="1.5" cursor="ns-resize"/>
 <circle cx="795" cy="52" r="17" fill="none" stroke="#2a2a2a" stroke-width="0.8" pointer-events="none"/>
 <text x="795" y="56" text-anchor="middle" font-family="'DM Mono',monospace" font-size="10" font-weight="600" fill="#555" pointer-events="none">VOL</text>
-<!-- Indicateur MIDI connecté (entre enc7 et encVol) -->
+<!-- MIDI connected indicator (between enc7 and encVol) -->
 <circle id="midiDot" cx="741" cy="52" r="3.5" fill="#1a1a1a" stroke="#333" stroke-width="0.8"/>
 <text id="midiLbl" x="741" y="65" text-anchor="middle" font-family="'DM Mono',monospace" font-size="5.5" fill="#2a2a2a">midi</text>
 
-<!-- ══ 8 BOUTONS FONCTION DROITS ══════════════════════════════════
+<!-- ══ 8 RIGHT FUNCTION BUTTONS ══════════════════════════════════
   Zone droite: x cols 770 et 810, rows y=128,178,228,278 (centrés rangées pads)
   rangée pads: 107+22=129, 155+22=177, 203+22=225, 251+22=273
 -->
 
 <!-- R0 col0 — CURSOR MODE -->
-<!-- R0 — SETS/PROJECTS (bouton large) -->
+<!-- R0 — SETS/PROJECTS (large button) -->
 <g id="btnSession" cursor="pointer">
   <path d="M79 79 L148 79 L148 99 Q148 102 145 102 L79 102 L79 79 Z" fill="#222" stroke="#333" stroke-width="1"/>
-  <!-- Icône burger centrée sur cx=113, cy=98 -->
+  <!-- Burger icon centered at cx=113, cy=98 -->
   <line x1="108" y1="86" x2="118" y2="86" stroke="#666" stroke-width="1.3" stroke-linecap="round"/>
   <line x1="108" y1="90" x2="118" y2="90" stroke="#666" stroke-width="1.3" stroke-linecap="round"/>
   <line x1="108" y1="94" x2="118" y2="94" stroke="#666" stroke-width="1.3" stroke-linecap="round"/>
@@ -317,7 +317,7 @@ body {
 <!-- ══ PROJECT BUTTON (sous OLED gauche) ══════════════ -->
 <g id="btnSets" cursor="pointer">
   <path d="M11 79 L79 79 L79 102 L14 102 Q11 102 11 99 L11 79 Z" fill="#222" stroke="#333" stroke-width="1"/>
-  <!-- Icône fichier centrée sur cx=45, cy=98 -->
+  <!-- File icon centered at cx=45, cy=98 -->
   <g fill="none" stroke="#666" stroke-width="1.3" stroke-linejoin="round" stroke-linecap="round"
      transform="translate(45,90) translate(-5,-5)">
     <path d="M0 0 L0 10 L10 10 L10 4 L6 0 Z"/>
@@ -380,7 +380,7 @@ body {
 <!-- ══ 16 STEPS ═══════════════════════════════════════════════════
   Zone x: 190 à 696 (bord droit dernier pad 638+58=696)
   16 steps répartis uniformément: 506px / 16 = 31.6px par step
-  Rayon=12, centres y=360 (aligné Play/Record)
+  Rayon=12, centers y=360 (aligned with Play/Record)
   cx_i = 190 + 15.8 + i*31.6 = 205.8 + i*31.6
 -->
 
@@ -410,7 +410,7 @@ body {
 <!-- ══ BPM display sur OLED (overlay dynamique) ══════════════════ -->
 
 
-<!-- ══ PIANO (intégré) ══════════════════════════════════════════ -->
+<!-- ══ PIANO (integrated) ══════════════════════════════════════════ -->
 
 
 <!-- ══ PLAY + REC ══ -->
@@ -456,7 +456,7 @@ body {
   </rect>
   <g id="keyboardZone" transform="translate(10, 374)">
 
-    <!-- Sélecteur octave -->
+    <!-- Octave selector -->
     <g id="octaveSelector" transform="translate(0, 0)">
       <g id="btnOctUp" cursor="pointer">
         <rect id="svgOctUpRect" x="0" y="0" width="52" height="46" rx="3" fill="#252528" stroke="#3a3a3a" stroke-width="0.8"/>
@@ -472,7 +472,7 @@ body {
 
   </g>
 
-  <!-- LEDs steps cachées — requises par le JS -->
+  <!-- Hidden step LEDs — required by JS -->
   <g id="stepLeds" pointer-events="none" opacity="0">
     <circle id="sled0" cx="0" cy="0" r="1" fill="#333"/>
     <circle id="sled1" cx="0" cy="0" r="1" fill="#333"/>
@@ -514,9 +514,9 @@ body {
 </div>
 <input type="file" id="prjBrFileInput" accept=".zip" style="display:none">
 
-<!-- Drum Browser — overlay pour choisir synth type ou sample par pad -->
+<!-- Drum Browser — overlay to choose synth type or sample per pad -->
 <div id="drumBrowser" class="brOverlay" style="z-index:101">
-  <div id="drumBrLoading" class="brLoading"><div class="brSpinner"></div><span id="drumBrLoadMsg">Chargement…</span></div>
+  <div id="drumBrLoading" class="brLoading"><div class="brSpinner"></div><span id="drumBrLoadMsg">Loading…</span></div>
   <div id="drumBrHeader" class="brHeader">
     <button id="drumBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#ff6b00" title="Change track type">T1 · DRUM</button>
     <span id="drumBrPadLabel" class="brTrackLabel" style="color:#888;font-size:12px">PAD 1</span>
@@ -542,7 +542,7 @@ body {
   </div>
 </div>
 <div id="sf2Browser" class="brOverlay">
-  <div id="sf2Loading" class="brLoading"><div class="brSpinner"></div><span id="sf2LoadMsg">Chargement…</span></div>
+  <div id="sf2Loading" class="brLoading"><div class="brSpinner"></div><span id="sf2LoadMsg">Loading…</span></div>
   <div id="sf2Header" class="brHeader">
     <button id="sf2TrackLabel" class="brTrackLabel brTypeBtn" style="color:#ff6b00" title="Change track type">TRACK 1</button>
     <button id="sf2FolderBtn" class="brFolderBtn">📁 SF2 folder</button>
@@ -565,43 +565,43 @@ body {
   </div>
 </div>
 
-<!-- ══ JUNOX PRESET BROWSER ════════════════════════════════════ -->
-<div id="junoxBrowser" class="brOverlay">
-  <div id="junoxBrHeader" class="brHeader">
-    <button id="junoxBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#4cf" title="Change track type">T2 · JUNO</button>
-    <button id="junoxBrSaveBtn" class="brFolderBtn">💾 Save preset</button>
-    <span id="junoxBrCurrent" class="brCurrentLabel">—</span>
-    <button id="junoxBrCloseBtn" class="brCloseBtn">✕</button>
+<!-- ══ JUNO PRESET BROWSER ════════════════════════════════════ -->
+<div id="junoBrowser" class="brOverlay">
+  <div id="junoBrHeader" class="brHeader">
+    <button id="junoBrTrackLabel" class="brTrackLabel brTypeBtn" style="color:#4cf" title="Change track type">T2 · JUNO</button>
+    <button id="junoBrSaveBtn" class="brFolderBtn">💾 Save preset</button>
+    <span id="junoBrCurrent" class="brCurrentLabel">—</span>
+    <button id="junoBrCloseBtn" class="brCloseBtn">✕</button>
   </div>
   <div class="brBody" style="flex-direction:column">
     <div style="display:flex;align-items:center;gap:8px;padding:8px 14px 4px;flex-shrink:0">
       <span style="font-size:11px;color:#444;text-transform:uppercase;letter-spacing:1px">Presets Juno-60</span>
-      <span id="junoxBrCount" class="brCount"></span>
+      <span id="junoBrCount" class="brCount"></span>
     </div>
-    <div id="junoxBrList" class="brList" style="flex:1"></div>
+    <div id="junoBrList" class="brList" style="flex:1"></div>
   </div>
 </div>
-<!-- Popup save preset Junox -->
-<div id="junoxSavePopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+<!-- Popup save preset Juno -->
+<div id="junoSavePopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
   <div style="background:#1a1a1c;border:1px solid #4cf;border-radius:10px;padding:24px 28px;min-width:280px;font-family:'DM Mono',monospace">
     <div style="color:#4cf;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:12px">Save preset</div>
-    <div id="junoxSaveName" contenteditable="true" role="textbox" aria-label="Preset name"
+    <div id="junoSaveName" contenteditable="true" role="textbox" aria-label="Preset name"
       data-placeholder="Preset name…"
       style="width:100%;background:#111;border:1px solid #333;border-radius:5px;color:#eee;font-family:'DM Mono',monospace;font-size:13px;padding:8px 10px;box-sizing:border-box;margin-bottom:14px;outline:none;min-height:1.5em;cursor:text;white-space:nowrap;overflow:hidden"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button id="junoxSaveCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Annuler</button>
-      <button id="junoxSaveConfirmBtn" style="background:#4cf;border:none;border-radius:5px;color:#000;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Sauvegarder</button>
+      <button id="junoSaveCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Cancel</button>
+      <button id="junoSaveConfirmBtn" style="background:#4cf;border:none;border-radius:5px;color:#000;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Save</button>
     </div>
   </div>
 </div>
-<!-- Popup delete preset Junox -->
-<div id="junoxDeletePopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
+<!-- Popup delete preset Juno -->
+<div id="junoDeletePopup" style="display:none;position:fixed;inset:0;z-index:200;background:rgba(0,0,0,0.7);align-items:center;justify-content:center">
   <div style="background:#1a1a1c;border:1px solid #555;border-radius:10px;padding:24px 28px;min-width:260px;font-family:'DM Mono',monospace">
-    <div style="color:#f44;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Supprimer ce preset ?</div>
-    <div id="junoxDeleteName" style="color:#eee;font-size:14px;margin-bottom:18px;padding:8px 10px;background:#111;border-radius:5px;border:1px solid #333"></div>
+    <div style="color:#f44;font-size:11px;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px">Delete this preset?</div>
+    <div id="junoDeleteName" style="color:#eee;font-size:14px;margin-bottom:18px;padding:8px 10px;background:#111;border-radius:5px;border:1px solid #333"></div>
     <div style="display:flex;gap:10px;justify-content:flex-end">
-      <button id="junoxDeleteCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Annuler</button>
-      <button id="junoxDeleteConfirmBtn" style="background:#f44;border:none;border-radius:5px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Supprimer</button>
+      <button id="junoDeleteCancelBtn" style="background:none;border:1px solid #444;border-radius:5px;color:#888;font-family:'DM Mono',monospace;font-size:12px;padding:6px 14px;cursor:pointer">Cancel</button>
+      <button id="junoDeleteConfirmBtn" style="background:#f44;border:none;border-radius:5px;color:#fff;font-family:'DM Mono',monospace;font-size:12px;font-weight:600;padding:6px 14px;cursor:pointer">Delete</button>
     </div>
   </div>
 </div>
@@ -610,9 +610,9 @@ body {
 
 
 
-<!-- ══ JUNOX BUNDLE (Juno-60 AudioWorklet synth) ══════════════════ -->
+<!-- ══ JUNO BUNDLE (Juno-60 AudioWorklet synth) ══════════════════ -->
 <script>
-var Junox = (() => {
+var Juno = (() => {
   var __defProp = Object.defineProperty;
   var __markAsModule = (target) => __defProp(target, "__esModule", { value: true });
   var __export = (target, all) => {
@@ -1400,20 +1400,20 @@ var metronomeTimer = null;
 var countdownTimer = null;
 
 // ═══════════════════════════════════════════════════════════════
-// JUNOX ENGINE — Juno-60 AudioWorklet (T2 hardcodée)
+// JUNO ENGINE — Juno-60 AudioWorklet (T2 hardcodée)
 // ═══════════════════════════════════════════════════════════════
-const JUNOX_TRACK = 1; // T2 = index 1
+const JUNO_TRACK = 1; // T2 = index 1
 
 // Nœuds AudioWorklet par track (seul index 1 utilisé pour l'instant)
-const junoxNodes   = [null, null, null, null, null, null, null, null];
+const junoNodes   = [null, null, null, null, null, null, null, null];
 // Nœuds delay et reverb par track (architecture Viktor NV-1)
-const junoxDelayNodes  = Array(8).fill(null);
-const junoxReverbNodes = Array(8).fill(null);
-const junoxSatNodes    = Array(8).fill(null);
+const junoDelayNodes  = Array(8).fill(null);
+const junoReverbNodes = Array(8).fill(null);
+const junoSatNodes    = Array(8).fill(null);
 // Patch courant par track
-const junoxPatches = [null, null, null, null, null, null, null, null];
+const junoPatches = [null, null, null, null, null, null, null, null];
 // État runtime (hors patch) par track
-const junoxRuntime = Array.from({length:8}, () => ({
+const junoRuntime = Array.from({length:8}, () => ({
   poly: 1, notePrio: 0, subOct: 0, noiseType: 0,
   dlyTime: 500, dlyFeedback: 0.5, dlyMix: 0, revLevel: 0,
   satDrive: -13, satType: 0,
@@ -1424,13 +1424,13 @@ const junoxRuntime = Array.from({length:8}, () => ({
   _glideTimer: null,  // animation frame handle
 }));
 // IR de reverb ir_rev_short.wav embarqué (évite les CORS en file://)
-const junoxReady = Array(8).fill(false);       // une entrée par track
-const junoxInitializing = Array(8).fill(false); // une entrée par track
+const junoReady = Array(8).fill(false);       // une entrée par track
+const junoInitializing = Array(8).fill(false); // une entrée par track
 
 // ═══════════════════════════════════════════════════════════════
 // SWITCH TRACK TYPE — changer le type d'une track à runtime
 // ti : index de track (1-6, T1 et T8 sont verrouillées)
-// newType : 'sf2' | 'junox' | 'drum'
+// newType : 'sf2' | 'juno' | 'drum'
 // ═══════════════════════════════════════════════════════════════
 let _switchTrackTypeBusy = false;
 async function switchTrackType(ti, newType) {
@@ -1453,10 +1453,10 @@ async function switchTrackType(ti, newType) {
   }
 
   // ── Démontage de l'ancien type ──
-  if (oldOutputMode === 'junox') {
+  if (oldOutputMode === 'juno') {
     // Arrêter les notes en cours
-    if (junoxNodes[ti]) { try { junoxAllNotesOff(ti); } catch(e) {} }
-    destroyJunox(ti);
+    if (junoNodes[ti]) { try { junoAllNotesOff(ti); } catch(e) {} }
+    destroyJuno(ti);
   } else if (oldMode === 'drum') {
     // Rien de spécial à démonter pour drum (pas de nœud audio dédié)
   }
@@ -1464,7 +1464,7 @@ async function switchTrackType(ti, newType) {
 
   // ── Fermer tous les browsers ouverts ──
   document.getElementById('sf2Browser').classList.remove('open');
-  document.getElementById('junoxBrowser').classList.remove('open');
+  document.getElementById('junoBrowser').classList.remove('open');
   document.getElementById('drumBrowser').classList.remove('open');
   document.getElementById('midiBrowser').classList.remove('open');
 
@@ -1474,9 +1474,9 @@ async function switchTrackType(ti, newType) {
     t.outputMode = 'drum';
     TRACK_MODES[ti] = 'drum';
     if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
-  } else if (newType === 'junox') {
+  } else if (newType === 'juno') {
     t.mode = 'melodic';
-    t.outputMode = 'junox';
+    t.outputMode = 'juno';
     TRACK_MODES[ti] = 'melodic';
   } else if (newType === 'midi') {
     t.mode = 'melodic';
@@ -1498,14 +1498,14 @@ async function switchTrackType(ti, newType) {
   updateEncArcs();
   updateSendArcs();
 
-  const typeName = newType === 'drum' ? 'DRUM' : newType === 'junox' ? 'JUNO' : newType === 'midi' ? 'MIDI OUT' : 'SF2';
+  const typeName = newType === 'drum' ? 'DRUM' : newType === 'juno' ? 'JUNO' : newType === 'midi' ? 'MIDI OUT' : 'SF2';
   oledTrack(ti);
   console.log(`[switchTrackType] T${ti+1}: ${oldOutputMode} → ${newType}`);
 
-  // Pour Junox : ouvrir le browser immédiatement, puis init audio en arrière-plan
-  if (newType === 'junox') {
-    openJunoxBrowser(ti);
-    initJunox(ti);
+  // Pour Juno : ouvrir le browser immédiatement, puis init audio en arrière-plan
+  if (newType === 'juno') {
+    openJunoBrowser(ti);
+    initJuno(ti);
   } else if (newType === 'midi') {
     openMidiBrowser(ti);
   }
@@ -1513,14 +1513,14 @@ async function switchTrackType(ti, newType) {
   _switchTrackTypeBusy = false;
 }
 
-// Page Junox courante : 'main' ou index de section (0-5)
-let junoxPage = 'main';
+// Page Juno courante : 'main' ou index de section (0-5)
+let junoPage = 'main';
 
-// Définitions des 6 sections Junox
+// Définitions des 6 sections Juno
 // Chaque section a : id, name, color, icon (SVG path), params[]
 // params[] : { key, name, min, max, def, log, fmt, cycle, labels }
 // key = chemin dot-notation dans le patch (ex: 'dco.saw', 'env.attack')
-const JUNOX_SECTIONS = [
+const JUNO_SECTIONS = [
   {
     id: 'modulation', name: 'MODULATION', color: '#FFCC00',
     icon: 'M 0 8 Q 8 0 16 8 Q 24 16 32 8',
@@ -1638,7 +1638,7 @@ const JUNOX_SECTIONS = [
 ];
 
 // Lire une valeur dans le patch via chemin dot-notation
-function junoxGetPatchVal(patch, key) {
+function junoGetPatchVal(patch, key) {
   const parts = key.split('.');
   let obj = patch;
   for (const p of parts) obj = obj?.[p];
@@ -1646,7 +1646,7 @@ function junoxGetPatchVal(patch, key) {
 }
 
 // Écrire une valeur dans le patch via chemin dot-notation
-function junoxSetPatchVal(patch, key, value) {
+function junoSetPatchVal(patch, key, value) {
   const parts = key.split('.');
   let obj = patch;
   for (let i = 0; i < parts.length - 1; i++) {
@@ -1657,7 +1657,7 @@ function junoxSetPatchVal(patch, key, value) {
 }
 
 // Convertir la valeur UI → valeur patch (pour les params avec map)
-function junoxMapVal(param, uiVal) {
+function junoMapVal(param, uiVal) {
   if (param.map) return param.map(uiVal);
   // Booleans : vcf.modPositive, lfo.autoTrigger
   if (param.key === 'vcf.modPositive' || param.key === 'lfo.autoTrigger') {
@@ -1670,7 +1670,7 @@ function junoxMapVal(param, uiVal) {
 }
 
 // Convertir valeur patch → valeur UI numérique
-function junoxUiVal(param, patchVal) {
+function junoUiVal(param, patchVal) {
   if (typeof patchVal === 'boolean') return patchVal ? 1 : 0;
   if (typeof patchVal === 'string') {
     // pwmMod : 'l'→0, 'm'→1, 'e'→2
@@ -1690,64 +1690,64 @@ function junoxUiVal(param, patchVal) {
   return typeof patchVal === 'number' ? patchVal : param.def;
 }
 
-// Initialiser Junox pour une track donnée
-async function initJunox(ti) {
+// Initialiser Juno pour une track donnée
+async function initJuno(ti) {
   if (ti === undefined) ti = 1; // compatibilité ancienne API
-  if (junoxReady[ti] || junoxInitializing[ti]) return;
-  junoxInitializing[ti] = true;
+  if (junoReady[ti] || junoInitializing[ti]) return;
+  junoInitializing[ti] = true;
   ensureAudio();
   try {
     // Utiliser le patch existant si disponible, sinon Strings 1 par défaut
-    const existingPatch = junoxPatches[ti];
+    const existingPatch = junoPatches[ti];
     const patch = existingPatch
       ? JSON.parse(JSON.stringify(existingPatch))
-      : { ...Junox.defaultPatch, dco: { ...Junox.defaultPatch.dco, sub: true } };
-    junoxPatches[ti] = patch;
+      : { ...Juno.defaultPatch, dco: { ...Juno.defaultPatch.dco, sub: true } };
+    junoPatches[ti] = patch;
 
-    const node = await Junox.createJuno60(actx, patch, { polyphony: 16 });
-    junoxNodes[ti] = node;
+    const node = await Juno.createJuno60(actx, patch, { polyphony: 16 });
+    junoNodes[ti] = node;
 
     // Connecter dans la chaîne FX / sends
-    junoxRebuildChain(ti);
+    junoRebuildChain(ti);
 
-    junoxReady[ti] = true;
-    junoxInitializing[ti] = false;
-    console.log(`[Junox] T${ti+1} prête — patch:`, patch.name);
+    junoReady[ti] = true;
+    junoInitializing[ti] = false;
+    console.log(`[Juno] T${ti+1} prête — patch:`, patch.name);
   } catch(e) {
-    junoxInitializing[ti] = false;
-    console.error(`[Junox] T${ti+1} init failed:`, e);
+    junoInitializing[ti] = false;
+    console.error(`[Juno] T${ti+1} init failed:`, e);
   }
 }
 
-// Démonter Junox pour une track (libère les ressources audio)
-function destroyJunox(ti) {
-  const node = junoxNodes[ti];
+// Démonter Juno pour une track (libère les ressources audio)
+function destroyJuno(ti) {
+  const node = junoNodes[ti];
   if (node) {
     try { node.disconnect(); } catch(e) {}
-    junoxNodes[ti] = null;
+    junoNodes[ti] = null;
   }
-  junoxPatches[ti] = null;
-  junoxReady[ti] = false;
-  junoxInitializing[ti] = false;
+  junoPatches[ti] = null;
+  junoReady[ti] = false;
+  junoInitializing[ti] = false;
 }
 
-// Construire la chaîne audio Junox
-function junoxRebuildChain(ti) {
-  const node = junoxNodes[ti];
+// Construire la chaîne audio Juno
+function junoRebuildChain(ti) {
+  const node = junoNodes[ti];
   if (!node || !actx) return;
   try { node.disconnect(); } catch(e) {}
 
   // Créer ou recréer les nœuds delay+reverb+sat si besoin
-  if (!junoxDelayNodes[ti]) junoxCreateFX(ti);
-  if (!junoxSatNodes[ti])   junoxCreateSat(ti);
+  if (!junoDelayNodes[ti]) junoCreateFX(ti);
+  if (!junoSatNodes[ti])   junoCreateSat(ti);
 
   try {
-    const delay  = junoxDelayNodes[ti];
-    const reverb = junoxReverbNodes[ti];
-    const sat    = junoxSatNodes[ti];
+    const delay  = junoDelayNodes[ti];
+    const reverb = junoReverbNodes[ti];
+    const sat    = junoSatNodes[ti];
 
     if (delay && reverb && sat) {
-      // Chaîne : junox → delay → reverb → saturateur → master + sends
+      // Chaîne : juno → delay → reverb → saturateur → master + sends
       node.connect(delay.input);
       delay.output.connect(reverb.input);
       reverb.output.connect(sat.input);
@@ -1770,19 +1770,19 @@ function junoxRebuildChain(ti) {
       // Fallback direct
       node.connect(getMaster());
     }
-    console.log('[Junox] Chaîne audio T2 connectée');
+    console.log('[Juno] Chaîne audio T2 connectée');
   } catch(e) {
-    console.warn('[Junox] Erreur chaîne audio:', e);
+    console.warn('[Juno] Erreur chaîne audio:', e);
     try { node.connect(getMaster()); } catch(e2) {}
   }
 }
 
 // Créer les nœuds delay+reverb Viktor pour une track
-function junoxCreateFX(ti) {
+function junoCreateFX(ti) {
   if (!actx) return;
 
   // ── DELAY (architecture Viktor : delay → LP filter → feedback) ───────────
-  const rt = junoxRuntime[ti];
+  const rt = junoRuntime[ti];
   const dlyInput   = actx.createGain();
   const dlyDry     = actx.createGain();
   const dlyWet     = actx.createGain();
@@ -1810,7 +1810,7 @@ function junoxCreateFX(ti) {
   dlyDry.gain.value           = 1;
   dlyWet.gain.value           = rt.dlyMix;
 
-  junoxDelayNodes[ti] = { input: dlyInput, output: dlyOutput,
+  junoDelayNodes[ti] = { input: dlyInput, output: dlyOutput,
     delay: dlyDelay, filter: dlyFilter, feedback: dlyFeedback,
     dry: dlyDry, wet: dlyWet };
 
@@ -1843,30 +1843,30 @@ function junoxCreateFX(ti) {
     .then(buf => actx.decodeAudioData(buf))
     .then(decoded => {
       rvConv.buffer = decoded;
-      console.log('[Junox] Reverb IR chargée');
+      console.log('[Juno] Reverb IR chargée');
     })
-    .catch(e => console.warn('[Junox] IR load error:', e));
+    .catch(e => console.warn('[Juno] IR load error:', e));
 
-  junoxReverbNodes[ti] = { input: rvInput, output: rvOutput,
+  junoReverbNodes[ti] = { input: rvInput, output: rvOutput,
     convolver: rvConv, wet: rvWet, dry: rvDry };
 }
 
 // Mettre à jour les paramètres delay/reverb en live
-function junoxSetDelay(ti, time, feedback, mix) {
-  const d = junoxDelayNodes[ti];
+function junoSetDelay(ti, time, feedback, mix) {
+  const d = junoDelayNodes[ti];
   if (!d) return;
   if (time      !== undefined) d.delay.delayTime.value = time / 1000;
   if (feedback  !== undefined) d.feedback.gain.value   = feedback;
   if (mix       !== undefined) { d.wet.gain.value = mix; d.dry.gain.value = 1; }
 }
-function junoxSetReverb(ti, level) {
-  const r = junoxReverbNodes[ti];
+function junoSetReverb(ti, level) {
+  const r = junoReverbNodes[ti];
   if (!r) return;
   r.wet.gain.value = level;
 }
 
-function junoxSetSat(ti, drive, type) {
-  const s = junoxSatNodes[ti];
+function junoSetSat(ti, drive, type) {
+  const s = junoSatNodes[ti];
   if (!s) return;
   if (drive !== undefined) {
     if (drive === null) {
@@ -1881,16 +1881,16 @@ function junoxSetSat(ti, drive, type) {
       s.preGain.gain.setTargetAtTime(lin, actx.currentTime, 0.02);
       s.postGain.gain.setTargetAtTime(1 / Math.max(1, Math.sqrt(lin)), actx.currentTime, 0.02);
       if (!s.shaper.curve) {
-        s.shaper.curve = junoxMakeSatCurve(junoxRuntime[ti].satType || 0);
+        s.shaper.curve = junoMakeSatCurve(junoRuntime[ti].satType || 0);
       }
     }
   }
   if (type !== undefined) {
-    s.shaper.curve = junoxMakeSatCurve(type);
+    s.shaper.curve = junoMakeSatCurve(type);
   }
 }
 
-function junoxMakeSatCurve(type) {
+function junoMakeSatCurve(type) {
   const n = 1024;
   const curve = new Float32Array(n);
   for (let i = 0; i < n; i++) {
@@ -1915,9 +1915,9 @@ function junoxMakeSatCurve(type) {
   return curve;
 }
 
-function junoxCreateSat(ti) {
+function junoCreateSat(ti) {
   if (!actx) return;
-  const rt = junoxRuntime[ti];
+  const rt = junoRuntime[ti];
   const input    = actx.createGain();
   const output   = actx.createGain();
   const bypass   = actx.createGain(); // chemin direct quand sat OFF
@@ -1934,7 +1934,7 @@ function junoxCreateSat(ti) {
   shaper.connect(postGain);
   postGain.connect(output);
 
-  shaper.curve = junoxMakeSatCurve(rt.satType || 0);
+  shaper.curve = junoMakeSatCurve(rt.satType || 0);
   const isOff = (rt.satDrive ?? -13) <= -13;
   if (isOff) {
     bypass.gain.value   = 1;   // chemin direct actif
@@ -1947,65 +1947,65 @@ function junoxCreateSat(ti) {
     postGain.gain.value = 1 / Math.max(1, Math.sqrt(lin));
   }
 
-  junoxSatNodes[ti] = { input, output, bypass, preGain, shaper, postGain };
+  junoSatNodes[ti] = { input, output, bypass, preGain, shaper, postGain };
 }
 
-// ── API note Junox ────────────────────────────────────────────
-function junoxNoteOn(ti, midi, velocity) {
-  const node = junoxNodes[ti];
+// ── API note Juno ────────────────────────────────────────────
+function junoNoteOn(ti, midi, velocity) {
+  const node = junoNodes[ti];
   if (!node) return;
   // Glide time is sent to the worklet before every noteOn so it stays in sync
-  const glideTime = junoxRuntime[ti]?.glideTime ?? 0;
+  const glideTime = junoRuntime[ti]?.glideTime ?? 0;
   node.port.postMessage({ action: 'set-glide', value: glideTime });
-  node.port.postMessage({ action: 'set-legato', value: !!(junoxRuntime[ti]?.legatoGlide) });
+  node.port.postMessage({ action: 'set-legato', value: !!(junoRuntime[ti]?.legatoGlide) });
   node.noteOn(midi, Math.max(0.01, Math.min(1, velocity)));
 }
 
-function junoxNoteOff(ti, midi) {
-  const node = junoxNodes[ti];
+function junoNoteOff(ti, midi) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.noteOff(midi);
 }
 
-function junoxAllNotesOff(ti) {
-  const node = junoxNodes[ti];
+function junoAllNotesOff(ti) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.panic();
 }
 
-function junoxPitchBend(ti, valueMinus1to1) {
-  const node = junoxNodes[ti];
+function junoPitchBend(ti, valueMinus1to1) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.pitchBend(valueMinus1to1);
 }
 
-function junoxSetPolyphony(ti, voices) {
-  const node = junoxNodes[ti];
+function junoSetPolyphony(ti, voices) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.port.postMessage({ action: 'set-polyphony', value: voices });
 }
 
-function junoxSetNotePrio(ti, prio) {
-  const node = junoxNodes[ti];
+function junoSetNotePrio(ti, prio) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.port.postMessage({ action: 'set-note-prio', value: prio });
 }
 
-function junoxSetSubOctave(ti, octaves) {
-  const node = junoxNodes[ti];
+function junoSetSubOctave(ti, octaves) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.port.postMessage({ action: 'set-sub-octave', value: octaves });
 }
 
-function junoxSetNoiseType(ti, type) {
-  const node = junoxNodes[ti];
+function junoSetNoiseType(ti, type) {
+  const node = junoNodes[ti];
   if (!node) return;
   node.port.postMessage({ action: 'set-noise-type', value: type });
 }
 
-// Appliquer un paramètre au nœud Junox en live
-function junoxSetParam(ti, sectionIdx, paramKey, value) {
-  const sec = JUNOX_SECTIONS[sectionIdx];
+// Appliquer un paramètre au nœud Juno en live
+function junoSetParam(ti, sectionIdx, paramKey, value) {
+  const sec = JUNO_SECTIONS[sectionIdx];
   if (!sec) return;
   const param = sec.params.find(p => p.key === paramKey);
   if (!param) return;
@@ -2014,46 +2014,46 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
   if (paramKey === '_poly') {
     const idx = Math.round(value);
     const voices = param.cycleVals[idx] ?? 16;
-    junoxRuntime[ti].poly = idx;
-    junoxSetPolyphony(ti, voices);
+    junoRuntime[ti].poly = idx;
+    junoSetPolyphony(ti, voices);
     // MONO → forcer Last note priority
     if (voices === 1) {
-      junoxRuntime[ti].notePrio = 0;
-      junoxSetNotePrio(ti, 0);
+      junoRuntime[ti].notePrio = 0;
+      junoSetNotePrio(ti, 0);
     }
     // Re-render advanced panel so Glide slot appears/disappears
-    const curSec = JUNOX_SECTIONS.findIndex(s => s.id === 'oscillators');
-    if (curSec >= 0) renderJunoxPageAdvanced(ti, curSec);
+    const curSec = JUNO_SECTIONS.findIndex(s => s.id === 'oscillators');
+    if (curSec >= 0) renderJunoPageAdvanced(ti, curSec);
     return;
   }
   if (paramKey === '_glide') {
-    junoxRuntime[ti].glideTime = Math.max(0, value);
+    junoRuntime[ti].glideTime = Math.max(0, value);
     return;
   }
   if (paramKey === '_noiseType') {
     const type = Math.round(value);
-    junoxRuntime[ti].noiseType = type;
-    junoxSetNoiseType(ti, type);
+    junoRuntime[ti].noiseType = type;
+    junoSetNoiseType(ti, type);
     return;
   }
   if (paramKey === '_dlyTime') {
-    junoxRuntime[ti].dlyTime = value;
-    junoxSetDelay(ti, value, undefined, undefined);
+    junoRuntime[ti].dlyTime = value;
+    junoSetDelay(ti, value, undefined, undefined);
     return;
   }
   if (paramKey === '_dlyFeedback') {
-    junoxRuntime[ti].dlyFeedback = value;
-    junoxSetDelay(ti, undefined, value, undefined);
+    junoRuntime[ti].dlyFeedback = value;
+    junoSetDelay(ti, undefined, value, undefined);
     return;
   }
   if (paramKey === '_dlyMix') {
-    junoxRuntime[ti].dlyMix = value;
-    junoxSetDelay(ti, undefined, undefined, value);
+    junoRuntime[ti].dlyMix = value;
+    junoSetDelay(ti, undefined, undefined, value);
     return;
   }
   if (paramKey === '_revLevel') {
-    junoxRuntime[ti].revLevel = value;
-    junoxSetReverb(ti, value);
+    junoRuntime[ti].revLevel = value;
+    junoSetReverb(ti, value);
     return;
   }
   if (paramKey === '_satDrive') {
@@ -2061,23 +2061,23 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
     // Valeurs possibles : -13 (OFF), puis -12 à +12 en entiers
     // La zone entre -13 et -12 snap vers OFF (-13), au-dessus snap à l'entier
     const snapped = value < -12 ? -13 : Math.round(Math.max(-12, Math.min(12, value)));
-    junoxRuntime[ti].satDrive = snapped;
-    junoxSetSat(ti, snapped <= -13 ? null : snapped, undefined);
+    junoRuntime[ti].satDrive = snapped;
+    junoSetSat(ti, snapped <= -13 ? null : snapped, undefined);
     return;
   }
   if (paramKey === '_satType') {
-    junoxRuntime[ti].satType = Math.round(value);
-    junoxSetSat(ti, undefined, Math.round(value));
+    junoRuntime[ti].satType = Math.round(value);
+    junoSetSat(ti, undefined, Math.round(value));
     return;
   }
   if (paramKey === '_arpEnabled') {
     const v = Math.round(value);
-    junoxRuntime[ti].arpEnabled = v;
+    junoRuntime[ti].arpEnabled = v;
     if (v === 0) arpStop(ti);
     return;
   }
   if (paramKey === '_arpRate') {
-    junoxRuntime[ti].arpRate = Math.round(value);
+    junoRuntime[ti].arpRate = Math.round(value);
     if (arpState[ti].timer) {
       clearInterval(arpState[ti].timer);
       arpState[ti].timer = null;
@@ -2088,27 +2088,27 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
     return;
   }
   if (paramKey === '_arpMode') {
-    junoxRuntime[ti].arpMode = Math.round(value);
+    junoRuntime[ti].arpMode = Math.round(value);
     if (arpState[ti].timer) arpState[ti].noteIdx = 0;
     return;
   }
   if (paramKey === '_arpOctaves') {
-    junoxRuntime[ti].arpOctaves = Math.round(value);
+    junoRuntime[ti].arpOctaves = Math.round(value);
     return;
   }
   if (paramKey === '_notePrio') {
-    junoxRuntime[ti].notePrio = Math.round(value);
-    junoxSetNotePrio(ti, Math.round(value));
+    junoRuntime[ti].notePrio = Math.round(value);
+    junoSetNotePrio(ti, Math.round(value));
     return;
   }
   if (paramKey === '_subOct') {
     const oct = param.cycleVals[Math.round(value)] ?? 1;
-    junoxRuntime[ti].subOct = Math.round(value); // stocker l'index UI
-    junoxSetSubOctave(ti, oct);
+    junoRuntime[ti].subOct = Math.round(value); // stocker l'index UI
+    junoSetSubOctave(ti, oct);
     return;
   }
 
-  const patch = junoxPatches[ti];
+  const patch = junoPatches[ti];
   if (!patch) return;
 
   let patchValue;
@@ -2117,16 +2117,16 @@ function junoxSetParam(ti, sectionIdx, paramKey, value) {
   } else if (param.key === 'chorus') {
     patchValue = Math.round(value);
   } else {
-    patchValue = junoxMapVal(param, value);
+    patchValue = junoMapVal(param, value);
   }
-  junoxSetPatchVal(patch, paramKey, patchValue);
+  junoSetPatchVal(patch, paramKey, patchValue);
 
   // dco.subAmount pilote aussi le boolean dco.sub
   if (paramKey === 'dco.subAmount') {
     patch.dco.sub = patchValue > 0;
   }
 
-  const node = junoxNodes[ti];
+  const node = junoNodes[ti];
   if (!node) return;
   node.setPatch(patch);
 }
@@ -2151,8 +2151,8 @@ function ensureAudio() {
   }
   // Initialiser FluidSynth WASM au premier geste
   if (!sf2Ready && !sf2Initializing) initSF2();
-  // Initialiser Junox au premier geste
-  if (!junoxReady[S.currentTrack] && !junoxInitializing[S.currentTrack] && S.tracks[S.currentTrack]?.outputMode === 'junox') initJunox(S.currentTrack);
+  // Initialiser Juno au premier geste
+  if (!junoReady[S.currentTrack] && !junoInitializing[S.currentTrack] && S.tracks[S.currentTrack]?.outputMode === 'juno') initJuno(S.currentTrack);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -2175,9 +2175,9 @@ const arpState = Array.from({length:8}, () => ({
 }));
 
 function arpIsActive(ti) {
-  // JunoX : vérifier la section ARP de JUNOX_SECTIONS
-  if (S.tracks[ti]?.outputMode === 'junox') {
-    return Math.round(junoxRuntime[ti].arpEnabled ?? 0) === 1;
+  // Juno: check the ARP section of JUNO_SECTIONS
+  if (S.tracks[ti]?.outputMode === 'juno') {
+    return Math.round(junoRuntime[ti].arpEnabled ?? 0) === 1;
   }
   const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
   if (arpIdx < 0) return false;
@@ -2186,9 +2186,9 @@ function arpIsActive(ti) {
 }
 
 function arpGetParams(ti) {
-  // JunoX : lire depuis junoxRuntime
-  if (S.tracks[ti]?.outputMode === 'junox') {
-    const rt = junoxRuntime[ti];
+  // Juno: read from junoRuntime
+  if (S.tracks[ti]?.outputMode === 'juno') {
+    const rt = junoRuntime[ti];
     return {
       rate:    Math.round(rt.arpRate    ?? 2),
       mode:    Math.round(rt.arpMode    ?? 0),
@@ -2256,7 +2256,7 @@ function arpTick(ti) {
   // NoteOff de la note précédente
   if (st.lastNote >= 0) {
     if (t.outputMode === 'sf2') sf2NoteOff(ti, st.lastNote);
-    else if (t.outputMode === 'junox') junoxNoteOff(ti, st.lastNote);
+    else if (t.outputMode === 'juno') junoNoteOff(ti, st.lastNote);
     else if (t.outputMode === 'midi') {
       const out = getTrackOutput(ti);
       if (out) out.send([0x80 | ((t.midiChannel-1)&0xf), st.lastNote, 0]);
@@ -2267,7 +2267,7 @@ function arpTick(ti) {
   const note = seq[idx];
   const vel = 0.8;
   if (t.outputMode === 'sf2') sf2NoteOn(ti, note, vel);
-  else if (t.outputMode === 'junox') junoxNoteOn(ti, note, vel);
+  else if (t.outputMode === 'juno') junoNoteOn(ti, note, vel);
   else if (t.outputMode === 'midi') {
     const out = getTrackOutput(ti);
     if (out) out.send([0x90 | ((t.midiChannel-1)&0xf), note, Math.round(vel*127)]);
@@ -2285,7 +2285,7 @@ function arpStop(ti) {
   if (st.lastNote >= 0) {
     const t = S.tracks[ti];
     if (t.outputMode === 'sf2') sf2NoteOff(ti, st.lastNote);
-    else if (t.outputMode === 'junox') junoxNoteOff(ti, st.lastNote);
+    else if (t.outputMode === 'juno') junoNoteOff(ti, st.lastNote);
     else if (t.outputMode === 'midi') {
       const out = getTrackOutput(ti);
       if (out) out.send([0x80 | ((t.midiChannel-1)&0xf), st.lastNote, 0]);
@@ -2824,9 +2824,9 @@ function fxRebuildChain(ti) {
   if (ti === undefined) ti = S.currentTrack;
   // Track master : pas de chaîne SF2 à reconstruire
   if (S.tracks[ti] && S.tracks[ti].mode === 'master') return;
-  // Track Junox → chaîne dédiée
-  if (S.tracks[ti] && S.tracks[ti].outputMode === 'junox') {
-    junoxRebuildChain(ti);
+  // Track Juno → chaîne dédiée
+  if (S.tracks[ti] && S.tracks[ti].outputMode === 'juno') {
+    junoRebuildChain(ti);
     return;
   }
   const synthNode = jsSynthNodes[ti];
@@ -3133,14 +3133,14 @@ function renderFXPanel() {
   const t = S.tracks[ti];
   const isDrum   = t.mode === 'drum';
   const isMaster = t.mode === 'master';
-  const isJunox  = t.outputMode === 'junox';
+  const isJuno  = t.outputMode === 'juno';
   const showFX   = (S.mode === 'note' || S.mode === 'loop') && !isDrum && !isMaster && !projectModeActive;
   const showDrum = (S.mode === 'note' || S.mode === 'loop') && isDrum && !projectModeActive;
   const showMaster = (S.mode === 'note' || S.mode === 'loop') && isMaster && !projectModeActive;
   const showPanel  = showFX || showDrum || showMaster;
 
-  // Reset fxPage/junoxPage si on change de track
-  if (!isJunox && junoxPage !== 'main') junoxPage = 'main';
+  // Reset fxPage/junoPage si on change de track
+  if (!isJuno && junoPage !== 'main') junoPage = 'main';
   if (fxPage !== 'main' && typeof fxPage === 'number') {
     if (!FX_DEFS[fxPage] || isMaster || isDrum) fxPage = 'main';
   }
@@ -3163,18 +3163,18 @@ function renderFXPanel() {
 
   if (showDrum)   { renderDrumPadSelection(); return; }
   if (showMaster) { renderMasterPanel(); return; }
-  // ── Junox : panel dédié ──
-  if (isJunox) {
-    if (junoxPage === 'main') renderJunoxPageMain(ti);
-    else renderJunoxPageAdvanced(ti, junoxPage);
+  // ── Juno : panel dédié ──
+  if (isJuno) {
+    if (junoPage === 'main') renderJunoPageMain(ti);
+    else renderJunoPageAdvanced(ti, junoPage);
     return;
   }
   if (fxPage === 'main') renderFXPageMain(ti);
   else renderFXPageAdvanced(ti, fxPage);
 }
 
-// ── Panel Junox — écran principal : 7 sections (icône + nom) ──
-function renderJunoxPageMain(ti) {
+// ── Panel Juno — écran principal : 7 sections (icône + nom) ──
+function renderJunoPageMain(ti) {
   const pad = 5;
   for (let i = 0; i < 8; i++) {
     const sg = document.getElementById(`fxslot_${i}`);
@@ -3182,7 +3182,7 @@ function renderJunoxPageMain(ti) {
     sg.innerHTML = '';
     const sx = fxSlotX(i), sy = fxSlotY(i);
 
-    if (i >= JUNOX_SECTIONS.length) {
+    if (i >= JUNO_SECTIONS.length) {
       // Slot vide
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       bg.setAttribute('x', sx+pad); bg.setAttribute('y', sy+pad);
@@ -3193,11 +3193,11 @@ function renderJunoxPageMain(ti) {
       continue;
     }
 
-    const sec = JUNOX_SECTIONS[i];
+    const sec = JUNO_SECTIONS[i];
     const col = sec.color;
     // Pour la section ARP : état actif = arpEnabled
     const isArpSec  = (sec.id === 'arp');
-    const arpActive = isArpSec && Math.round(junoxRuntime[ti].arpEnabled ?? 0) === 1;
+    const arpActive = isArpSec && Math.round(junoRuntime[ti].arpEnabled ?? 0) === 1;
     const bgFill    = arpActive ? col + '22' : '#141416';
     const bgStroke  = arpActive ? col        : '#2a2a2e';
     const bgSW      = arpActive ? '2'        : '0.5';
@@ -3275,16 +3275,16 @@ function renderJunoxPageMain(ti) {
     hit.setAttribute('x', sx+pad); hit.setAttribute('y', sy+pad);
     hit.setAttribute('width', FX_SW-pad*2); hit.setAttribute('height', FX_SH-pad*2);
     hit.setAttribute('fill', 'transparent');
-    hit.setAttribute('data-junoxslot', i);
+    hit.setAttribute('data-junoslot', i);
     sg.appendChild(hit);
   }
 }
 
-// ── Panel Junox — écran secondaire : 7 params d'une section + slot retour ──
-function renderJunoxPageAdvanced(ti, secIdx) {
-  const sec = JUNOX_SECTIONS[secIdx];
+// ── Panel Juno — écran secondaire : 7 params d'une section + slot retour ──
+function renderJunoPageAdvanced(ti, secIdx) {
+  const sec = JUNO_SECTIONS[secIdx];
   if (!sec) return;
-  const patch = junoxPatches[ti];
+  const patch = junoPatches[ti];
   const pad = 5;
 
   for (let i = 0; i < 8; i++) {
@@ -3313,7 +3313,7 @@ function renderJunoxPageAdvanced(ti, secIdx) {
       hit.setAttribute('x', sx+pad); hit.setAttribute('y', sy+pad);
       hit.setAttribute('width', FX_SW-pad*2); hit.setAttribute('height', FX_SH-pad*2);
       hit.setAttribute('fill', 'transparent');
-      hit.setAttribute('data-junoxback', '1');
+      hit.setAttribute('data-junoback', '1');
       sg.appendChild(hit);
       continue;
     }
@@ -3333,27 +3333,27 @@ function renderJunoxPageAdvanced(ti, secIdx) {
     const p = sec.params[i];
 
     // monoOnly params (like Glide): dim/disable when in POLY mode
-    const isMono = (junoxRuntime[ti]?.poly ?? 1) === 0; // poly index 0 = MONO
+    const isMono = (junoRuntime[ti]?.poly ?? 1) === 0; // poly index 0 = MONO
     const dimmed = p.monoOnly && !isMono;
-    // Params runtime (hors patch) : lire depuis junoxRuntime
+    // Params runtime (hors patch) : lire depuis junoRuntime
     let rawVal;
-    if (p.key === '_poly')        rawVal = junoxRuntime[ti]?.poly      ?? p.def;
-    else if (p.key === '_notePrio')    rawVal = junoxRuntime[ti]?.notePrio    ?? p.def;
-    else if (p.key === '_subOct')      rawVal = junoxRuntime[ti]?.subOct      ?? p.def;
-    else if (p.key === '_noiseType')   rawVal = junoxRuntime[ti]?.noiseType   ?? p.def;
-    else if (p.key === '_glide')       rawVal = junoxRuntime[ti]?.glideTime   ?? p.def;
-    else if (p.key === '_dlyTime')     rawVal = junoxRuntime[ti]?.dlyTime     ?? p.def;
-    else if (p.key === '_dlyFeedback') rawVal = junoxRuntime[ti]?.dlyFeedback ?? p.def;
-    else if (p.key === '_dlyMix')      rawVal = junoxRuntime[ti]?.dlyMix      ?? p.def;
-    else if (p.key === '_revLevel')    rawVal = junoxRuntime[ti]?.revLevel     ?? p.def;
-    else if (p.key === '_satDrive')    rawVal = junoxRuntime[ti]?.satDrive     ?? p.def;
-    else if (p.key === '_satType')     rawVal = junoxRuntime[ti]?.satType      ?? p.def;
-    else if (p.key === '_arpEnabled')  rawVal = junoxRuntime[ti]?.arpEnabled   ?? p.def;
-    else if (p.key === '_arpRate')     rawVal = junoxRuntime[ti]?.arpRate      ?? p.def;
-    else if (p.key === '_arpMode')     rawVal = junoxRuntime[ti]?.arpMode      ?? p.def;
-    else if (p.key === '_arpOctaves')  rawVal = junoxRuntime[ti]?.arpOctaves   ?? p.def;
-    else rawVal = patch ? junoxGetPatchVal(patch, p.key) : undefined;
-    const uiVal  = junoxUiVal(p, rawVal !== undefined ? rawVal : p.def);
+    if (p.key === '_poly')        rawVal = junoRuntime[ti]?.poly      ?? p.def;
+    else if (p.key === '_notePrio')    rawVal = junoRuntime[ti]?.notePrio    ?? p.def;
+    else if (p.key === '_subOct')      rawVal = junoRuntime[ti]?.subOct      ?? p.def;
+    else if (p.key === '_noiseType')   rawVal = junoRuntime[ti]?.noiseType   ?? p.def;
+    else if (p.key === '_glide')       rawVal = junoRuntime[ti]?.glideTime   ?? p.def;
+    else if (p.key === '_dlyTime')     rawVal = junoRuntime[ti]?.dlyTime     ?? p.def;
+    else if (p.key === '_dlyFeedback') rawVal = junoRuntime[ti]?.dlyFeedback ?? p.def;
+    else if (p.key === '_dlyMix')      rawVal = junoRuntime[ti]?.dlyMix      ?? p.def;
+    else if (p.key === '_revLevel')    rawVal = junoRuntime[ti]?.revLevel     ?? p.def;
+    else if (p.key === '_satDrive')    rawVal = junoRuntime[ti]?.satDrive     ?? p.def;
+    else if (p.key === '_satType')     rawVal = junoRuntime[ti]?.satType      ?? p.def;
+    else if (p.key === '_arpEnabled')  rawVal = junoRuntime[ti]?.arpEnabled   ?? p.def;
+    else if (p.key === '_arpRate')     rawVal = junoRuntime[ti]?.arpRate      ?? p.def;
+    else if (p.key === '_arpMode')     rawVal = junoRuntime[ti]?.arpMode      ?? p.def;
+    else if (p.key === '_arpOctaves')  rawVal = junoRuntime[ti]?.arpOctaves   ?? p.def;
+    else rawVal = patch ? junoGetPatchVal(patch, p.key) : undefined;
+    const uiVal  = junoUiVal(p, rawVal !== undefined ? rawVal : p.def);
     // Pour cycleVals (Range) : uiVal est l'index 0/1/2, max = nb entrées - 1
     const uiMax  = p.cycleVals ? p.cycleVals.length - 1 : p.max;
     const uiMin  = p.cycleVals ? 0 : p.min;
@@ -3401,7 +3401,7 @@ function renderJunoxPageAdvanced(ti, secIdx) {
     sg.appendChild(barBg);
 
     const bar = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bar.setAttribute('id', `junoxbar_${secIdx}_${i}`);
+    bar.setAttribute('id', `junobar_${secIdx}_${i}`);
     bar.setAttribute('x', sx+pad+8);
     bar.setAttribute('y', String(sy + pad + 10 + totalH - barH));
     bar.setAttribute('width', 6); bar.setAttribute('height', String(barH));
@@ -3420,7 +3420,7 @@ function renderJunoxPageAdvanced(ti, secIdx) {
 
     // Valeur
     const valEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    valEl.setAttribute('id', `junoxval_${secIdx}_${i}`);
+    valEl.setAttribute('id', `junoval_${secIdx}_${i}`);
     valEl.setAttribute('x', sx + FX_SW - 10); valEl.setAttribute('y', sy + FX_SH - 10);
     valEl.setAttribute('text-anchor', 'end');
     valEl.setAttribute('font-family', "'DM Mono',monospace");
@@ -3437,7 +3437,7 @@ function renderJunoxPageAdvanced(ti, secIdx) {
 
     // Legato badge — affiché uniquement sur le slot _glide
     if (isGlideParam) {
-      const isLegato = !!(junoxRuntime[ti]?.legatoGlide);
+      const isLegato = !!(junoRuntime[ti]?.legatoGlide);
       const badgeColor = isLegato ? (p.color || sec.color) : '#333';
       const badgeBg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
       badgeBg.setAttribute('x', sx + FX_SW - pad - 20); badgeBg.setAttribute('y', sy + pad + 4);
@@ -3448,7 +3448,7 @@ function renderJunoxPageAdvanced(ti, secIdx) {
       badgeBg.setAttribute('pointer-events', 'none');
       sg.appendChild(badgeBg);
       const badgeTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      badgeTxt.setAttribute('id', `junoxlegato_${ti}`);
+      badgeTxt.setAttribute('id', `junolegato_${ti}`);
       badgeTxt.setAttribute('x', sx + FX_SW - pad - 12); badgeTxt.setAttribute('y', sy + pad + 14);
       badgeTxt.setAttribute('text-anchor', 'middle');
       badgeTxt.setAttribute('font-family', "'DM Mono',monospace");
@@ -3464,8 +3464,8 @@ function renderJunoxPageAdvanced(ti, secIdx) {
     hit.setAttribute('x', sx+pad); hit.setAttribute('y', sy+pad);
     hit.setAttribute('width', FX_SW-pad*2); hit.setAttribute('height', FX_SH-pad*2);
     hit.setAttribute('fill', 'transparent');
-    hit.setAttribute('data-junoxparam', i);
-    hit.setAttribute('data-junoxsecadv', secIdx);
+    hit.setAttribute('data-junoparam', i);
+    hit.setAttribute('data-junosecadv', secIdx);
     sg.appendChild(hit);
 
     // Petite zone dédiée au toggle Legato : seul le bouton L clique/toggle.
@@ -3479,9 +3479,9 @@ function renderJunoxPageAdvanced(ti, secIdx) {
       legatoHit.setAttribute('rx', 4);
       legatoHit.setAttribute('fill', 'transparent');
       legatoHit.setAttribute('cursor', 'pointer');
-      legatoHit.setAttribute('data-junoxlegato', '1');
-      legatoHit.setAttribute('data-junoxparam', i);
-      legatoHit.setAttribute('data-junoxsecadv', secIdx);
+      legatoHit.setAttribute('data-junolegato', '1');
+      legatoHit.setAttribute('data-junoparam', i);
+      legatoHit.setAttribute('data-junosecadv', secIdx);
       sg.appendChild(legatoHit);
     }
   }
@@ -4120,14 +4120,14 @@ function fxHandleDown(e) {
   }
 
   const now = Date.now();
-  const isJunoxTrack = S.tracks[S.currentTrack]?.outputMode === 'junox';
+  const isJunoTrack = S.tracks[S.currentTrack]?.outputMode === 'juno';
 
   let el = e.target;
   for (let n = el; n && n !== document; n = n.parentNode) {
     if (!n.getAttribute) continue;
 
-    // ── JUNOX : retour depuis page avancée ────────────────────
-    if (n.getAttribute('data-junoxback')) {
+    // ── JUNO : retour depuis page avancée ────────────────────
+    if (n.getAttribute('data-junoback')) {
       const sg = document.getElementById('fxslot_7');
       if (sg) {
         const bg = sg.querySelector('rect');
@@ -4137,7 +4137,7 @@ function fxHandleDown(e) {
         }
       }
       setTimeout(() => {
-        junoxPage = 'main';
+        junoPage = 'main';
         renderFXPanel();
         S._oledLocked = false;
         oledTrack(S.currentTrack);
@@ -4146,11 +4146,11 @@ function fxHandleDown(e) {
       return true;
     }
 
-    // ── JUNOX : drag param (page avancée) ────────────────────
-    if (n.getAttribute('data-junoxparam') !== null) {
-      const paramIdx = parseInt(n.getAttribute('data-junoxparam'));
-      const secIdx   = parseInt(n.getAttribute('data-junoxsecadv'));
-      const sec = JUNOX_SECTIONS[secIdx];
+    // ── JUNO : drag param (page avancée) ────────────────────
+    if (n.getAttribute('data-junoparam') !== null) {
+      const paramIdx = parseInt(n.getAttribute('data-junoparam'));
+      const secIdx   = parseInt(n.getAttribute('data-junosecadv'));
+      const sec = JUNO_SECTIONS[secIdx];
       if (!sec) return false;
       const p = sec.params[paramIdx];
       if (!p) return false;
@@ -4158,25 +4158,25 @@ function fxHandleDown(e) {
       // Param cyclable → tap pour cycler
       if (p.cycle) {
         const ti = S.currentTrack;
-        const patch  = junoxPatches[ti];
+        const patch  = junoPatches[ti];
         let rawVal;
-        if (p.key === '_poly')        rawVal = junoxRuntime[ti]?.poly         ?? p.def;
-        else if (p.key === '_notePrio')    rawVal = junoxRuntime[ti]?.notePrio    ?? p.def;
-        else if (p.key === '_subOct')      rawVal = junoxRuntime[ti]?.subOct      ?? p.def;
-        else if (p.key === '_noiseType')   rawVal = junoxRuntime[ti]?.noiseType   ?? p.def;
-        else if (p.key === '_glide')       rawVal = junoxRuntime[ti]?.glideTime   ?? p.def;
-        else if (p.key === '_dlyTime')     rawVal = junoxRuntime[ti]?.dlyTime     ?? p.def;
-        else if (p.key === '_dlyFeedback') rawVal = junoxRuntime[ti]?.dlyFeedback ?? p.def;
-        else if (p.key === '_dlyMix')      rawVal = junoxRuntime[ti]?.dlyMix      ?? p.def;
-        else if (p.key === '_revLevel')    rawVal = junoxRuntime[ti]?.revLevel     ?? p.def;
-        else if (p.key === '_satDrive')    rawVal = junoxRuntime[ti]?.satDrive     ?? p.def;
-        else if (p.key === '_satType')     rawVal = junoxRuntime[ti]?.satType      ?? p.def;
-        else if (p.key === '_arpEnabled')  rawVal = junoxRuntime[ti]?.arpEnabled   ?? p.def;
-        else if (p.key === '_arpRate')     rawVal = junoxRuntime[ti]?.arpRate      ?? p.def;
-        else if (p.key === '_arpMode')     rawVal = junoxRuntime[ti]?.arpMode      ?? p.def;
-        else if (p.key === '_arpOctaves')  rawVal = junoxRuntime[ti]?.arpOctaves   ?? p.def;
-        else rawVal = patch ? junoxGetPatchVal(patch, p.key) : p.def;
-        const uiVal  = junoxUiVal(p, rawVal !== undefined ? rawVal : p.def);
+        if (p.key === '_poly')        rawVal = junoRuntime[ti]?.poly         ?? p.def;
+        else if (p.key === '_notePrio')    rawVal = junoRuntime[ti]?.notePrio    ?? p.def;
+        else if (p.key === '_subOct')      rawVal = junoRuntime[ti]?.subOct      ?? p.def;
+        else if (p.key === '_noiseType')   rawVal = junoRuntime[ti]?.noiseType   ?? p.def;
+        else if (p.key === '_glide')       rawVal = junoRuntime[ti]?.glideTime   ?? p.def;
+        else if (p.key === '_dlyTime')     rawVal = junoRuntime[ti]?.dlyTime     ?? p.def;
+        else if (p.key === '_dlyFeedback') rawVal = junoRuntime[ti]?.dlyFeedback ?? p.def;
+        else if (p.key === '_dlyMix')      rawVal = junoRuntime[ti]?.dlyMix      ?? p.def;
+        else if (p.key === '_revLevel')    rawVal = junoRuntime[ti]?.revLevel     ?? p.def;
+        else if (p.key === '_satDrive')    rawVal = junoRuntime[ti]?.satDrive     ?? p.def;
+        else if (p.key === '_satType')     rawVal = junoRuntime[ti]?.satType      ?? p.def;
+        else if (p.key === '_arpEnabled')  rawVal = junoRuntime[ti]?.arpEnabled   ?? p.def;
+        else if (p.key === '_arpRate')     rawVal = junoRuntime[ti]?.arpRate      ?? p.def;
+        else if (p.key === '_arpMode')     rawVal = junoRuntime[ti]?.arpMode      ?? p.def;
+        else if (p.key === '_arpOctaves')  rawVal = junoRuntime[ti]?.arpOctaves   ?? p.def;
+        else rawVal = patch ? junoGetPatchVal(patch, p.key) : p.def;
+        const uiVal  = junoUiVal(p, rawVal !== undefined ? rawVal : p.def);
         let nextUi;
         if (p.cycleVals) {
           const idx = Math.round(uiVal);
@@ -4185,8 +4185,8 @@ function fxHandleDown(e) {
           const base = p.min;
           nextUi = ((Math.round(uiVal) - base + 1) % (Math.round(p.max) - base + 1)) + base;
         }
-        junoxSetParam(ti, secIdx, p.key, nextUi);
-        renderJunoxPageAdvanced(ti, secIdx);
+        junoSetParam(ti, secIdx, p.key, nextUi);
+        renderJunoPageAdvanced(ti, secIdx);
         const displayVal = p.cycleVals
           ? (p.fmtIsIndex ? p.fmt(nextUi) : p.fmt(p.cycleVals[nextUi] ?? nextUi))
           : p.fmt(nextUi);
@@ -4196,76 +4196,76 @@ function fxHandleDown(e) {
       }
 
       // _glide : seul le petit bouton L toggle Legato ; le reste du slot drag Glide
-      if (p.key === '_glide' && n.getAttribute('data-junoxlegato') !== null) {
+      if (p.key === '_glide' && n.getAttribute('data-junolegato') !== null) {
         const ti = S.currentTrack;
-        const tapKey = `junox_${secIdx}_${paramIdx}`;
+        const tapKey = `juno_${secIdx}_${paramIdx}`;
         if (_fxLastTap[tapKey] && now - _fxLastTap[tapKey] < 350) {
           // Double-tap → reset glideTime + legato
           _fxLastTap[tapKey] = 0;
-          junoxSetParam(ti, secIdx, p.key, p.def);
-          junoxRuntime[ti].legatoGlide = false;
-          const node = junoxNodes[ti];
+          junoSetParam(ti, secIdx, p.key, p.def);
+          junoRuntime[ti].legatoGlide = false;
+          const node = junoNodes[ti];
           if (node) node.port.postMessage({ action: 'set-legato', value: false });
-          renderJunoxPageAdvanced(ti, secIdx);
+          renderJunoPageAdvanced(ti, secIdx);
           oledForce('Glide', 'Off', '↺ reset');
           e.stopPropagation(); e.preventDefault();
           return true;
         }
         _fxLastTap[tapKey] = now;
         // Single tap → toggle legato
-        junoxRuntime[ti].legatoGlide = !junoxRuntime[ti].legatoGlide;
-        const legatoNow = junoxRuntime[ti].legatoGlide;
-        const node = junoxNodes[ti];
+        junoRuntime[ti].legatoGlide = !junoRuntime[ti].legatoGlide;
+        const legatoNow = junoRuntime[ti].legatoGlide;
+        const node = junoNodes[ti];
         if (node) node.port.postMessage({ action: 'set-legato', value: legatoNow });
-        renderJunoxPageAdvanced(ti, secIdx);
-        oledForce('Glide', legatoNow ? 'Legato ON' : 'Legato OFF', legatoNow ? '· notes liées' : '· toujours');
+        renderJunoPageAdvanced(ti, secIdx);
+        oledForce('Glide', legatoNow ? 'Legato ON' : 'Legato OFF', legatoNow ? '· legato on' : '· always');
         e.stopPropagation(); e.preventDefault();
         return true;
       }
 
       // Double-tap → reset
-      const tapKey = `junox_${secIdx}_${paramIdx}`;
+      const tapKey = `juno_${secIdx}_${paramIdx}`;
       if (_fxLastTap[tapKey] && now - _fxLastTap[tapKey] < 350) {
         _fxLastTap[tapKey] = 0;
-        junoxSetParam(S.currentTrack, secIdx, p.key, p.def);
-        renderJunoxPageAdvanced(S.currentTrack, secIdx);
-        oledForce(p.name, String(p.def), '↺ défaut');
+        junoSetParam(S.currentTrack, secIdx, p.key, p.def);
+        renderJunoPageAdvanced(S.currentTrack, secIdx);
+        oledForce(p.name, String(p.def), '↺ default');
         e.stopPropagation(); e.preventDefault();
         return true;
       }
       _fxLastTap[tapKey] = now;
 
-      const patch2 = junoxPatches[S.currentTrack];
+      const patch2 = junoPatches[S.currentTrack];
       let rawValDrag;
-      if (p.key === '_notePrio') rawValDrag = junoxRuntime[S.currentTrack]?.notePrio ?? p.def;
-      else if (p.key === '_poly')        rawValDrag = junoxRuntime[S.currentTrack]?.poly         ?? p.def;
-      else if (p.key === '_notePrio')    rawValDrag = junoxRuntime[S.currentTrack]?.notePrio      ?? p.def;
-      else if (p.key === '_subOct')      rawValDrag = junoxRuntime[S.currentTrack]?.subOct        ?? p.def;
-      else if (p.key === '_noiseType')   rawValDrag = junoxRuntime[S.currentTrack]?.noiseType     ?? p.def;
-      else if (p.key === '_glide')       rawValDrag = junoxRuntime[S.currentTrack]?.glideTime     ?? p.def;
-      else if (p.key === '_dlyTime')     rawValDrag = junoxRuntime[S.currentTrack]?.dlyTime       ?? p.def;
-      else if (p.key === '_dlyFeedback') rawValDrag = junoxRuntime[S.currentTrack]?.dlyFeedback   ?? p.def;
-      else if (p.key === '_dlyMix')      rawValDrag = junoxRuntime[S.currentTrack]?.dlyMix        ?? p.def;
-      else if (p.key === '_revLevel')    rawValDrag = junoxRuntime[S.currentTrack]?.revLevel       ?? p.def;
-      else if (p.key === '_satDrive')    rawValDrag = junoxRuntime[S.currentTrack]?.satDrive       ?? p.def;
-      else if (p.key === '_satType')     rawValDrag = junoxRuntime[S.currentTrack]?.satType        ?? p.def;
-      else if (p.key === '_arpEnabled')  rawValDrag = junoxRuntime[S.currentTrack]?.arpEnabled     ?? p.def;
-      else if (p.key === '_arpRate')     rawValDrag = junoxRuntime[S.currentTrack]?.arpRate        ?? p.def;
-      else if (p.key === '_arpMode')     rawValDrag = junoxRuntime[S.currentTrack]?.arpMode        ?? p.def;
-      else if (p.key === '_arpOctaves')  rawValDrag = junoxRuntime[S.currentTrack]?.arpOctaves     ?? p.def;
-      else rawValDrag = patch2 ? junoxGetPatchVal(patch2, p.key) : p.def;
-      const startUiVal = junoxUiVal(p, rawValDrag !== undefined ? rawValDrag : p.def);
-      _fxDrag = { isJunox: true, secIdx, paramIdx, p, ti: S.currentTrack,
+      if (p.key === '_notePrio') rawValDrag = junoRuntime[S.currentTrack]?.notePrio ?? p.def;
+      else if (p.key === '_poly')        rawValDrag = junoRuntime[S.currentTrack]?.poly         ?? p.def;
+      else if (p.key === '_notePrio')    rawValDrag = junoRuntime[S.currentTrack]?.notePrio      ?? p.def;
+      else if (p.key === '_subOct')      rawValDrag = junoRuntime[S.currentTrack]?.subOct        ?? p.def;
+      else if (p.key === '_noiseType')   rawValDrag = junoRuntime[S.currentTrack]?.noiseType     ?? p.def;
+      else if (p.key === '_glide')       rawValDrag = junoRuntime[S.currentTrack]?.glideTime     ?? p.def;
+      else if (p.key === '_dlyTime')     rawValDrag = junoRuntime[S.currentTrack]?.dlyTime       ?? p.def;
+      else if (p.key === '_dlyFeedback') rawValDrag = junoRuntime[S.currentTrack]?.dlyFeedback   ?? p.def;
+      else if (p.key === '_dlyMix')      rawValDrag = junoRuntime[S.currentTrack]?.dlyMix        ?? p.def;
+      else if (p.key === '_revLevel')    rawValDrag = junoRuntime[S.currentTrack]?.revLevel       ?? p.def;
+      else if (p.key === '_satDrive')    rawValDrag = junoRuntime[S.currentTrack]?.satDrive       ?? p.def;
+      else if (p.key === '_satType')     rawValDrag = junoRuntime[S.currentTrack]?.satType        ?? p.def;
+      else if (p.key === '_arpEnabled')  rawValDrag = junoRuntime[S.currentTrack]?.arpEnabled     ?? p.def;
+      else if (p.key === '_arpRate')     rawValDrag = junoRuntime[S.currentTrack]?.arpRate        ?? p.def;
+      else if (p.key === '_arpMode')     rawValDrag = junoRuntime[S.currentTrack]?.arpMode        ?? p.def;
+      else if (p.key === '_arpOctaves')  rawValDrag = junoRuntime[S.currentTrack]?.arpOctaves     ?? p.def;
+      else rawValDrag = patch2 ? junoGetPatchVal(patch2, p.key) : p.def;
+      const startUiVal = junoUiVal(p, rawValDrag !== undefined ? rawValDrag : p.def);
+      _fxDrag = { isJuno: true, secIdx, paramIdx, p, ti: S.currentTrack,
                   startY: e.clientY, startX: e.clientX, startVal: startUiVal };
       S._oledLocked = true;
       e.stopPropagation(); e.preventDefault();
       return true;
     }
 
-    // ── JUNOX : slot page principale → tap = page avancée (immédiat)
-    if (n.getAttribute('data-junoxslot') !== null) {
-      const secIdx = parseInt(n.getAttribute('data-junoxslot'));
-      if (secIdx >= JUNOX_SECTIONS.length) return false;
+    // ── JUNO : slot page principale → tap = page avancée (immédiat)
+    if (n.getAttribute('data-junoslot') !== null) {
+      const secIdx = parseInt(n.getAttribute('data-junoslot'));
+      if (secIdx >= JUNO_SECTIONS.length) return false;
       // Flash visuel immédiat
       const sg = document.getElementById(`fxslot_${secIdx}`);
       if (sg) {
@@ -4277,10 +4277,10 @@ function fxHandleDown(e) {
         }
       }
       setTimeout(() => {
-        junoxPage = secIdx;
+        junoPage = secIdx;
         renderFXPanel();
         S._oledLocked = true;
-        oledForce(JUNOX_SECTIONS[secIdx].name, junoxPatches[S.currentTrack]?.name || 'Junox', 'params');
+        oledForce(JUNO_SECTIONS[secIdx].name, junoPatches[S.currentTrack]?.name || 'Juno', 'params');
       }, 80);
       e.stopPropagation(); e.preventDefault();
       return true;
@@ -4316,7 +4316,7 @@ function fxHandleDown(e) {
           if (fxId === 'reverb') applyMasterFX();
           else applyMasterFX();
           renderMasterPanel();
-          oledForce(pDef.key.toUpperCase(), String(pDef.def), '↺ défaut');
+          oledForce(pDef.key.toUpperCase(), String(pDef.def), '↺ default');
         }
         e.stopPropagation(); e.preventDefault();
         return true;
@@ -4336,7 +4336,7 @@ function fxHandleDown(e) {
 
     // Retour depuis page avancée
     if (n.getAttribute('data-fxback')) {
-      if (isJunoxTrack) return false;
+      if (isJunoTrack) return false;
       const sg = document.getElementById('fxslot_7');
       if (sg) {
         const bg = sg.querySelector('rect');
@@ -4396,7 +4396,7 @@ function fxHandleDown(e) {
     }
     // Drag paramètre avancé
     if (n.getAttribute('data-fxparam') !== null) {
-      if (isJunoxTrack) return false;
+      if (isJunoTrack) return false;
       const paramIdx = parseInt(n.getAttribute('data-fxparam'));
       const slotIdx  = parseInt(n.getAttribute('data-fxslotadv') ?? n.getAttribute('data-fxslot'));
       const def = FX_DEFS[slotIdx];
@@ -4436,7 +4436,7 @@ function fxHandleDown(e) {
           fxSetParam(S.currentTrack, slotIdx, p.key, p.def);
           if (fxPage === 'main') renderFXPageMain(S.currentTrack);
           else renderFXPageAdvanced(S.currentTrack, slotIdx);
-          oledForce(p.name || p.key, p.def !== undefined ? String(p.def) : '—', '↺ défaut');
+          oledForce(p.name || p.key, p.def !== undefined ? String(p.def) : '—', '↺ default');
         }
         e.stopPropagation(); e.preventDefault();
         return true;
@@ -4449,10 +4449,10 @@ function fxHandleDown(e) {
     }
     // Slot page principale — long press = page avancée (pas pour l'Arp, pas pour le Master, pas pour le Drum)
     if (n.getAttribute('data-fxslot') !== null && fxPage === 'main' && n.getAttribute('data-fxparam') === null) {
-      // Bloquer sur piste Master, Drum et Junox
+      // Bloquer sur piste Master, Drum et Juno
       const curMode = S.tracks[S.currentTrack].mode;
       if (curMode === 'master' || curMode === 'drum') return false;
-      if (S.tracks[S.currentTrack].outputMode === 'junox') return false;
+      if (S.tracks[S.currentTrack].outputMode === 'juno') return false;
       const slotIdx = parseInt(n.getAttribute('data-fxslot'));
       const def = FX_DEFS[slotIdx];
       if (!def) return false;
@@ -4489,13 +4489,13 @@ function fxHandleUp(e) {
       return;
     }
   }
-  // Junox drag → libérer mais garder l'OLED sur le nom de la section
-  if (_fxDrag?.isJunox) {
+  // Juno drag → libérer mais garder l'OLED sur le nom de la section
+  if (_fxDrag?.isJuno) {
     const { secIdx } = _fxDrag;
     _fxDrag = null;
     S._oledLocked = true;
-    const sec = JUNOX_SECTIONS[secIdx];
-    if (sec) oledForce(sec.name, junoxPatches[S.currentTrack]?.name || 'Junox', 'params');
+    const sec = JUNO_SECTIONS[secIdx];
+    if (sec) oledForce(sec.name, junoPatches[S.currentTrack]?.name || 'Juno', 'params');
     return;
   }
   if (_fxDrag?.isMaster) {
@@ -4505,19 +4505,19 @@ function fxHandleUp(e) {
   }
   if (_fxPressTimer !== null) {
     clearTimeout(_fxPressTimer);
-    // Rechercher le slot cliqué pour toggler les FX SF2 (pas Junox)
+    // Rechercher le slot cliqué pour toggler les FX SF2 (pas Juno)
     let el2 = e.target;
     for (let n = el2; n && n !== document; n = n.parentNode) {
       if (!n.getAttribute) continue;
-      // junoxslot : la navigation est déjà faite dans fxHandleDown (tap immédiat)
-      if (n.getAttribute('data-junoxslot') !== null) {
+      // junoslot : la navigation est déjà faite dans fxHandleDown (tap immédiat)
+      if (n.getAttribute('data-junoslot') !== null) {
         _fxPressTimer = null;
         return;
       }
       // Ne pas toggler si c'est une zone de param (encodeur Arp)
       if (n.getAttribute('data-fxslot') !== null && n.getAttribute('data-fxparam') === null && fxPage === 'main') {
         if (S.tracks[S.currentTrack].mode === 'master') break;
-        if (S.tracks[S.currentTrack].outputMode === 'junox') break;
+        if (S.tracks[S.currentTrack].outputMode === 'juno') break;
         const slotIdx = parseInt(n.getAttribute('data-fxslot'));
         const def = FX_DEFS[slotIdx];
         if (!def) break;
@@ -4629,8 +4629,8 @@ function fxHandleMove(e) {
     return;
   }
 
-  // ── Junox drag ───────────────────────────────────────────────
-  if (_fxDrag.isJunox) {
+  // ── Juno drag ───────────────────────────────────────────────
+  if (_fxDrag.isJuno) {
     const { secIdx, paramIdx, p, ti } = _fxDrag;
     const dy = _fxDrag.startY - e.clientY;
     const dx = e.clientX - (_fxDrag.startX || e.clientX);
@@ -4643,13 +4643,13 @@ function fxHandleMove(e) {
     // Params cyclables : arrondir à l'entier
     if (p.cycle) newUiVal = Math.round(newUiVal);
 
-    junoxSetParam(ti, secIdx, p.key, newUiVal);
+    junoSetParam(ti, secIdx, p.key, newUiVal);
 
     // Mettre à jour barre verticale
     const pct = (newUiVal - uiMin) / (uiMax - uiMin || 1);
     const totalH = FX_SH - 5*2 - 30;
     const barH = Math.max(0, Math.round(pct * totalH));
-    const barEl = document.getElementById(`junoxbar_${secIdx}_${paramIdx}`);
+    const barEl = document.getElementById(`junobar_${secIdx}_${paramIdx}`);
     if (barEl) {
       const sy = fxSlotY(paramIdx);
       barEl.setAttribute('height', String(barH));
@@ -4658,9 +4658,9 @@ function fxHandleMove(e) {
     const displayVal = p.cycleVals
       ? (p.fmtIsIndex ? p.fmt(Math.round(newUiVal)) : p.fmt(p.cycleVals[Math.round(newUiVal)] ?? newUiVal))
       : p.fmt(newUiVal);
-    const valEl = document.getElementById(`junoxval_${secIdx}_${paramIdx}`);
+    const valEl = document.getElementById(`junoval_${secIdx}_${paramIdx}`);
     if (valEl) valEl.textContent = displayVal;
-    oledForce(JUNOX_SECTIONS[secIdx].name, p.name, displayVal);
+    oledForce(JUNO_SECTIONS[secIdx].name, p.name, displayVal);
     return;
   }
 
@@ -4728,9 +4728,9 @@ document.addEventListener('mouseup',   e => { fxHandleUp(e); });
 document.addEventListener('dblclick', e => {
   const panel = document.getElementById('enginePanel');
   if (!panel || panel.getAttribute('visibility') === 'hidden') return;
-  // Ignorer si on est sur la piste Master, drum ou Junox
+  // Ignorer si on est sur la piste Master, drum ou Juno
   const curT = S.tracks[S.currentTrack];
-  if (curT.outputMode === 'junox') return;
+  if (curT.outputMode === 'juno') return;
   if (curT.mode === 'master' && !e.target.closest('[data-mfx]')) return;
 
   let el = e.target;
@@ -4751,7 +4751,7 @@ document.addEventListener('dblclick', e => {
       fxSetParam(S.currentTrack, slotIdx, p.key, p.def);
       if (fxPage === 'main') renderFXPageMain(S.currentTrack);
       else renderFXPageAdvanced(S.currentTrack, slotIdx);
-      oledForce(p.name, p.def !== undefined ? String(p.def) : '—', '↺ défaut');
+      oledForce(p.name, p.def !== undefined ? String(p.def) : '—', '↺ default');
       e.preventDefault(); e.stopPropagation();
       return;
     }
@@ -4772,7 +4772,7 @@ document.addEventListener('dblclick', e => {
       if (fxId === 'delay') updateDelayTime();
       applyMasterFX();
       renderMasterPanel();
-      oledForce(pd.key.toUpperCase(), String(pd.def), '↺ défaut');
+      oledForce(pd.key.toUpperCase(), String(pd.def), '↺ default');
       e.preventDefault(); e.stopPropagation();
       return;
     }
@@ -4799,12 +4799,12 @@ async function initSF2() {
         console.log(`[SF2] Track ${ti+1} (${TRACK_MODES[ti]}) — pas de FluidSynth`);
         continue;
       }
-      // Track Junox — pas d'instance FluidSynth
+      // Track Juno — pas d'instance FluidSynth
       const t = S.tracks[ti];
-      if (t.outputMode === 'junox') {
+      if (t.outputMode === 'juno') {
         jsSynths[ti] = null;
         jsSynthNodes[ti] = null;
-        console.log(`[SF2] Track ${ti+1} — Junox (pas de FluidSynth)`);
+        console.log(`[SF2] Track ${ti+1} — Juno (pas de FluidSynth)`);
         continue;
       }
       const synth = new JSSynth.Synthesizer();
@@ -5013,7 +5013,7 @@ function getSF2PresetName(ti) { return sf2GetTrackName(ti); }
 // Nom du son/patch courant selon le mode de la track
 function getTrackSoundName(ti) {
   const t = S.tracks[ti];
-  if (t.outputMode === 'junox') return junoxPatches[ti]?.name || 'Junox';
+  if (t.outputMode === 'juno') return junoPatches[ti]?.name || 'Juno';
   if (t.outputMode === 'midi') return `MIDI Ch${t.midiChannel || 1}`;
   if (t.mode === 'drum') return 'Drum';
   return sf2GetTrackName(ti);
@@ -5024,8 +5024,8 @@ function playTrackNote(ti, midi, vel) {
   const t = S.tracks[ti];
   if (t.outputMode === 'sf2') {
     sf2NoteOn(ti, midi, vel);
-  } else if (t.outputMode === 'junox') {
-    junoxNoteOn(ti, midi, vel);
+  } else if (t.outputMode === 'juno') {
+    junoNoteOn(ti, midi, vel);
   } else if (t.outputMode === 'midi') {
     const out = getTrackOutput(ti);
     if (out) {
@@ -5913,7 +5913,7 @@ const TRACK_COLORS = [
 ];
 // TRACK_MODES : T1(drum) et T8(master) sont verrouillés, T2-T7 peuvent changer
 // 'drum' | 'melodic' | 'master'  — pour le type de séquenceur
-// outputMode ('sf2'|'junox') est séparé et géré dans S.tracks[ti].outputMode
+// outputMode ('sf2'|'juno') est séparé et géré dans S.tracks[ti].outputMode
 let TRACK_MODES  = ['drum','melodic','melodic','melodic','melodic','melodic','melodic','master'];
 const LOCKED_TRACK_MODES = { 0: 'drum', 7: 'master' }; // T1 et T8 immutables
 
@@ -5973,7 +5973,7 @@ const S = {
     soloed: false,
     volume: 0.8,
     soundIndex: 0,
-    outputMode: (TRACK_MODES[i] === 'drum') ? 'drum' : (i === 1 ? 'junox' : 'sf2'),
+    outputMode: (TRACK_MODES[i] === 'drum') ? 'drum' : (i === 1 ? 'juno' : 'sf2'),
     midiChannel: i + 1,
     midiOutputId: null,
     clips: Array.from({length:8}, () => makeClip()),
@@ -6089,9 +6089,9 @@ function getSound(ti) {
   if (t.mode === 'master') return { name: 'MASTER', fn: () => {} };
   if (t.mode === 'drum')   return { name: getDrumPadName(ti, S.selectedDrumPad), fn: () => {} };
   if (t.outputMode === 'sf2')   return { name: sf2GetTrackName(ti), fn: () => {} };
-  if (t.outputMode === 'junox') {
-    const patch = junoxPatches[ti];
-    return { name: patch?.name || 'Junox', fn: () => {} };
+  if (t.outputMode === 'juno') {
+    const patch = junoPatches[ti];
+    return { name: patch?.name || 'Juno', fn: () => {} };
   }
   return { name: `MIDI ${t.midiChannel}`, fn: () => {} };
 }
@@ -6281,15 +6281,15 @@ function scheduler() {
                   setTimeout(() => capNotes.forEach(n => sf2NoteOff(capTi, n)), durMs);
                 }
               }, playDelayMs);
-            } else if (t.outputMode === 'junox') {
+            } else if (t.outputMode === 'juno') {
               const arpDurMsJx = capLen * stepDur() * 1000 * 0.98;
               setTimeout(() => {
                 if (!S.playing) return;
                 if (arpIsActive(capTi)) {
                   arpSeqTrigger(capTi, capNotes, arpDurMsJx);
                 } else {
-                  capNotes.forEach(n => junoxNoteOn(capTi, n, meloVel));
-                  setTimeout(() => capNotes.forEach(n => junoxNoteOff(capTi, n)), durMs);
+                  capNotes.forEach(n => junoNoteOn(capTi, n, meloVel));
+                  setTimeout(() => capNotes.forEach(n => junoNoteOff(capTi, n)), durMs);
                 }
               }, playDelayMs);
             } else {
@@ -6469,12 +6469,12 @@ function oledRaw(top, main, sub) {
 function oledBlank() { oledRaw('', '', ''); }
 
 function isBrowserOpen() {
-  return ['sf2Browser','junoxBrowser','drumBrowser','midiBrowser','routingPopup','trackTypePopup']
+  return ['sf2Browser','junoBrowser','drumBrowser','midiBrowser','routingPopup','trackTypePopup']
     .some(id => document.getElementById(id)?.classList?.contains('open'));
 }
 
 function trackTypeName(t) {
-  return t.outputMode === 'junox' ? 'JunoX' :
+  return t.outputMode === 'juno' ? 'Juno' :
          t.outputMode === 'midi'  ? 'MIDI Out' :
          t.mode === 'drum'        ? 'Drum' :
          t.mode === 'master'      ? 'Master' : 'SF2';
@@ -6567,7 +6567,7 @@ function oledSmart(top, main, sub, force) {
   if (isBrowserOpen()) { oledBlank(); return; }
   const t = upperTop;
   // Messages d'info transitoires : s'affichent tels quels (gérés par oledMsg avec timeout)
-  const isInfoMsg = /^(NOTE MODE|LOOP MODE|▶ LOOP|▶ PLAYING|■ STOPPED|■ REC OFF|⏺ REC|UNDO|REDO|LOAD|NEW|EMPTY SLOT|DUPLICATE|HALVE|STRETCH|STRETCH ×2|COMPRESS|COMPRESS ×2|NUDGE|MUTE|DELETE|BAR .*|SOLO BAR|EXTEND|SAISIE|DÉPLACER|RÉGION|LOOP REGION)$/.test(t) ||
+  const isInfoMsg = /^(NOTE MODE|LOOP MODE|▶ LOOP|▶ PLAYING|■ STOPPED|■ REC OFF|⏺ REC|UNDO|REDO|LOAD|NEW|EMPTY SLOT|DUPLICATE|HALVE|STRETCH|STRETCH ×2|COMPRESS|COMPRESS ×2|NUDGE|MUTE|DELETE|BAR .*|SOLO BAR|EXTEND|EDIT|MOVE|REGION|LOOP REGION)$/.test(t) ||
                     /^STEP \d+/.test(t) || /^(\d+ STEPS?)$/.test(t);
   if (isInfoMsg) { oledRaw(top || '', main || '', sub || ''); return; }
   // Écrans de track (BAR X/Y, TRACK X, DRUM, SOUND, PAD) → afficher l'état home
@@ -6670,7 +6670,7 @@ function stopPlay() {
       // allSoundOff (CC120) coupe immédiatement sans release → pas de clic traînant
       jsSynths[ti].midiControl(SF2_CHANNEL, 120, 0);
     }
-    if (t.outputMode === 'junox') junoxAllNotesOff(ti);
+    if (t.outputMode === 'juno') junoAllNotesOff(ti);
   });
   // Rampdown reverb + delay master pour éviter le gel Chrome Android
   // (les boucles comb de la freeverb continuent de résonner ~10s → Chrome gèle → pop)
@@ -7008,24 +7008,24 @@ function restoreSnapshot(snap) {
 function doUndo() {
   // On peut undo si cursor > 0 (il y a un état antérieur dans la pile)
   if (undoStack.cursor <= 0 || undoStack.history.length < 2) {
-    oledMsg('UNDO', 'rien à annuler', '', 2000);
+    oledMsg('UNDO', 'nothing to undo', '', 2000);
     return;
   }
   undoStack.cursor--;
   restoreSnapshot(undoStack.history[undoStack.cursor]);
   const remaining = undoStack.cursor;
-  oledMsg('UNDO', 'annulé', remaining > 0 ? `${remaining} restants` : '', 1800);
+  oledMsg('UNDO', 'undone', remaining > 0 ? `${remaining} left` : '', 1800);
 }
 
 function doRedo() {
   if (undoStack.cursor >= undoStack.history.length - 1) {
-    oledMsg('REDO', 'rien à rétablir', '', 2000);
+    oledMsg('REDO', 'nothing to redo', '', 2000);
     return;
   }
   undoStack.cursor++;
   restoreSnapshot(undoStack.history[undoStack.cursor]);
   const remaining = undoStack.history.length - 1 - undoStack.cursor;
-  oledMsg('REDO', 'rétabli', remaining > 0 ? `${remaining} restants` : '', 1800);
+  oledMsg('REDO', 'redone', remaining > 0 ? `${remaining} left` : '', 1800);
 }
 
 function renderSteps() {
@@ -7293,7 +7293,7 @@ function selectTrack(ti) {
   if (ti !== prevTi) {
     if (prev.outputMode === 'midi')  midiAllNotesOff(prevTi);
     if (prev.outputMode === 'sf2')   sf2AllNotesOff(prevTi);
-    if (prev.outputMode === 'junox') junoxAllNotesOff(prevTi);
+    if (prev.outputMode === 'juno') junoAllNotesOff(prevTi);
   }
   midiState.heldNotes.clear();
   S._trackVisToken++;
@@ -7385,10 +7385,10 @@ function toggleStep(i) {
     } else {
       st.note = 60;
       playTrackNote(S.currentTrack, st.note, 0.65);
-      // noteOff après 300ms pour SF2/Junox (MIDI gère déjà son propre noteOff)
+      // noteOff après 300ms pour SF2/Juno (MIDI gère déjà son propre noteOff)
       const t2 = S.tracks[S.currentTrack];
       if (t2.outputMode === 'sf2')   setTimeout(() => sf2NoteOff(S.currentTrack, 60), 300);
-      if (t2.outputMode === 'junox') setTimeout(() => junoxNoteOff(S.currentTrack, 60), 300);
+      if (t2.outputMode === 'juno') setTimeout(() => junoNoteOff(S.currentTrack, 60), 300);
       oled(`STEP ${i+1}`, noteName(st.note), `Bar ${S.currentBar+1}`);
     }
     // Si c'était la première note d'un clip vide → démarrer en sync
@@ -7398,10 +7398,10 @@ function toggleStep(i) {
     if (t.mode !== 'drum' && t.mode !== 'master') {
       const note = st.note || 60;
       if (t.outputMode === 'sf2')   sf2NoteOff(S.currentTrack, note);
-      if (t.outputMode === 'junox') junoxNoteOff(S.currentTrack, note);
+      if (t.outputMode === 'juno') junoNoteOff(S.currentTrack, note);
       (st.extraNotes || []).forEach(n => {
         if (t.outputMode === 'sf2')   sf2NoteOff(S.currentTrack, n);
-        if (t.outputMode === 'junox') junoxNoteOff(S.currentTrack, n);
+        if (t.outputMode === 'juno') junoNoteOff(S.currentTrack, n);
       });
     }
     oled(`STEP ${i+1}`, 'OFF', `Bar ${S.currentBar+1}`);
@@ -7436,8 +7436,8 @@ function playPad(row, col) {
   } else if (t.outputMode === 'sf2') {
     sf2NoteOn(ti, note, 0.85);
     _padHeldNote = { ti, note };
-  } else if (t.outputMode === 'junox') {
-    junoxNoteOn(ti, note, 0.85);
+  } else if (t.outputMode === 'juno') {
+    junoNoteOn(ti, note, 0.85);
     _padHeldNote = { ti, note };
   } else {
     playTrackNote(ti, note, 0.85);
@@ -7751,7 +7751,7 @@ function drumAdvHandleDown(e) {
         _drumAdvLastTap[tapKey] = 0;
         pad[p.key] = p.def;
         renderDrumPadAdvanced(drumAdvPage);
-        oledForce(p.label, p.fmt(p.def), '↺ défaut');
+        oledForce(p.label, p.fmt(p.def), '↺ default');
         e.stopPropagation(); e.preventDefault();
         return true;
       }
@@ -7969,7 +7969,7 @@ function restoreOriginal(t) {
 function stretchPattern() {
   saveUndo();
   const t = S.tracks[S.currentTrack];
-  if (activeClip().stretchState >= 1) { status('Already at max stretch ×2'); oledMsg('STRETCH', 'max atteint', '', 1200); return; }
+  if (activeClip().stretchState >= 1) { status('Already at max stretch ×2'); oledMsg('STRETCH', 'max reached', '', 1200); return; }
   snapshotOriginal(t);
   if (activeClip().stretchState === -1) {
     // Compressé → revenir à l'original
@@ -7981,7 +7981,7 @@ function stretchPattern() {
     // Original → stretchée
     applyStretchFromOriginal(t);
     activeClip().stretchState = 1;
-    oledMsg('STRETCH ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bars`, '2× plus lent', 1500);
+    oledMsg('STRETCH ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bars`, '2× slower', 1500);
     status(`Stretch ×2 → ${activeClip().numBars} bars`);
   }
   S.currentBar = Math.min(S.currentBar, activeClip().numBars - 1);
@@ -7992,7 +7992,7 @@ function stretchPattern() {
 function compressPattern() {
   saveUndo();
   const t = S.tracks[S.currentTrack];
-  if (activeClip().stretchState <= -1) { status('Already at max compress ×2'); oledMsg('COMPRESS', 'max atteint', '', 1200); return; }
+  if (activeClip().stretchState <= -1) { status('Already at max compress ×2'); oledMsg('COMPRESS', 'max reached', '', 1200); return; }
   snapshotOriginal(t);
   if (activeClip().stretchState === 1) {
     // Stretchée → revenir à l'original
@@ -8004,7 +8004,7 @@ function compressPattern() {
     // Original → compressée
     applyCompressFromOriginal(t);
     activeClip().stretchState = -1;
-    oledMsg('COMPRESS ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bar${activeClip().numBars>1?'s':''}`, '2× plus rapide', 1500);
+    oledMsg('COMPRESS ×2', `${activeClip().originalNumBars}→${activeClip().numBars} bar${activeClip().numBars>1?'s':''}`, '2× faster', 1500);
     status(`Compress ×2 → ${activeClip().numBars} bars`);
   }
   S.currentBar = Math.min(S.currentBar, activeClip().numBars - 1);
@@ -8337,7 +8337,7 @@ document.addEventListener('keydown', e => {
     if (S._loopHeld)         compressPattern();
     else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
       const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
-      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, ''); }
+      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('MOVE', `Bar → pos ${_np+1}`, ''); }
     } else if (anyStepHeld())  nudgeHeldSteps(-1);
     else if (S.shiftHeld)    navBar(-1);
     else                     moveStepCursor(-1);
@@ -8349,7 +8349,7 @@ document.addEventListener('keydown', e => {
     if (S._loopHeld)         stretchPattern();
     else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
       const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
-      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, ''); }
+      if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('MOVE', `Bar → pos ${_np+1}`, ''); }
     } else if (anyStepHeld())  nudgeHeldSteps(1);
     else if (S.shiftHeld)    navBar(1);
     else                     moveStepCursor(1);
@@ -8559,8 +8559,8 @@ function routingItems() {
 
 function openRoutingMenu(ti) {
   const t = S.tracks[ti];
-  // T2 Junox — pas de routing modifiable, afficher info
-  if (t.outputMode === 'junox') {
+  // T2 Juno — pas de routing modifiable, afficher info
+  if (t.outputMode === 'juno') {
     S._oledLocked = true;
     oledForce(`T${ti+1} · SYNTH`, 'JUNO', '');
     setTimeout(() => { S._oledLocked = false; }, 1500);
@@ -9161,7 +9161,7 @@ function releaseStep(idx) {
     const t  = S.tracks[ti];
     obj.previewNotes.forEach(n => {
       if (t.outputMode === 'sf2')   sf2NoteOff(ti, n);
-      if (t.outputMode === 'junox') junoxNoteOff(ti, n);
+      if (t.outputMode === 'juno') junoNoteOff(ti, n);
     });
   }
 
@@ -9242,7 +9242,7 @@ for (let i = 0; i < 16; i++) {
             if (_loopShiftStep1 === -1) {
               _loopShiftStep1 = idx;
               stepCursorPos = idx; updateStepCursor();
-              oled('RÉGION', `Bar ${idx+1} →`, '');
+              oled('REGION', `Bar ${idx+1} →`, '');
             } else {
               const lo = Math.min(_loopShiftStep1, idx);
               const hi = Math.max(_loopShiftStep1, idx);
@@ -9269,7 +9269,7 @@ for (let i = 0; i < 16; i++) {
             saveUndo();
             renderLoopMode();
             const barNotes = countBarNotes(idx);
-            oled('SAISIE', `Bar ${idx+1}`, `${barNotes} note${barNotes!==1?'s':''}`);
+            oled('EDIT', `Bar ${idx+1}`, `${barNotes} note${barNotes!==1?'s':''}`);
           }, 300);
         }
         return;
@@ -9794,19 +9794,19 @@ document.addEventListener('mouseup', (e) => {
   if (S._mHeld) {
     S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00');
   }
-  // Shift : désactiver sur tout mouseup sauf si tenu via clavier physique
-  // ou si une sélection de région loop est en cours (2 taps nécessaires)
-  if (S.shiftHeld && !heldKeys.has('Numpad3') && !heldKeys.has('ShiftLeft') && !heldKeys.has('ShiftRight')) {
+  // Shift : désactiver sur tout mouseup sauf si tenu via clavier physique,
+  // si le bouton SVG Shift est encore appuyé, ou si région loop en cours
+  if (S.shiftHeld && !S._shiftBtnDown && !heldKeys.has('Numpad3') && !heldKeys.has('ShiftLeft') && !heldKeys.has('ShiftRight')) {
     // Garder actif si le 1er tap de région loop a déjà été posé
     if (typeof _loopShiftStep1 === 'undefined' || _loopShiftStep1 === -1) {
       setShiftOn(false);
     }
   }
-  // Bouton LOOP en mode "hold" (combo) : si on relâche n'importe où, fin du combo
-  if (S._loopHeld) {
+  // Bouton LOOP en mode "hold" (combo) : fin du combo seulement si btnLoop n'est plus appuyé
+  if (S._loopHeld && !S._loopBtnDown) {
     if (loopPressTimer !== null) { clearTimeout(loopPressTimer); loopPressTimer = null; }
     setLoopHeld(false);
-  } else if (loopPressTimer !== null) {
+  } else if (!S._loopBtnDown && loopPressTimer !== null) {
     // Appui en cours mais relâché hors du bouton avant le long-press → annuler
     clearTimeout(loopPressTimer);
     loopPressTimer = null;
@@ -9862,17 +9862,19 @@ svg('btnLoop').addEventListener('mousedown', e => {
   if (S.tracks[S.currentTrack].mode === 'master') return;
   if (S.mode === 'session') return;
   e.preventDefault();
+  S._loopBtnDown = true;
   loopPressTimer = setTimeout(() => {
     loopPressTimer = null;
-    setLoopHeld(true); // appui long → mode combo
+    setLoopHeld(true); // long press → combo mode
   }, LOOP_LONG_MS);
 });
 
 svg('btnLoop').addEventListener('mouseup', () => {
+  S._loopBtnDown = false;
   if (loopPressTimer !== null) {
     clearTimeout(loopPressTimer);
     loopPressTimer = null;
-    // Appui court → basculer en Loop Mode
+    // Short press → toggle Loop Mode
     toggleLoopMode();
   } else {
     setLoopHeld(false);
@@ -9880,7 +9882,8 @@ svg('btnLoop').addEventListener('mouseup', () => {
 });
 
 svg('btnLoop').addEventListener('mouseleave', () => {
-  // Si on quitte pendant l'appui long, le hold reste actif (pour les combos)
+  S._loopBtnDown = false;
+  // If we leave during long press, hold stays active (for combos)
   if (loopPressTimer !== null) {
     clearTimeout(loopPressTimer);
     loopPressTimer = null;
@@ -9893,81 +9896,69 @@ svg('btnLoop').addEventListener('mouseleave', () => {
 svg('btnPlus').addEventListener('mousedown', e => {
   if (projectModeActive) return;
   setDirBtnLit('btnPlus', true);
-  if (S._loopHeld) { e.preventDefault(); S._loopComboFired = true; duplicatePattern(); return; }
-  S._loopComboFired = false;
+  if (S._loopHeld) { e.preventDefault(); duplicatePattern(); return; }
+  if (S.mode === 'loop' && S._loopBarHeld >= 0) { loopBarTranspose(12); return; }
+  if (anyStepHeld()) { transposeHeldSteps(1); return; }
+  if (S.shiftHeld)  { addBar(); return; }
+  cycleTrack(-1);
 });
 svg('btnPlus').addEventListener('mouseup',   () => setDirBtnLit('btnPlus',  false));
 svg('btnPlus').addEventListener('mouseleave',() => setDirBtnLit('btnPlus',  false));
-svg('btnPlus').addEventListener('click', () => {
-  if (projectModeActive) return;
-  if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(12);
-  else if (anyStepHeld()) transposeHeldSteps(1);
-  else if (S.shiftHeld)   addBar();
-  else                    cycleTrack(-1);
-});
 
 svg('btnMinus').addEventListener('mousedown', e => {
   if (projectModeActive) return;
   setDirBtnLit('btnMinus', true);
-  if (S._loopHeld) { e.preventDefault(); S._loopComboFired = true; halvePattern(); return; }
-  S._loopComboFired = false;
+  if (S._loopHeld) { e.preventDefault(); halvePattern(); return; }
+  if (S.mode === 'loop' && S._loopBarHeld >= 0) { loopBarTranspose(-12); return; }
+  if (anyStepHeld()) { transposeHeldSteps(-1); return; }
+  if (S.shiftHeld)  { removeBar(); return; }
+  cycleTrack(1);
 });
 svg('btnMinus').addEventListener('mouseup',   () => setDirBtnLit('btnMinus', false));
 svg('btnMinus').addEventListener('mouseleave',() => setDirBtnLit('btnMinus', false));
-svg('btnMinus').addEventListener('click', () => {
-  if (projectModeActive) return;
-  if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(-12);
-  else if (anyStepHeld()) transposeHeldSteps(-1);
-  else if (S.shiftHeld)   removeBar();
-  else                    cycleTrack(1);
-});
 
 svg('btnLeft').addEventListener('mousedown', e => {
   setDirBtnLit('btnLeft', true);
-  if (S._loopHeld) { e.preventDefault(); S._loopComboFired = true; compressPattern(); return; }
-  S._loopComboFired = false;
+  if (S._loopHeld) { e.preventDefault(); compressPattern(); return; }
+  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('MOVE', `Bar → pos ${_np+1}`, ''); }
+    return;
+  }
+  if (anyStepHeld()) { nudgeHeldSteps(-1); return; }
+  if (S.shiftHeld)   { navBar(-1); return; }
+  moveStepCursor(-1);
 });
 svg('btnLeft').addEventListener('mouseup',   () => setDirBtnLit('btnLeft',  false));
 svg('btnLeft').addEventListener('mouseleave',() => setDirBtnLit('btnLeft',  false));
-svg('btnLeft').addEventListener('click', () => {
-  if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
-    const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
-    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, ''); }
-  } else if (anyStepHeld()) nudgeHeldSteps(-1);
-  else if (S.shiftHeld)  navBar(-1);
-  else                   moveStepCursor(-1);
-});
 
 svg('btnRight').addEventListener('mousedown', e => {
   setDirBtnLit('btnRight', true);
-  if (S._loopHeld) { e.preventDefault(); S._loopComboFired = true; stretchPattern(); return; }
-  S._loopComboFired = false;
+  if (S._loopHeld) { e.preventDefault(); stretchPattern(); return; }
+  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('MOVE', `Bar → pos ${_np+1}`, ''); }
+    return;
+  }
+  if (anyStepHeld()) { nudgeHeldSteps(1); return; }
+  if (S.shiftHeld)   { navBar(1); return; }
+  moveStepCursor(1);
 });
 svg('btnRight').addEventListener('mouseup',   () => setDirBtnLit('btnRight', false));
 svg('btnRight').addEventListener('mouseleave',() => setDirBtnLit('btnRight', false));
-svg('btnRight').addEventListener('click', () => {
-  if (S._loopComboFired) { S._loopComboFired = false; return; }
-  if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
-    const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
-    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('DÉPLACER', `Bar → pos ${_np+1}`, ''); }
-  } else if (anyStepHeld()) nudgeHeldSteps(1);
-  else if (S.shiftHeld)  navBar(1);
-  else                   moveStepCursor(1);
-});
 svg('btnShift').addEventListener('mousedown', () => {
   if (projectModeActive) return;
+  S._shiftBtnDown = true;
   setShiftOn(true);
 });
 
 svg('btnShift').addEventListener('mouseup', () => {
-  // Géré par le document.mouseup ci-dessus (qui vérifie e.target).
+  S._shiftBtnDown = false;
+  // Full deactivation handled by document.mouseup
 });
-// Si la souris quitte le bouton Shift en étant relâchée hors zone, l'anneau
-// reste sinon allumé : on l'éteint ici si le bouton n'est plus enfoncé.
+// If mouse leaves Shift button while released, turn off the ring
 svg('btnShift').addEventListener('mouseleave', (e) => {
+  S._shiftBtnDown = false;
   if (S.shiftHeld && !heldKeys.has('Numpad3') && e.buttons === 0) {
     setShiftOn(false);
   }
@@ -10154,17 +10145,17 @@ function sessionSelectClip(trackIdx, clipIdx) {
     if (S.playing && clipHasNotes(t.clips[t.playingClip])) {
       // Stop quantisé pour cette track
       t.queuedClip = -1;
-      oled(`TRACK ${trackIdx+1}`, 'Stop', '→ fin de mesure');
+      oled(`TRACK ${trackIdx+1}`, 'Stop', '→ end of bar');
     } else {
       oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, 'vide');
     }
   } else {
     if (S.playing) {
       t.queuedClip = clipIdx;
-      oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, '⏳ en attente');
+      oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, '⏳ queued');
     } else {
       t.playingClip = clipIdx;
-      oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, 'sélectionné');
+      oled(`TRACK ${trackIdx+1}`, `Clip ${clipIdx+1}`, 'selected');
     }
   }
   renderSessionMode();
@@ -10466,9 +10457,9 @@ document.addEventListener('mouseup', () => {
     // updateEncArcs est appelé dans releaseStep via renderSteps
   }
 
-  // En page avancée Junox, garder le lock — l'OLED reste sur la section
-  const isJunoxAdv = S.tracks[S.currentTrack]?.outputMode === 'junox' && junoxPage !== 'main';
-  if (!keepOledLocked && !isJunoxAdv) {
+  // En page avancée Juno, garder le lock — l'OLED reste sur la section
+  const isJunoAdv = S.tracks[S.currentTrack]?.outputMode === 'juno' && junoPage !== 'main';
+  if (!keepOledLocked && !isJunoAdv) {
     S._oledLocked = false;
     // Refresh OLED to default display after drag release (delayed to ensure all handlers done)
     const _tok = _oledMsgToken;
@@ -10714,7 +10705,7 @@ function resetStateToEmpty() {
     t.soloed      = false;
     t.volume      = 0.8;
     t.soundIndex  = 0;
-    t.outputMode  = (TRACK_MODES[i] === 'drum') ? 'drum' : (i === 1 ? 'junox' : 'sf2'); // défaut initial
+    t.outputMode  = (TRACK_MODES[i] === 'drum') ? 'drum' : (i === 1 ? 'juno' : 'sf2'); // défaut initial
     t.midiChannel = i + 1;
     t.midiOutputId = null;
     t.drumSoundMap = Array.from({length:8}, (_, j) => j);
@@ -10729,19 +10720,19 @@ function resetStateToEmpty() {
   undoStack.history = [];
   undoStack.cursor  = -1;
   undoStack.lastSaveTime = null;
-  // Remettre junoxRuntime aux valeurs par défaut
-  // Réinitialiser junoxRuntime pour toutes les tracks Junox actives
-  junoxRuntime.forEach((rt, ti) => {
+  // Remettre junoRuntime aux valeurs par défaut
+  // Réinitialiser junoRuntime pour toutes les tracks Juno actives
+  junoRuntime.forEach((rt, ti) => {
     rt.dlyTime = 500; rt.dlyFeedback = 0.5; rt.dlyMix = 0; rt.revLevel = 0;
     rt.satDrive = -13; rt.satType = 0;
     rt.poly = 1; rt.notePrio = 0; rt.subOct = 0; rt.noiseType = 0;
     rt.arpEnabled = 0; rt.arpRate = 2; rt.arpMode = 0; rt.arpOctaves = 1;
     rt.glideTime = 0; rt._glideLastNote = -1;
     rt.legatoGlide = false;
-    if (junoxReady[ti]) {
-      junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
-      junoxSetReverb(ti, rt.revLevel);
-      junoxSetSat(ti, null);
+    if (junoReady[ti]) {
+      junoSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+      junoSetReverb(ti, rt.revLevel);
+      junoSetSat(ti, null);
     }
   });
 }
@@ -10838,26 +10829,26 @@ function serializeProject() {
       outputMode: t.outputMode,
       midiChannel: t.midiChannel,
       midiOutputId: t.midiOutputId || null,
-      junoxPatch: (t.outputMode === 'junox' && junoxPatches[ti]) 
-                  ? JSON.parse(JSON.stringify(junoxPatches[ti])) 
+      junoPatch: (t.outputMode === 'juno' && junoPatches[ti]) 
+                  ? JSON.parse(JSON.stringify(junoPatches[ti])) 
                   : null,
-      junoxRuntime: (t.outputMode === 'junox') ? {
-        dlyTime:     junoxRuntime[ti].dlyTime,
-        dlyFeedback: junoxRuntime[ti].dlyFeedback,
-        dlyMix:      junoxRuntime[ti].dlyMix,
-        revLevel:    junoxRuntime[ti].revLevel,
-        satDrive:    junoxRuntime[ti].satDrive,
-        satType:     junoxRuntime[ti].satType,
-        poly:        junoxRuntime[ti].poly,
-        notePrio:    junoxRuntime[ti].notePrio,
-        subOct:      junoxRuntime[ti].subOct,
-        noiseType:   junoxRuntime[ti].noiseType,
-        arpEnabled:  junoxRuntime[ti].arpEnabled,
-        arpRate:     junoxRuntime[ti].arpRate,
-        arpMode:     junoxRuntime[ti].arpMode,
-        arpOctaves:  junoxRuntime[ti].arpOctaves,
-        glideTime:   junoxRuntime[ti].glideTime,
-        legatoGlide: junoxRuntime[ti].legatoGlide,
+      junoRuntime: (t.outputMode === 'juno') ? {
+        dlyTime:     junoRuntime[ti].dlyTime,
+        dlyFeedback: junoRuntime[ti].dlyFeedback,
+        dlyMix:      junoRuntime[ti].dlyMix,
+        revLevel:    junoRuntime[ti].revLevel,
+        satDrive:    junoRuntime[ti].satDrive,
+        satType:     junoRuntime[ti].satType,
+        poly:        junoRuntime[ti].poly,
+        notePrio:    junoRuntime[ti].notePrio,
+        subOct:      junoRuntime[ti].subOct,
+        noiseType:   junoRuntime[ti].noiseType,
+        arpEnabled:  junoRuntime[ti].arpEnabled,
+        arpRate:     junoRuntime[ti].arpRate,
+        arpMode:     junoRuntime[ti].arpMode,
+        arpOctaves:  junoRuntime[ti].arpOctaves,
+        glideTime:   junoRuntime[ti].glideTime,
+        legatoGlide: junoRuntime[ti].legatoGlide,
       } : null,
       drumSoundMap: [...t.drumSoundMap],  // conservé pour compatibilité v2
       drumPads: t.drumPads ? t.drumPads.map(p => ({
@@ -10951,34 +10942,34 @@ function deserializeProject(data, slot) {
     t.sendReverb  = td.sendReverb  ?? 0;
     t.soundIndex  = td.soundIndex  ?? 0;
     t.outputMode  = td.outputMode  ?? 'sf2';
-    // T2 reste toujours Junox même si le projet sérialisé dit autre chose
+    // T2 reste toujours Juno même si le projet sérialisé dit autre chose
     // outputMode is restored from saved data below
     t.midiChannel = td.midiChannel ?? (ti + 1);
     t.midiOutputId = td.midiOutputId ?? null;
-    // Restaurer le patch Junox si disponible
-    if (t.outputMode === 'junox') {
+    // Restaurer le patch Juno si disponible
+    if (t.outputMode === 'juno') {
       // Mettre à jour TRACK_MODES pour la track si ce n'est pas T1/T8
       if (LOCKED_TRACK_MODES[ti] === undefined) TRACK_MODES[ti] = 'melodic';
-      if (td.junoxPatch) {
-        junoxPatches[ti] = td.junoxPatch;
-        if (junoxNodes[ti]) {
-          junoxNodes[ti].setPatch(td.junoxPatch);
-          junoxNodes[ti].lfoTrigger();
+      if (td.junoPatch) {
+        junoPatches[ti] = td.junoPatch;
+        if (junoNodes[ti]) {
+          junoNodes[ti].setPatch(td.junoPatch);
+          junoNodes[ti].lfoTrigger();
         } else {
-          // Initialiser Junox pour cette track si pas encore fait
-          initJunox(ti).then(() => {
-            if (junoxNodes[ti] && junoxPatches[ti]) {
-              junoxNodes[ti].setPatch(junoxPatches[ti]);
-              junoxNodes[ti].lfoTrigger();
+          // Initialiser Juno pour cette track si pas encore fait
+          initJuno(ti).then(() => {
+            if (junoNodes[ti] && junoPatches[ti]) {
+              junoNodes[ti].setPatch(junoPatches[ti]);
+              junoNodes[ti].lfoTrigger();
             }
           });
         }
       }
     }
-    // Restaurer junoxRuntime (delay, sat, arp...) — avec fallback sur les defaults
-    if (t.outputMode === 'junox') {
-      const jr = td.junoxRuntime || {};
-      const rt = junoxRuntime[ti];
+    // Restaurer junoRuntime (delay, sat, arp...) — avec fallback sur les defaults
+    if (t.outputMode === 'juno') {
+      const jr = td.junoRuntime || {};
+      const rt = junoRuntime[ti];
       rt.dlyTime     = jr.dlyTime     ?? 500;
       rt.dlyFeedback = jr.dlyFeedback ?? 0.5;
       rt.dlyMix      = jr.dlyMix      ?? 0;
@@ -10996,9 +10987,9 @@ function deserializeProject(data, slot) {
       rt.glideTime   = jr.glideTime   ?? 0;
       rt.legatoGlide = jr.legatoGlide ?? false;
       // Appliquer aux nodes audio si déjà initialisés
-      junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
-      junoxSetReverb(ti, rt.revLevel);
-      junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+      junoSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+      junoSetReverb(ti, rt.revLevel);
+      junoSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
     }
     t.drumSoundMap = td.drumSoundMap
       ? td.drumSoundMap.slice(0, 8)
@@ -11740,9 +11731,9 @@ function updateEncArcs() {
     return;
   }
 
-  // ── Mode Junox, aucun step tenu : enc0=VCF Freq, enc1=Resonance, enc2=Env Mod, enc3=LFO Rate ──
-  if (t.outputMode === 'junox') {
-    const patch = junoxPatches[S.currentTrack] || {};
+  // ── Mode Juno, aucun step tenu : enc0=VCF Freq, enc1=Resonance, enc2=Env Mod, enc3=LFO Rate ──
+  if (t.outputMode === 'juno') {
+    const patch = junoPatches[S.currentTrack] || {};
     const vcfFreq = patch.vcf?.frequency ?? 0.7;
     const vcfRes  = patch.vcf?.resonance  ?? 0;
     const vcfEnv  = patch.vcf?.envMod     ?? 0;
@@ -11844,7 +11835,7 @@ ENC_DEFS.forEach((def, i) => {
       encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
         startVal: S.groove || 0, masterGrooveMode: true, moved: false };
       S._oledLocked = true;
-      oledForce('GROOVE', `${S.groove || 0}%`, (S.groove || 0) === 0 ? 'serré' : 'humanisé');
+      oledForce('GROOVE', `${S.groove || 0}%`, (S.groove || 0) === 0 ? 'tight' : 'humanized');
       e.preventDefault();
       return;
     }
@@ -11895,21 +11886,21 @@ ENC_DEFS.forEach((def, i) => {
     // Priorité 3a.1 : MIDI Out → tous encodeurs désactivés
     if (t.outputMode === 'midi') return;
 
-    // Priorité 3a : Junox sans step → VCF Freq/Resonance/Env Mod/LFO Rate sur enc0-3
-    if (t.outputMode === 'junox' && i < 4) {
-      const JUNOX_ENC = [
+    // Priorité 3a : Juno sans step → VCF Freq/Resonance/Env Mod/LFO Rate sur enc0-3
+    if (t.outputMode === 'juno' && i < 4) {
+      const JUNO_ENC = [
         { key: 'vcf.frequency', label: 'CUTOFF',    min: 0, max: 1, def: 0.7 },
         { key: 'vcf.resonance', label: 'RESONANCE', min: 0, max: 1, def: 0   },
         { key: 'vcf.envMod',    label: 'ENV MOD',   min: 0, max: 1, def: 0   },
         { key: 'lfo.frequency', label: 'LFO RATE',  min: 0, max: 1, def: 0.3 },
       ];
-      const jDef = JUNOX_ENC[i];
-      const patch = junoxPatches[S.currentTrack];
+      const jDef = JUNO_ENC[i];
+      const patch = junoPatches[S.currentTrack];
       if (!patch) return;
       const parts = jDef.key.split('.');
       const startVal = patch[parts[0]]?.[parts[1]] ?? jDef.def;
       encDrags[i] = { y: e.clientY, x: e.clientX, lastY: e.clientY, lastX: e.clientX,
-        startVal, junoxEncMode: true, jDef };
+        startVal, junoEncMode: true, jDef };
       S._oledLocked = true;
       e.preventDefault();
       return;
@@ -12101,7 +12092,7 @@ document.addEventListener('mousemove', e => {
         S.groove = newGroove;
         if (typeof scheduleAutosave === 'function') scheduleAutosave();
       }
-      oledForce('GROOVE', `${S.groove}%`, S.groove === 0 ? 'serré' : 'humanisé');
+      oledForce('GROOVE', `${S.groove}%`, S.groove === 0 ? 'tight' : 'humanized');
       updateEncArcs();
       return;
     }
@@ -12136,19 +12127,19 @@ document.addEventListener('mousemove', e => {
       return;
     }
 
-    // Mode Junox enc : VCF Freq / Resonance / Env Mod / LFO Rate
-    if (encDrags[i].junoxEncMode) {
+    // Mode Juno enc : VCF Freq / Resonance / Env Mod / LFO Rate
+    if (encDrags[i].junoEncMode) {
       if (Math.abs(delta) < 0.3) return;
       const { jDef } = encDrags[i];
-      const patch = junoxPatches[S.currentTrack];
+      const patch = junoPatches[S.currentTrack];
       if (!patch) return;
       const parts = jDef.key.split('.');
       const cur = patch[parts[0]]?.[parts[1]] ?? jDef.def;
       const newVal = Math.max(jDef.min, Math.min(jDef.max, cur + delta / 150));
       if (!patch[parts[0]]) patch[parts[0]] = {};
       patch[parts[0]][parts[1]] = newVal;
-      // Appliquer au nœud Junox en temps réel
-      const node = junoxNodes[S.currentTrack];
+      // Appliquer au nœud Juno en temps réel
+      const node = junoNodes[S.currentTrack];
       if (node) node.sendMessage('set-param', { name: jDef.key, value: newVal });
       oledForce(jDef.label, Math.round(newVal * 100) + '%', `T${S.currentTrack + 1}`);
       updateEncArcs();
@@ -12263,10 +12254,9 @@ function buildPiano() {
       r.setAttribute('stroke', '#888');
       r.setAttribute('stroke-width', '0.5');
       r.setAttribute('cursor', 'pointer');
-      r.addEventListener('mousedown', () => pianoKeyPress(midi));
-      r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
-      r.addEventListener('touchstart', (e) => { e.preventDefault(); pianoKeyPress(midi); });
-      r.addEventListener('touchend',   (e) => { e.preventDefault(); pianoKeyRelease(midi); });
+      r.addEventListener('pointerdown', (e) => { e.preventDefault(); r.setPointerCapture(e.pointerId); pianoKeyPress(midi, e.pointerId); });
+      r.addEventListener('pointerup',   (e) => { pianoKeyRelease(midi, e.pointerId); });
+      r.addEventListener('pointercancel',(e) => { pianoKeyRelease(midi, e.pointerId); });
       g.appendChild(r);
       wx++;
     });
@@ -12281,10 +12271,9 @@ function buildPiano() {
     r.setAttribute('width', (PK_WW - 1).toFixed(1)); r.setAttribute('height', PK_WH);
     r.setAttribute('rx', '2'); r.setAttribute('fill', '#d0d0d0'); r.setAttribute('stroke', '#888');
     r.setAttribute('stroke-width', '0.5'); r.setAttribute('cursor', 'pointer');
-    r.addEventListener('mousedown', () => pianoKeyPress(midi));
-    r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
-    r.addEventListener('touchstart', (e) => { e.preventDefault(); pianoKeyPress(midi); });
-    r.addEventListener('touchend',   (e) => { e.preventDefault(); pianoKeyRelease(midi); });
+    r.addEventListener('pointerdown', (e) => { e.preventDefault(); r.setPointerCapture(e.pointerId); pianoKeyPress(midi, e.pointerId); });
+    r.addEventListener('pointerup',   (e) => { pianoKeyRelease(midi, e.pointerId); });
+    r.addEventListener('pointercancel',(e) => { pianoKeyRelease(midi, e.pointerId); });
     g.appendChild(r);
   }
   // Noires
@@ -12300,10 +12289,9 @@ function buildPiano() {
       r.setAttribute('width', PK_BW.toFixed(1)); r.setAttribute('height', PK_BH);
       r.setAttribute('rx', '2'); r.setAttribute('fill', '#1a1a1a'); r.setAttribute('stroke', '#000');
       r.setAttribute('stroke-width', '0.5'); r.setAttribute('cursor', 'pointer');
-      r.addEventListener('mousedown', () => pianoKeyPress(midi));
-      r.addEventListener('mouseup',   () => pianoKeyRelease(midi));
-      r.addEventListener('touchstart', (e) => { e.preventDefault(); pianoKeyPress(midi); });
-      r.addEventListener('touchend',   (e) => { e.preventDefault(); pianoKeyRelease(midi); });
+      r.addEventListener('pointerdown', (e) => { e.preventDefault(); r.setPointerCapture(e.pointerId); pianoKeyPress(midi, e.pointerId); });
+      r.addEventListener('pointerup',   (e) => { pianoKeyRelease(midi, e.pointerId); });
+      r.addEventListener('pointercancel',(e) => { pianoKeyRelease(midi, e.pointerId); });
       g.appendChild(r);
     });
     wx += 7;
@@ -12337,15 +12325,12 @@ function pianoKeyColor(midi, on) {
   else { el.setAttribute('fill', isBlack ? '#1a1a1a' : '#d0d0d0'); el.setAttribute('stroke', isBlack ? '#000' : '#888'); }
 }
 
-let _pianoHeldMidi = null; // touche piano actuellement pressée
+const _pianoHeldMap = new Map(); // pointerId → midi (polyphonie)
 let _padHeldNote = null;   // note pad SF2 actuellement pressée
 
-function pianoKeyPress(midi) {
+function pianoKeyPress(midi, pointerId) {
   ensureAudio();
-  if (_pianoHeldMidi !== null && _pianoHeldMidi !== midi) {
-    pianoKeyRelease(_pianoHeldMidi);
-  }
-  _pianoHeldMidi = midi;
+  if (pointerId !== undefined) _pianoHeldMap.set(pointerId, midi);
   pianoKeyColor(midi, true);
 
   const t = S.tracks[S.currentTrack];
@@ -12406,8 +12391,8 @@ function pianoKeyPress(midi) {
   }
 }
 
-function pianoKeyRelease(midi) {
-  if (_pianoHeldMidi === midi) _pianoHeldMidi = null;
+function pianoKeyRelease(midi, pointerId) {
+  if (pointerId !== undefined) _pianoHeldMap.delete(pointerId);
   const allNotes = getAllHeldNotes();
   if (!allNotes.includes(midi)) pianoKeyColor(midi, false);
   const t = S.tracks[S.currentTrack];
@@ -12417,11 +12402,11 @@ function pianoKeyRelease(midi) {
     } else {
       sf2NoteOff(S.currentTrack, midi);
     }
-  } else if (t.outputMode === 'junox' && t.mode !== 'drum') {
+  } else if (t.outputMode === 'juno' && t.mode !== 'drum') {
     if (arpIsActive(S.currentTrack)) {
       arpNoteOff(S.currentTrack, midi);
     } else {
-      junoxNoteOff(S.currentTrack, midi);
+      junoNoteOff(S.currentTrack, midi);
     }
   }
   recNoteOff(midi);
@@ -12429,12 +12414,12 @@ function pianoKeyRelease(midi) {
 
 // Relâchement global des touches piano et pads (mouseup hors de la touche)
 document.addEventListener('mouseup', () => {
-  if (_pianoHeldMidi !== null) {
-    pianoKeyRelease(_pianoHeldMidi);
-  }
+  _pianoHeldMap.forEach((midi) => pianoKeyRelease(midi));
+  _pianoHeldMap.clear();
+  // (les pointerup/pointercancel gèrent la majorité des cas)
   if (_padHeldNote !== null) {
     const t_pad = S.tracks[_padHeldNote.ti];
-    if (t_pad.outputMode === 'junox') junoxNoteOff(_padHeldNote.ti, _padHeldNote.note);
+    if (t_pad.outputMode === 'juno') junoNoteOff(_padHeldNote.ti, _padHeldNote.note);
     else sf2NoteOff(_padHeldNote.ti, _padHeldNote.note);
     recNoteOff(_padHeldNote.note);
     _padHeldNote = null;
@@ -12573,11 +12558,11 @@ function midiNoteOff(midi, ch) {
     } else {
       sf2NoteOff(S.currentTrack, midi);
     }
-  } else if (t.mode !== 'drum' && t.outputMode === 'junox') {
+  } else if (t.mode !== 'drum' && t.outputMode === 'juno') {
     if (arpIsActive(S.currentTrack)) {
       arpNoteOff(S.currentTrack, midi);
     } else {
-      junoxNoteOff(S.currentTrack, midi);
+      junoNoteOff(S.currentTrack, midi);
     }
   }
 
@@ -12676,21 +12661,21 @@ function midiCC(cc, value) {
       }
     } else if (tMod.outputMode === 'sf2' && sf2Ready && jsSynths[tiMod]) {
       jsSynths[tiMod].midiControl(SF2_CHANNEL, 1, value & 0x7f);
-    } else if (tMod.outputMode === 'junox' && junoxReady[tiMod] && junoxNodes[tiMod]) {
+    } else if (tMod.outputMode === 'juno' && junoReady[tiMod] && junoNodes[tiMod]) {
       // Modwheel expressive : contrôle dco.lfo en temps réel (0 → valeur max du patch)
       // La molette module la profondeur du vibrato entre 0 et la valeur LFO→Pitch du patch
-      const patch = junoxPatches[tiMod];
+      const patch = junoPatches[tiMod];
       if (patch) {
         const MOD_LFO_MAX = 0.5; // plage fixe : molette à fond = dco.lfo 0.5 (vibrato intense)
         if (value > 0) {
           const depth = (value / 127) * MOD_LFO_MAX;
-          junoxNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: depth });
-          junoxNodes[tiMod].lfoTrigger();
+          junoNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: depth });
+          junoNodes[tiMod].lfoTrigger();
         } else {
           // Retour à zéro : restaurer la valeur originale du patch
           const patchLfoDepth = patch.dco?.lfo ?? 0;
-          junoxNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: patchLfoDepth });
-          junoxNodes[tiMod].lfoRelease();
+          junoNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: patchLfoDepth });
+          junoNodes[tiMod].lfoRelease();
         }
       }
     }
@@ -12747,16 +12732,16 @@ function midiCC(cc, value) {
       return;
     }
 
-    // Mode Junox sans step tenu : enc0=VCF Freq, enc1=Resonance, enc2=Env Mod, enc3=LFO Rate
-    if (tEnc.outputMode === 'junox' && encIdx < 4) {
-      const JUNOX_ENC_MIDI = [
+    // Mode Juno sans step tenu : enc0=VCF Freq, enc1=Resonance, enc2=Env Mod, enc3=LFO Rate
+    if (tEnc.outputMode === 'juno' && encIdx < 4) {
+      const JUNO_ENC_MIDI = [
         { key: 'vcf.frequency', label: 'CUTOFF',    min: 0, max: 1, def: 0.7 },
         { key: 'vcf.resonance', label: 'RESONANCE', min: 0, max: 1, def: 0   },
         { key: 'vcf.envMod',    label: 'ENV MOD',   min: 0, max: 1, def: 0   },
         { key: 'lfo.frequency', label: 'LFO RATE',  min: 0, max: 1, def: 0.3 },
       ];
-      const jDef = JUNOX_ENC_MIDI[encIdx];
-      const patch = junoxPatches[S.currentTrack];
+      const jDef = JUNO_ENC_MIDI[encIdx];
+      const patch = junoPatches[S.currentTrack];
       if (!patch) return;
       const parts = jDef.key.split('.');
       const cur = patch[parts[0]]?.[parts[1]] ?? jDef.def;
@@ -12764,7 +12749,7 @@ function midiCC(cc, value) {
       const newVal = Math.max(jDef.min, Math.min(jDef.max, cur + d2));
       if (!patch[parts[0]]) patch[parts[0]] = {};
       patch[parts[0]][parts[1]] = newVal;
-      const node = junoxNodes[S.currentTrack];
+      const node = junoNodes[S.currentTrack];
       if (node) node.sendMessage('set-param', { name: jDef.key, value: newVal });
       oledForce(jDef.label, Math.round(newVal * 100) + '%', `T${S.currentTrack + 1}`);
       updateEncArcs();
@@ -12918,33 +12903,33 @@ function midiCC(cc, value) {
     // Pas d'action sur drum (T1) ni master (T8)
     if (t.mode === 'drum' || t.mode === 'master') return;
 
-    // ── Track Junox ──────────────────────────────────────────────
-    if (t.outputMode === 'junox') {
-      const list = Junox.Juno60FactoryPatchesA;
+    // ── Track Juno ──────────────────────────────────────────────
+    if (t.outputMode === 'juno') {
+      const list = Juno.Juno60FactoryPatchesA;
       if (!list || !list.length) return;
       const delta = (cc === 115) ? -1 : 1;
-      const curName = junoxPatches[ti]?.name || null;
+      const curName = junoPatches[ti]?.name || null;
       const curIdx  = curName ? list.findIndex(p => p.name === curName) : 0;
       const newIdx  = Math.max(0, Math.min(list.length - 1, (curIdx < 0 ? 0 : curIdx) + delta));
       if (newIdx === curIdx) return;
 
-      const junoxBrowserOpen = document.getElementById('junoxBrowser').classList.contains('open');
-      if (junoxBrowserOpen) {
+      const junoBrowserOpen = document.getElementById('junoBrowser').classList.contains('open');
+      if (junoBrowserOpen) {
         // Browser ouvert : mettre à jour la sélection visuellement + preview
-        junoxBr.activeIdx = newIdx;
-        junoxBrSelect(newIdx);
-        const items = document.querySelectorAll('#junoxBrList .brItem');
+        junoBr.activeIdx = newIdx;
+        junoBrSelect(newIdx);
+        const items = document.querySelectorAll('#junoBrList .brItem');
         if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
       } else {
         // Browser fermé : charger directement le preset
-        junoxPatches[ti] = JSON.parse(JSON.stringify(list[newIdx])); // copie
-        if (junoxNodes[ti]) {
-          junoxNodes[ti].setPatch(junoxPatches[ti]);
-          junoxNodes[ti].lfoTrigger();
-          const rt = junoxRuntime[ti];
-          junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
-          junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
-          junoxSetReverb(ti, rt.revLevel);
+        junoPatches[ti] = JSON.parse(JSON.stringify(list[newIdx])); // copie
+        if (junoNodes[ti]) {
+          junoNodes[ti].setPatch(junoPatches[ti]);
+          junoNodes[ti].lfoTrigger();
+          const rt = junoRuntime[ti];
+          junoSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+          junoSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+          junoSetReverb(ti, rt.revLevel);
         }
         renderFXPanel();
         oledForce(`T${ti+1}`, list[newIdx].name.slice(0, 12), `${newIdx + 1}/${list.length}`);
@@ -13094,8 +13079,8 @@ function midiPitchBend(lsb, msb) {
     }
   } else if (t.outputMode === 'sf2' && sf2Ready && jsSynths[ti]) {
     jsSynths[ti].midiPitchBend(SF2_CHANNEL, raw);
-  } else if (t.outputMode === 'junox') {
-    junoxPitchBend(ti, pct);
+  } else if (t.outputMode === 'juno') {
+    junoPitchBend(ti, pct);
   }
 }
 
@@ -13171,7 +13156,7 @@ function midiInit() {
     };
   }).catch(err => {
     console.warn('MIDI access denied:', err);
-    oledForce('MIDI', 'accès refusé', '');
+    oledForce('MIDI', 'access denied', '');
   });
 }
 
@@ -13405,11 +13390,11 @@ function midiNoteOn(midi, velocity, ch) {
     } else {
       sf2NoteOn(S.currentTrack, midi, vel);
     }
-  } else if (t.outputMode === 'junox') {
+  } else if (t.outputMode === 'juno') {
     if (arpIsActive(S.currentTrack)) {
       arpNoteOn(S.currentTrack, midi);
     } else {
-      junoxNoteOn(S.currentTrack, midi, vel);
+      junoNoteOn(S.currentTrack, midi, vel);
     }
   } else {
     // Moteur interne
@@ -13810,7 +13795,7 @@ function pressLoopStep(idx) {
     renderLoopMode();
     const lo = Math.min(S._loopBarHeld, idx);
     const hi = Math.max(S._loopBarHeld, idx);
-    oled('RÉGION', `Bar ${lo+1} → Bar ${hi+1}`, `${hi - lo + 1} bars`);
+    oled('REGION', `Bar ${lo+1} → Bar ${hi+1}`, `${hi - lo + 1} bars`);
   }
 }
 
@@ -14063,7 +14048,7 @@ function loopDeleteBar(barIdx) {
   white-space: nowrap;
 }
 .brFolderBtn:hover { background: #333; color: #fff; }
-#junoxSaveName:empty:before {
+#junoSaveName:empty:before {
   content: attr(data-placeholder);
   color: #555;
   pointer-events: none;
@@ -14281,6 +14266,8 @@ function closeSF2Browser() {
     console.log(`[SF2] Track ${ti+1} temp déchargé : ${sf2TempBank[ti].name}`);
     sf2TempBank[ti] = null;
   }
+  // Restaurer l'OLED après fermeture du browser
+  if (!S._oledLocked) oledHome(sf2Browser.trackIdx);
 }
 
 // ── Sélection du dossier ───────────────────────────────────────────────────
@@ -14337,7 +14324,7 @@ document.getElementById('sf2FolderBtn').addEventListener('click', async () => {
 // ── Chargement du catalogue depuis le dossier ──────────────────────────────
 
 async function loadSF2Catalogue(dirHandle) {
-  sf2ShowLoading('Chargement du catalogue…');
+  sf2ShowLoading('Loading catalog…');
   try {
     // Indexer tous les FileHandles SF2 du dossier
     sf2Browser.fileHandles = {};
@@ -14472,7 +14459,7 @@ function sf2SelectCategory(cat, resetSearch) {
 
 async function sf2LoadBankPresets(fileName) {
   const ti = sf2Browser.trackIdx;
-  sf2ShowLoading('Chargement presets…');
+  sf2ShowLoading('Loading presets…');
   try {
     // Récupérer le fichier (File API ou FileHandle)
     let file;
@@ -14907,7 +14894,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (S.mode === 'session') return;
     const ti = S.tracks[S.currentTrack];
     if (ti.mode === 'master') return;
-    if (ti.outputMode === 'junox') { openJunoxBrowser(S.currentTrack); return; }
+    if (ti.outputMode === 'juno') { openJunoBrowser(S.currentTrack); return; }
     if (ti.outputMode === 'midi') { openMidiBrowser(S.currentTrack); return; }
     if (ti.mode === 'drum') {
       openDrumBrowser();
@@ -14917,87 +14904,87 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   restoreSF2Dir();
   restoreDrumDir();
-  initJunoxBrowserUI();
+  initJunoBrowserUI();
   buildFXPanel();
   renderFXPanel();
 });
 
 
 // ═══════════════════════════════════════════════════════════════
-// JUNOX PRESET BROWSER
+// JUNO PRESET BROWSER
 // ═══════════════════════════════════════════════════════════════
-// ── Junox user presets (localStorage) ─────────────────────────
-const JUNOX_USER_PRESET_KEY = 'jseq_junox_user_presets';
-const JUNOX_MAX_USER_PRESETS = 256;
+// ── Juno user presets (localStorage) ─────────────────────────
+const JUNO_USER_PRESET_KEY = 'jseq_juno_user_presets';
+const JUNO_MAX_USER_PRESETS = 256;
 
-function junoxUserPresetsLoad() {
-  try { return JSON.parse(localStorage.getItem(JUNOX_USER_PRESET_KEY) || '[]'); }
+function junoUserPresetsLoad() {
+  try { return JSON.parse(localStorage.getItem(JUNO_USER_PRESET_KEY) || '[]'); }
   catch(e) { return []; }
 }
 
-function junoxUserPresetsSave(list) {
-  localStorage.setItem(JUNOX_USER_PRESET_KEY, JSON.stringify(list));
+function junoUserPresetsSave(list) {
+  localStorage.setItem(JUNO_USER_PRESET_KEY, JSON.stringify(list));
 }
 
 // ── Browser state ──────────────────────────────────────────────
-const junoxBr = {
+const junoBr = {
   activeIdx: null,   // index dans la liste fusionnée triée
   mergedList: [],    // liste fusionnée [factory + user], triée alpha
 };
 
-function junoxBrBuildList() {
-  const factory = (Junox.Juno60FactoryPatchesA || []).map(p => ({ ...p, _user: false }));
-  const user    = junoxUserPresetsLoad().map(p => ({ ...p, _user: true }));
+function junoBrBuildList() {
+  const factory = (Juno.Juno60FactoryPatchesA || []).map(p => ({ ...p, _user: false }));
+  const user    = junoUserPresetsLoad().map(p => ({ ...p, _user: true }));
   const merged  = [...factory, ...user];
   merged.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
-  junoxBr.mergedList = merged;
+  junoBr.mergedList = merged;
   return merged;
 }
 
-function openJunoxBrowser(ti) {
+function openJunoBrowser(ti) {
   if (ti === undefined) ti = S.currentTrack;
-  junoxBr.trackIdx = ti; // mémoriser la track pour les actions du browser
-  updateBrowserTrackLabel('junox', ti);
-  const list = junoxBrBuildList();
-  const curName = junoxPatches[ti]?.name || null;
-  junoxBr.activeIdx = list.findIndex(p => p.name === curName);
-  if (junoxBr.activeIdx < 0) junoxBr.activeIdx = 0;
+  junoBr.trackIdx = ti; // mémoriser la track pour les actions du browser
+  updateBrowserTrackLabel('juno', ti);
+  const list = junoBrBuildList();
+  const curName = junoPatches[ti]?.name || null;
+  junoBr.activeIdx = list.findIndex(p => p.name === curName);
+  if (junoBr.activeIdx < 0) junoBr.activeIdx = 0;
 
-  document.getElementById('junoxBrCurrent').textContent = curName || '—';
-  document.getElementById('junoxBrCount').textContent = list.length + ' presets';
+  document.getElementById('junoBrCurrent').textContent = curName || '—';
+  document.getElementById('junoBrCount').textContent = list.length + ' presets';
 
-  junoxBrRenderList();
-  document.getElementById('junoxBrowser').classList.add('open');
+  junoBrRenderList();
+  document.getElementById('junoBrowser').classList.add('open');
 
   setTimeout(() => {
-    const items = document.querySelectorAll('#junoxBrList .brItem');
-    if (items[junoxBr.activeIdx]) items[junoxBr.activeIdx].scrollIntoView({ block: 'center' });
+    const items = document.querySelectorAll('#junoBrList .brItem');
+    if (items[junoBr.activeIdx]) items[junoBr.activeIdx].scrollIntoView({ block: 'center' });
   }, 50);
 }
 
-function closeJunoxBrowser() {
-  document.getElementById('junoxBrowser').classList.remove('open');
+function closeJunoBrowser() {
+  document.getElementById('junoBrowser').classList.remove('open');
 }
 
-function junoxBrRenderList() {
-  const list = junoxBr.mergedList;
-  const container = document.getElementById('junoxBrList');
+function junoBrRenderList() {
+  const list = junoBr.mergedList;
+  const container = document.getElementById('junoBrList');
   container.innerHTML = '';
 
   list.forEach((preset, idx) => {
     const el = document.createElement('div');
-    el.className = 'brItem' + (idx === junoxBr.activeIdx ? ' active-preset' : '');
+    el.className = 'brItem' + (idx === junoBr.activeIdx ? ' active-preset' : '');
     const badge = preset._user ? ' <span style="font-size:9px;color:#4cf;opacity:0.7">★</span>' : '';
     el.innerHTML = `<span class="brName">${preset.name}${badge}</span><span class="brSub">${idx + 1}</span>`;
 
-    el.addEventListener('click', () => junoxBrSelect(idx));
-    safeDblClick(el, () => junoxBrConfirm(idx));
+    el.addEventListener('click', () => junoBrSelect(idx));
+    safeDblClick(el, () => junoBrConfirm(idx));
 
     // Long-press 2s → supprimer (presets utilisateur uniquement)
     if (preset._user) {
       let _longTimer = null;
       const startLong = () => {
-        _longTimer = setTimeout(() => { _longTimer = null; junoxBrOpenDeletePopup(idx); }, 1000);
+        _longTimer = setTimeout(() => { _longTimer = null; junoBrOpenDeletePopup(idx); }, 1000);
       };
       const cancelLong = () => { if (_longTimer) { clearTimeout(_longTimer); _longTimer = null; } };
       el.addEventListener('mousedown', startLong);
@@ -15012,90 +14999,90 @@ function junoxBrRenderList() {
   });
 }
 
-function junoxBrOpenDeletePopup(idx) {
-  const preset = junoxBr.mergedList[idx];
+function junoBrOpenDeletePopup(idx) {
+  const preset = junoBr.mergedList[idx];
   if (!preset || !preset._user) return;
-  junoxBr._deleteIdx = idx;
-  document.getElementById('junoxDeleteName').textContent = preset.name;
-  document.getElementById('junoxDeletePopup').style.display = 'flex';
+  junoBr._deleteIdx = idx;
+  document.getElementById('junoDeleteName').textContent = preset.name;
+  document.getElementById('junoDeletePopup').style.display = 'flex';
 }
 
-function junoxBrCloseDeletePopup() {
-  document.getElementById('junoxDeletePopup').style.display = 'none';
-  junoxBr._deleteIdx = null;
+function junoBrCloseDeletePopup() {
+  document.getElementById('junoDeletePopup').style.display = 'none';
+  junoBr._deleteIdx = null;
 }
 
-function junoxBrDoDelete() {
-  const idx = junoxBr._deleteIdx;
-  const preset = junoxBr.mergedList[idx];
+function junoBrDoDelete() {
+  const idx = junoBr._deleteIdx;
+  const preset = junoBr.mergedList[idx];
   if (!preset || !preset._user) return;
 
-  const users = junoxUserPresetsLoad();
+  const users = junoUserPresetsLoad();
   const newUsers = users.filter(p => p.name !== preset.name);
-  junoxUserPresetsSave(newUsers);
-  junoxBrCloseDeletePopup();
+  junoUserPresetsSave(newUsers);
+  junoBrCloseDeletePopup();
 
   // Rafraîchir la liste
-  const list = junoxBrBuildList();
-  document.getElementById('junoxBrCount').textContent = list.length + ' presets';
-  junoxBr.activeIdx = Math.min(junoxBr.activeIdx ?? 0, list.length - 1);
-  junoxBrRenderList();
+  const list = junoBrBuildList();
+  document.getElementById('junoBrCount').textContent = list.length + ' presets';
+  junoBr.activeIdx = Math.min(junoBr.activeIdx ?? 0, list.length - 1);
+  junoBrRenderList();
   oledForce('JUNO', preset.name, 'deleted');
   setTimeout(() => { S._oledLocked = false; }, 1500);
 }
 
-function junoxBrSelect(idx) {
-  const list = junoxBr.mergedList;
+function junoBrSelect(idx) {
+  const list = junoBr.mergedList;
   if (!list[idx]) return;
-  junoxBr.activeIdx = idx;
+  junoBr.activeIdx = idx;
 
-  document.querySelectorAll('#junoxBrList .brItem').forEach((el, i) => {
+  document.querySelectorAll('#junoBrList .brItem').forEach((el, i) => {
     el.classList.toggle('active-preset', i === idx);
   });
-  document.getElementById('junoxBrCurrent').textContent = list[idx].name;
+  document.getElementById('junoBrCurrent').textContent = list[idx].name;
 
-  const ti = junoxBr.trackIdx ?? S.currentTrack;
-  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
-  if (junoxNodes[ti]) {
+  const ti = junoBr.trackIdx ?? S.currentTrack;
+  junoPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
+  if (junoNodes[ti]) {
     const previewPatch = JSON.parse(JSON.stringify(list[idx]));
     if (previewPatch.dco) previewPatch.dco.lfo = 0;
-    junoxNodes[ti].setPatch(previewPatch);
-    junoxNodes[ti].lfoTrigger();
-    const rt = junoxRuntime[ti];
-    junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
-    junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
-    junoxSetReverb(ti, rt.revLevel);
+    junoNodes[ti].setPatch(previewPatch);
+    junoNodes[ti].lfoTrigger();
+    const rt = junoRuntime[ti];
+    junoSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+    junoSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+    junoSetReverb(ti, rt.revLevel);
   }
   renderFXPanel();
   oledForce('JUNO', list[idx].name, `${idx+1}/${list.length}`);
 }
 
-function junoxBrConfirm(idx) {
-  const list = junoxBr.mergedList;
+function junoBrConfirm(idx) {
+  const list = junoBr.mergedList;
   if (!list[idx]) return;
 
-  junoxBr.activeIdx = idx;
-  const ti = junoxBr.trackIdx ?? S.currentTrack;
-  junoxPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
-  if (junoxNodes[ti]) {
-    junoxNodes[ti].setPatch(junoxPatches[ti]);
-    junoxNodes[ti].lfoTrigger();
-    const rt = junoxRuntime[ti];
-    junoxSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
-    junoxSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
-    junoxSetReverb(ti, rt.revLevel);
+  junoBr.activeIdx = idx;
+  const ti = junoBr.trackIdx ?? S.currentTrack;
+  junoPatches[ti] = JSON.parse(JSON.stringify(list[idx]));
+  if (junoNodes[ti]) {
+    junoNodes[ti].setPatch(junoPatches[ti]);
+    junoNodes[ti].lfoTrigger();
+    const rt = junoRuntime[ti];
+    junoSetSat(ti, rt.satDrive <= -13 ? null : rt.satDrive, rt.satType);
+    junoSetDelay(ti, rt.dlyTime, rt.dlyFeedback, rt.dlyMix);
+    junoSetReverb(ti, rt.revLevel);
   }
   renderFXPanel();
-  closeJunoxBrowser();
+  closeJunoBrowser();
   oled('JUNO T2', list[idx].name, 'loaded');
 }
 
 // ── Save preset ────────────────────────────────────────────────
-function junoxBrOpenSavePopup() {
-  const curName = junoxPatches[junoxBr.trackIdx ?? S.currentTrack]?.name || '';
-  const input = document.getElementById('junoxSaveName');
+function junoBrOpenSavePopup() {
+  const curName = junoPatches[junoBr.trackIdx ?? S.currentTrack]?.name || '';
+  const input = document.getElementById('junoSaveName');
   input.textContent = curName;
-  const popup = document.getElementById('junoxSavePopup');
+  const popup = document.getElementById('junoSavePopup');
   popup.style.display = 'flex';
   setTimeout(() => {
     input.focus();
@@ -15108,22 +15095,22 @@ function junoxBrOpenSavePopup() {
   }, 80);
 }
 
-function junoxBrCloseSavePopup() {
-  document.getElementById('junoxSavePopup').style.display = 'none';
+function junoBrCloseSavePopup() {
+  document.getElementById('junoSavePopup').style.display = 'none';
 }
 
-function junoxBrDoSave() {
-  const name = (document.getElementById('junoxSaveName').textContent || '').trim();
+function junoBrDoSave() {
+  const name = (document.getElementById('junoSaveName').textContent || '').trim();
   if (!name) return; // au moins 1 caractère requis
 
-  const users = junoxUserPresetsLoad();
-  if (users.length >= JUNOX_MAX_USER_PRESETS) {
-    alert('Maximum ' + JUNOX_MAX_USER_PRESETS + ' presets utilisateur atteint.');
+  const users = junoUserPresetsLoad();
+  if (users.length >= JUNO_MAX_USER_PRESETS) {
+    alert('Maximum ' + JUNO_MAX_USER_PRESETS + ' user presets reached.');
     return;
   }
 
-  const ti = junoxBr.trackIdx ?? S.currentTrack;
-  const patch = JSON.parse(JSON.stringify(junoxPatches[ti] || {}));
+  const ti = junoBr.trackIdx ?? S.currentTrack;
+  const patch = JSON.parse(JSON.stringify(junoPatches[ti] || {}));
   patch.name = name;
 
   // Écraser si même nom existe déjà
@@ -15131,37 +15118,37 @@ function junoxBrDoSave() {
   if (existIdx >= 0) users[existIdx] = patch;
   else users.push(patch);
 
-  junoxUserPresetsSave(users);
-  junoxBrCloseSavePopup();
+  junoUserPresetsSave(users);
+  junoBrCloseSavePopup();
 
   // Rafraîchir la liste et scroll vers le preset sauvegardé
-  const list = junoxBrBuildList();
-  document.getElementById('junoxBrCount').textContent = list.length + ' presets';
+  const list = junoBrBuildList();
+  document.getElementById('junoBrCount').textContent = list.length + ' presets';
   const newIdx = list.findIndex(p => p.name === name);
-  junoxBr.activeIdx = newIdx >= 0 ? newIdx : 0;
-  junoxBrRenderList();
-  document.getElementById('junoxBrCurrent').textContent = name;
+  junoBr.activeIdx = newIdx >= 0 ? newIdx : 0;
+  junoBrRenderList();
+  document.getElementById('junoBrCurrent').textContent = name;
   setTimeout(() => {
-    const items = document.querySelectorAll('#junoxBrList .brItem');
-    if (items[junoxBr.activeIdx]) items[junoxBr.activeIdx].scrollIntoView({ block: 'center' });
+    const items = document.querySelectorAll('#junoBrList .brItem');
+    if (items[junoBr.activeIdx]) items[junoBr.activeIdx].scrollIntoView({ block: 'center' });
   }, 50);
   oledForce('JUNO', name, 'preset saved');
   setTimeout(() => { S._oledLocked = false; }, 1500);
 }
 
 // Init bouton fermer (appelé depuis le DOMContentLoaded principal)
-function initJunoxBrowserUI() {
-  document.getElementById('junoxBrCloseBtn')?.addEventListener('click', closeJunoxBrowser);
-  document.getElementById('junoxBrSaveBtn')?.addEventListener('click', junoxBrOpenSavePopup);
-  document.getElementById('junoxSaveCancelBtn')?.addEventListener('click', junoxBrCloseSavePopup);
-  document.getElementById('junoxSaveConfirmBtn')?.addEventListener('click', junoxBrDoSave);
+function initJunoBrowserUI() {
+  document.getElementById('junoBrCloseBtn')?.addEventListener('click', closeJunoBrowser);
+  document.getElementById('junoBrSaveBtn')?.addEventListener('click', junoBrOpenSavePopup);
+  document.getElementById('junoSaveCancelBtn')?.addEventListener('click', junoBrCloseSavePopup);
+  document.getElementById('junoSaveConfirmBtn')?.addEventListener('click', junoBrDoSave);
   // Confirmer avec Enter
-  document.getElementById('junoxSaveName')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { e.preventDefault(); junoxBrDoSave(); }
-    if (e.key === 'Escape') junoxBrCloseSavePopup();
+  document.getElementById('junoSaveName')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); junoBrDoSave(); }
+    if (e.key === 'Escape') junoBrCloseSavePopup();
   });
-  document.getElementById('junoxDeleteCancelBtn')?.addEventListener('click', junoxBrCloseDeletePopup);
-  document.getElementById('junoxDeleteConfirmBtn')?.addEventListener('click', junoxBrDoDelete);
+  document.getElementById('junoDeleteCancelBtn')?.addEventListener('click', junoBrCloseDeletePopup);
+  document.getElementById('junoDeleteConfirmBtn')?.addEventListener('click', junoBrDoDelete);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -15487,7 +15474,7 @@ async function restoreDrumDir() {
 }
 
 function sf2ShowLoading(msg) {
-  document.getElementById('sf2LoadMsg').textContent = msg || 'Chargement…';
+  document.getElementById('sf2LoadMsg').textContent = msg || 'Loading…';
   document.getElementById('sf2Loading').classList.add('show');
 }
 function sf2HideLoading() {
@@ -15564,9 +15551,9 @@ var _gamepadBHeldIdx = -1; // index du step pressé via gamepad
 
 function gamepadBDown() {
   if (_gamepadBHeld) return;
-  // Junox browser ouvert → bouton A = confirmer le preset sélectionné
-  if (document.getElementById('junoxBrowser').classList.contains('open')) {
-    junoxBrConfirm(junoxBr.activeIdx ?? 0);
+  // Juno browser ouvert → bouton A = confirmer le preset sélectionné
+  if (document.getElementById('junoBrowser').classList.contains('open')) {
+    junoBrConfirm(junoBr.activeIdx ?? 0);
     return;
   }
   // SF2 browser ouvert → bouton A = confirmer le son sélectionné
@@ -15601,7 +15588,7 @@ function gamepadBDown() {
     saveUndo(); // un seul undo pour toute l'opération de déplacement
     renderLoopMode();
     const barNotes = countBarNotes(stepCursorPos);
-    oled('SAISIE', `Bar ${stepCursorPos+1}`, `${barNotes} note${barNotes!==1?'s':''}`);
+    oled('EDIT', `Bar ${stepCursorPos+1}`, `${barNotes} note${barNotes!==1?'s':''}`);
     return;
   }
   
@@ -15698,7 +15685,7 @@ function closeTrackTypePopup() {
 
 // Connecter les boutons de type dans les browsers
 function initTypeButtons() {
-  ['sf2TrackLabel', 'drumBrTrackLabel', 'junoxBrTrackLabel'].forEach(id => {
+  ['sf2TrackLabel', 'drumBrTrackLabel', 'junoBrTrackLabel'].forEach(id => {
     const btn = document.getElementById(id);
     if (!btn) return;
     btn.addEventListener('click', e => {
@@ -15722,7 +15709,7 @@ function initTypeButtons() {
       await switchTrackType(ti, newType);
 
       // Ouvrir le browser correspondant au nouveau type
-      // (junox est déjà ouvert par switchTrackType avant l'init audio)
+      // (juno est déjà ouvert par switchTrackType avant l'init audio)
       if (newType === 'drum') { S.currentTrack = ti; openDrumBrowser(); }
       else if (newType === 'sf2') openSF2Browser(ti);
     });
@@ -15732,7 +15719,7 @@ function initTypeButtons() {
 function getCurrentBrowserTrack(btnId) {
   if (btnId === 'sf2TrackLabel') return sf2Browser.trackIdx ?? S.currentTrack;
   if (btnId === 'drumBrTrackLabel') return S.currentTrack;
-  if (btnId === 'junoxBrTrackLabel') return junoxBr.trackIdx ?? S.currentTrack;
+  if (btnId === 'junoBrTrackLabel') return junoBr.trackIdx ?? S.currentTrack;
   return S.currentTrack;
 }
 
@@ -15742,7 +15729,7 @@ function updateBrowserTrackLabel(browserId, ti) {
   const col = t.color || '#ff6b00';
   const trackNum = `T${ti+1}`;
   let typeLabel;
-  if (t.outputMode === 'junox') typeLabel = 'JUNO';
+  if (t.outputMode === 'juno') typeLabel = 'JUNO';
   else if (t.outputMode === 'midi') typeLabel = 'MIDI';
   else if (t.mode === 'drum') typeLabel = 'DRUM';
   else typeLabel = 'SF2';
@@ -15753,8 +15740,8 @@ function updateBrowserTrackLabel(browserId, ti) {
   } else if (browserId === 'drum') {
     const btn = document.getElementById('drumBrTrackLabel');
     if (btn) { btn.textContent = `${trackNum} · DRUM`; btn.style.color = col; }
-  } else if (browserId === 'junox') {
-    const btn = document.getElementById('junoxBrTrackLabel');
+  } else if (browserId === 'juno') {
+    const btn = document.getElementById('junoBrTrackLabel');
     if (btn) { btn.textContent = `${trackNum} · JUNO`; btn.style.color = col; }
   }
 }
@@ -16054,8 +16041,8 @@ function pollGamepad() {
     const bWas = _gpPrevButtons[gp.index + '_1'] || false;
     if (bPressed && !bWas) {
       // Browser ouvert → bouton B = fermer sans confirmer
-      if (document.getElementById('junoxBrowser').classList.contains('open')) {
-        closeJunoxBrowser();
+      if (document.getElementById('junoBrowser').classList.contains('open')) {
+        closeJunoBrowser();
         _gpPrevButtons[gp.index + '_1'] = bPressed;
         continue;
       }
@@ -16195,18 +16182,18 @@ function moveBarInsert(fromIdx, direction) {
 window._moveBarInsertFn = moveBarInsert;
 
 function dpadAction(name) {
-      // Priorité 0 : Junox browser ouvert → navigation presets
-      const junoxOpen = document.getElementById('junoxBrowser').classList.contains('open');
-      if (junoxOpen) {
+      // Priorité 0 : Juno browser ouvert → navigation presets
+      const junoOpen = document.getElementById('junoBrowser').classList.contains('open');
+      if (junoOpen) {
         const delta = name === 'up' ? -1 : name === 'down' ? 1
                     : name === 'left' ? -8 : name === 'right' ? 8 : 0;
         if (delta !== 0) {
-          const list = Junox.Juno60FactoryPatchesA;
-          const curIdx = junoxBr.activeIdx ?? 0;
+          const list = Juno.Juno60FactoryPatchesA;
+          const curIdx = junoBr.activeIdx ?? 0;
           const newIdx = Math.max(0, Math.min(list.length - 1, curIdx + delta));
           if (newIdx !== curIdx) {
-            junoxBrSelect(newIdx);
-            const items = document.querySelectorAll('#junoxBrList .brItem');
+            junoBrSelect(newIdx);
+            const items = document.querySelectorAll('#junoBrList .brItem');
             if (items[newIdx]) items[newIdx].scrollIntoView({ block: 'nearest' });
           }
         }
@@ -16269,7 +16256,7 @@ function dpadAction(name) {
             updateStepCursor();
             renderLoopMode();
             illuminateLoopBarNotes(newPos);
-            oled('DÉPLACER', `Bar → pos ${newPos+1}`, '');
+            oled('MOVE', `Bar → pos ${newPos+1}`, '');
           }
         }
         if (name === 'up')   loopBarTranspose(1);
@@ -16376,11 +16363,11 @@ function openProjectBrowser(slot) {
 
     actionList.innerHTML = `
       <div class="brItem" id="prjExportBtn" style="cursor:pointer">
-        <span class="brName">⬇ Exporter ZIP</span>
+        <span class="brName">⬇ Export ZIP</span>
         <span class="brSub">MIDI + JSON</span>
       </div>
       <div class="brItem" style="pointer-events:none;opacity:0.3">
-        <span class="brName">⬆ Importer ZIP</span>
+        <span class="brName">⬆ Import ZIP</span>
         <span class="brSub">slot in use</span>
       </div>`;
     document.getElementById('prjExportBtn').addEventListener('click', () => exportProjectZip(slot, data));
@@ -16393,12 +16380,12 @@ function openProjectBrowser(slot) {
     </div>`;
     actionList.innerHTML = `
       <div class="brItem" style="pointer-events:none;opacity:0.3">
-        <span class="brName">⬇ Exporter ZIP</span>
+        <span class="brName">⬇ Export ZIP</span>
         <span class="brSub">empty slot</span>
       </div>
       <div class="brItem" id="prjImportBtn" style="cursor:pointer">
-        <span class="brName">⬆ Importer ZIP</span>
-        <span class="brSub">charger projet</span>
+        <span class="brName">⬆ Import ZIP</span>
+        <span class="brSub">load project</span>
       </div>`;
     document.getElementById('prjImportBtn').addEventListener('click', () => {
       document.getElementById('prjBrFileInput').click();
@@ -16673,7 +16660,7 @@ document.getElementById('prjBrFileInput').addEventListener('change', async funct
 
 window.addEventListener('gamepadconnected', e => {
   console.log('[J-seq] Gamepad connecté:', e.gamepad.id);
-  oledForce('GAMEPAD', e.gamepad.id.slice(0, 14), 'Connecté');
+  oledForce('GAMEPAD', e.gamepad.id.slice(0, 14), 'Connected');
   setTimeout(() => S._oledLocked = false, 1500);
 });
 requestAnimationFrame(pollGamepad);
@@ -16700,14 +16687,14 @@ requestAnimationFrame(pollGamepad);
           const def = ENC_DEFS[i];
           def.set(res.st, def.def);
           saveUndo(); updateEncArcs();
-          oledForce(def.label, def.fmt(def.def), '↺ défaut');
+          oledForce(def.label, def.fmt(def.def), '↺ default');
         } else if (t.mode === 'drum') {
           // Mode drum — reset Tune/Decay/Tone/Drive
           if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
           const pad = t.drumPads[S.selectedDrumPad];
           const key = DRUM_ENC_KEYS[i];
           const defs = DRUM_SYNTH_DEFAULTS[pad.synthType] || DRUM_SYNTH_DEFAULTS['Kick'];
-          if (key in defs) { pad[key] = defs[key]; updateEncArcs(); oledForce(key.toUpperCase(), String(defs[key]), '↺ défaut'); }
+          if (key in defs) { pad[key] = defs[key]; updateEncArcs(); oledForce(key.toUpperCase(), String(defs[key]), '↺ default'); }
         } else if (t.mode === 'master') {
           // Mode master — pas d'encodeurs actifs, ignorer
         }
@@ -16755,7 +16742,7 @@ requestAnimationFrame(pollGamepad);
           }
         }
         updateSendArcs();
-        oledForce(SEND_LABELS[si] + ' SEND', '0%', '↺ défaut');
+        oledForce(SEND_LABELS[si] + ' SEND', '0%', '↺ default');
         e.preventDefault();
       } else {
         _tap[id] = now;
@@ -16779,7 +16766,7 @@ requestAnimationFrame(pollGamepad);
       if (_tap['enc0_bpm'] && now - _tap['enc0_bpm'] < 350) {
         _tap['enc0_bpm'] = 0;
         setBpm(120);
-        oledForce('BPM', '120', '↺ défaut');
+        oledForce('BPM', '120', '↺ default');
         svg('enc0').setAttribute('stroke', '#aaa');
         svg('enc0').setAttribute('stroke-width', '2.5');
         setTimeout(() => {
@@ -16803,7 +16790,7 @@ requestAnimationFrame(pollGamepad);
         _tap['enc1_swing'] = 0;
         S.swing = 0;
         if (typeof scheduleAutosave === 'function') scheduleAutosave();
-        oledForce('SWING', '0%', '↺ défaut');
+        oledForce('SWING', '0%', '↺ default');
         svg('enc1').setAttribute('stroke', '#aaa');
         svg('enc1').setAttribute('stroke-width', '2.5');
         if (typeof updateEncArcs === 'function') updateEncArcs();
@@ -16828,7 +16815,7 @@ requestAnimationFrame(pollGamepad);
         _tap['enc2_groove'] = 0;
         S.groove = 0;
         if (typeof scheduleAutosave === 'function') scheduleAutosave();
-        oledForce('GROOVE', '0%', '↺ défaut');
+        oledForce('GROOVE', '0%', '↺ default');
         svg('enc2').setAttribute('stroke', '#aaa');
         svg('enc2').setAttribute('stroke-width', '2.5');
         if (typeof updateEncArcs === 'function') updateEncArcs();
@@ -16854,17 +16841,17 @@ requestAnimationFrame(pollGamepad);
         if (S._heldTrack >= 0) {
           const t = S.tracks[S._heldTrack];
           t.volume = 0.8;
-          oledForce(`VOL T${S._heldTrack+1}`, '80%', '↺ défaut');
+          oledForce(`VOL T${S._heldTrack+1}`, '80%', '↺ default');
         // Contexte : drum pad tenu → reset volume du pad
         } else if (S._heldDrumPad >= 0 && S.tracks[S.currentTrack]?.mode === 'drum') {
           const t = S.tracks[S.currentTrack];
           if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
           t.drumPads[S._heldDrumPad].volume = 1.0;
-          oledForce(`PAD ${S._heldDrumPad+1} VOL`, '100%', '↺ défaut');
+          oledForce(`PAD ${S._heldDrumPad+1} VOL`, '100%', '↺ default');
         // Défaut : reset volume master
         } else {
           setMasterVolume(0.80);
-          oledForce('VOL MASTER', '80%', '↺ défaut');
+          oledForce('VOL MASTER', '80%', '↺ default');
         }
         e.preventDefault();
       } else {
@@ -16886,7 +16873,7 @@ requestAnimationFrame(pollGamepad);
   <div class="typePopupItem" data-type="sf2">
     <span class="typePopupIcon"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="5" cy="18" rx="3" ry="2" transform="rotate(-15,5,18)"/><line x1="8" y1="17" x2="8" y2="7"/><ellipse cx="13" cy="18" rx="3" ry="2" transform="rotate(-15,13,18)"/><line x1="16" y1="17" x2="16" y2="7"/><line x1="8" y1="7" x2="16" y2="7"/></svg></span> SF2 Player
   </div>
-  <div class="typePopupItem" data-type="junox">
+  <div class="typePopupItem" data-type="juno">
     <span class="typePopupIcon"><svg viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12 C3 6 5 6 7 12 C9 18 11 18 13 12 C15 6 17 6 19 12 C21 18 23 18 24 12"/></svg></span> JUNO Synth
   </div>
   <div class="typePopupItem" data-type="drum">
