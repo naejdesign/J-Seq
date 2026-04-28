@@ -472,6 +472,30 @@ body {
 
   </g>
 
+  <!-- ══ MIDI LEARN BAR — calquée sur keyboardZone (x=10 y=374 w=850 h=108) ══ -->
+  <foreignObject id="midiLearnBar" x="10" y="374" width="850" height="108" style="display:none">
+    <div xmlns="http://www.w3.org/1999/xhtml" style="
+      width:100%; height:100%; box-sizing:border-box;
+      display:flex; flex-direction:row; align-items:center; justify-content:center; gap:24px;
+      background:linear-gradient(180deg,rgba(28,18,4,0.90) 0%,rgba(14,9,2,0.97) 100%);
+      backdrop-filter:blur(4px);
+      border-top:1.5px solid rgba(240,160,32,0.55);
+      box-shadow:0 -6px 28px rgba(240,160,32,0.18);
+      font-family:'DM Mono',monospace;
+      color:#f0a020;
+      text-transform:uppercase;
+      letter-spacing:1.5px;
+    ">
+      <span style="display:flex;align-items:center;gap:10px;font-size:14px;letter-spacing:2.5px;font-weight:600">
+        <span class="mlb-dot"></span>
+        MIDI LEARN
+      </span>
+      <button id="mlbOthers" class="mlbBtn">Others…</button>
+      <button id="mlbReset"  class="mlbBtn">Reset</button>
+      <button id="mlbDone"   class="mlbBtn mlbDone">Done</button>
+    </div>
+  </foreignObject>
+
   <!-- Hidden step LEDs — required by JS -->
   <g id="stepLeds" pointer-events="none" opacity="0">
     <circle id="sled0" cx="0" cy="0" r="1" fill="#333"/>
@@ -8195,8 +8219,8 @@ document.addEventListener('keydown', e => {
   if (e.repeat) return; // ignorer l'auto-repeat
   const key = e.key.toLowerCase();
 
-  // Enter / NumpadEnter = bouton A gamepad
-  if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+  // NumpadEnter = bouton A gamepad (fallback hors dispatcher)
+  if (e.code === 'NumpadEnter') {
     e.preventDefault();
     gamepadBDown();
     return;
@@ -8206,6 +8230,33 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Shift') {
     setShiftOn(true);
     status('SHIFT — M+track:mute · Shift+M+track:solo · Del:clear · D:double');
+    return;
+  }
+
+  // ── MIDI LEARN DISPATCHER (clavier) ─────────────────────────────────────
+  // Court-circuit : si la touche est mappée à une fonction du registry, on
+  // route directement. Les touches hors registry (Shift physique, touches de
+  // tracks &é"', combos Shift+KeyD/KeyC, +/- BPM) restent gérées en legacy.
+  // Les empêchements contextuels (projectModeActive, shiftHeld) sont conservés
+  // via quelques early-returns ci-dessous.
+  if (projectModeActive && (e.code === 'Numpad8' || e.code === 'Numpad9' ||
+      e.code === 'Numpad6' || e.code === 'Numpad3')) {
+    // Dans les anciens handlers ces touches étaient bloquées en project mode.
+    // Seul Numpad5 (Delete) et Numpad2 (Copy) étaient autorisés.
+    return;
+  }
+  // preventDefault pour Tab/Arrow/Space/Enter qui sont "absorbés" par le navigateur
+  if (e.code === 'Tab' || e.code === 'Space' || e.code === 'Enter' ||
+      e.code === 'ArrowUp' || e.code === 'ArrowDown' ||
+      e.code === 'ArrowLeft' || e.code === 'ArrowRight' ||
+      e.code === 'NumpadDivide') {
+    if (keyIndex[e.code]) e.preventDefault();
+  }
+  // Cas spécial Tab avec shift : comportement legacy conservé
+  if (e.code === 'Tab' && S.shiftHeld) {
+    // laisse tomber dans le flow legacy (pas de Tab handler avec shift)
+  } else if (!heldKeys.has(e.code) && dispatchKey(e.code, true)) {
+    heldKeys.add(e.code);
     return;
   }
 
@@ -8282,29 +8333,6 @@ document.addEventListener('keydown', e => {
   if (key === ' ') { e.preventDefault(); togglePlay(); return; }
   if (e.code === 'KeyR') {
     toggleRec();
-    return;
-  }
-
-  // Track select : & é " ' (= touches 1 2 3 4 sur clavier AZERTY sans shift)
-  // Double-press rapide (< 300ms) → changer de page comme le double-tap souris
-  const _trkKeyMap = { '&':0, '1':0, 'é':1, '2':1, '"':2, '3':2, "'":3, '4':3 };
-  if (key in _trkKeyMap) {
-    const slot = _trkKeyMap[key];
-    S._heldTrack = slot; // immédiat → encVol peut lire _heldTrack pendant le hold
-    _trkTapCount[`k${slot}`] = (_trkTapCount[`k${slot}`] || 0) + 1;
-    clearTimeout(_trkTapTimer[`k${slot}`]);
-    _trkTapTimer[`k${slot}`] = setTimeout(() => {
-      const count = _trkTapCount[`k${slot}`] || 0;
-      _trkTapCount[`k${slot}`] = 0;
-      if (count >= 2) {
-        S._heldTrack = -1;
-        const newPage = S.page === 0 ? 1 : 0;
-        switchPage(newPage, newPage * 4 + slot);
-      } else {
-        handleTrackButtonClick(slot);
-        // _heldTrack reste actif tant que la touche est physiquement tenue (keyup le remet à -1)
-      }
-    }, 300);
     return;
   }
 
@@ -8405,16 +8433,21 @@ document.addEventListener('keydown', e => {
 });
 
 document.addEventListener('keyup', e => {
-  // Enter / NumpadEnter = bouton A gamepad
-  if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+  // NumpadEnter = bouton A gamepad (fallback hors dispatcher)
+  if (e.code === 'NumpadEnter') {
     e.preventDefault();
     gamepadBUp();
     return;
   }
 
-  // Relâchement touches track → reset _heldTrack
-  const keyLow = e.key.toLowerCase();
-  if (['&','1','é','2','"','3',"'",'4'].includes(e.key)) S._heldTrack = -1;
+
+  // ── MIDI LEARN DISPATCHER (clavier up) ──────────────────────────────────
+  if (heldKeys.has(e.code) && keyIndex[e.code]) {
+    if (dispatchKey(e.code, false)) {
+      heldKeys.delete(e.code);
+      return;
+    }
+  }
 
   // Relâchement Tab → mode switch
   if (e.code === 'Tab' && heldKeys.has('Tab')) {
@@ -12518,6 +12551,753 @@ var midiState = {
   _joystickDownFired: false, // anti-répétition joystick bas
 };
 
+// ════════════════════════════════════════════════════════════════════════════
+// MIDI LEARN — FUNCTION REGISTRY & MAPPINGS STORE
+// ────────────────────────────────────────────────────────────────────────────
+// Objectif : remplacer les assignations CC MIDI / touches clavier hardcodées
+// par un système de mapping configurable, modifiable à la volée via le mode
+// Learn (long-press sur l'indicateur MIDI).
+//
+// Étape 1 (présente) : registry + store + defaults — non branché.
+// Étapes suivantes : dispatchers MIDI/clavier, mode Learn UI.
+// ════════════════════════════════════════════════════════════════════════════
+
+// Types d'assignation possibles par fonction :
+//   'both'      → 1 binding MIDI + 1 binding clavier autorisés simultanément
+//   'midi-only' → 1 binding MIDI uniquement (encodeurs continus, pitch/mod)
+//   'key-only'  → 1 binding clavier uniquement (steps du séquenceur)
+
+// Catalogue des fonctions assignables. Les `handler` seront branchés à
+// l'étape 2/3 — pour l'instant on stocke uniquement les métadonnées.
+const FUNCTION_REGISTRY = {
+  // ── Transport / Toggles (both) ──────────────────────────────────────────
+  play:                 { label: 'Play / Stop',     type: 'both',      category: 'transport' },
+  rec:                  { label: 'Record',          type: 'both',      category: 'transport' },
+  mode_toggle:          { label: 'Mode (Tab)',      type: 'both',      category: 'transport' },
+  project_mode_toggle:  { label: 'Project Mode',    type: 'both',      category: 'transport' },
+  undo:                 { label: 'Undo',            type: 'both',      category: 'transport' },
+  preset_prev:          { label: 'Preset Prev',     type: 'both',      category: 'transport' },
+  preset_next:          { label: 'Preset Next',     type: 'both',      category: 'transport' },
+
+  // ── Modificateurs momentanés (both) ─────────────────────────────────────
+  shift:        { label: 'Shift',  type: 'both', category: 'modifier' },
+  mute_hold:    { label: 'Mute',   type: 'both', category: 'modifier' },
+  copy_hold:    { label: 'Copy',   type: 'both', category: 'modifier' },
+  delete_hold:  { label: 'Delete', type: 'both', category: 'modifier' },
+  loop_hold:    { label: 'Loop',   type: 'both', category: 'modifier' },
+
+  // ── Croix directionnelle (both) ─────────────────────────────────────────
+  dir_left:   { label: 'Dir Left',  type: 'both', category: 'dpad' },
+  dir_right:  { label: 'Dir Right', type: 'both', category: 'dpad' },
+  dir_up:     { label: 'Dir Up',    type: 'both', category: 'dpad' },
+  dir_down:   { label: 'Dir Down',  type: 'both', category: 'dpad' },
+
+  // ── Encodeurs contextuels (midi-only) ───────────────────────────────────
+  // enc1 inclut le BPM lorsqu'on est sur la piste Master (cascade contextuelle)
+  enc1:             { label: 'Encoder 1',     type: 'midi-only', category: 'encoder' },
+  enc2:             { label: 'Encoder 2',     type: 'midi-only', category: 'encoder' },
+  enc3:             { label: 'Encoder 3',     type: 'midi-only', category: 'encoder' },
+  enc4:             { label: 'Encoder 4',     type: 'midi-only', category: 'encoder' },
+  enc_volume:       { label: 'Volume Enc',    type: 'midi-only', category: 'encoder' },
+  enc_send_reverb:  { label: 'Reverb Send',   type: 'midi-only', category: 'encoder' },
+  enc_send_delay:   { label: 'Delay Send',    type: 'midi-only', category: 'encoder' },
+
+  // ── Pitch / Mod (midi-only) ─────────────────────────────────────────────
+  pitch_bend:  { label: 'Pitch Bend', type: 'midi-only', category: 'wheel' },
+  mod_wheel:   { label: 'Mod Wheel',  type: 'midi-only', category: 'wheel' },
+
+  // Step Action — Add/Delete (short press) or Hold (long press) step at cursor
+  step_action: { label: 'Step Add/Del/Hold', type: 'both', category: 'step' },
+
+  // ── Track buttons (both) ─────────────────────────────────────────────────
+  track_1: { label: 'Track 1', type: 'both', category: 'track' },
+  track_2: { label: 'Track 2', type: 'both', category: 'track' },
+  track_3: { label: 'Track 3', type: 'both', category: 'track' },
+  track_4: { label: 'Track 4', type: 'both', category: 'track' },
+
+  // ── Steps séquenceur (key-only) ─────────────────────────────────────────
+  step_1:  { label: 'Step 1',  type: 'key-only', category: 'step' },
+  step_2:  { label: 'Step 2',  type: 'key-only', category: 'step' },
+  step_3:  { label: 'Step 3',  type: 'key-only', category: 'step' },
+  step_4:  { label: 'Step 4',  type: 'key-only', category: 'step' },
+  step_5:  { label: 'Step 5',  type: 'key-only', category: 'step' },
+  step_6:  { label: 'Step 6',  type: 'key-only', category: 'step' },
+  step_7:  { label: 'Step 7',  type: 'key-only', category: 'step' },
+  step_8:  { label: 'Step 8',  type: 'key-only', category: 'step' },
+  step_9:  { label: 'Step 9',  type: 'key-only', category: 'step' },
+  step_10: { label: 'Step 10', type: 'key-only', category: 'step' },
+  step_11: { label: 'Step 11', type: 'key-only', category: 'step' },
+  step_12: { label: 'Step 12', type: 'key-only', category: 'step' },
+  step_13: { label: 'Step 13', type: 'key-only', category: 'step' },
+  step_14: { label: 'Step 14', type: 'key-only', category: 'step' },
+  step_15: { label: 'Step 15', type: 'key-only', category: 'step' },
+  step_16: { label: 'Step 16', type: 'key-only', category: 'step' },
+};
+
+// Defaults — reproduisent EXACTEMENT le comportement hardcodé actuel.
+// Sources :
+//   - midiCC()       L12612+  (CC 70-73 = enc1-4, CC74 = enc1/BPM via cascade,
+//                              CC77 = volume, CC75/76 = sends, CC115/116 = preset,
+//                              CC117 = mode, CC118 = play, CC119 = rec, CC1 = mod,
+//                              CC2 = joystick → mappé à dir_up/down ? non : reste
+//                              hardcodé car il ne s'agit pas d'un toggle simple)
+//   - keydown        L8193+   (Space=play, KeyR=rec, Tab=mode, Numpad*=modifs,
+//                              Arrow*=dir, STEP_CODES=steps, NumpadDivide=project)
+//
+// NOTE : CC74 actuel est dédié BPM/longueur step. Dans le nouveau modèle, cette
+// logique tombe dans enc1 quand piste Master active. Pour préserver le comportement
+// par défaut, on duplique : CC70 → enc1 ET CC74 → enc1. Les deux pointent vers la
+// même fonction (acceptable car midiIndex pointera le dernier assigné — on choisit
+// CC70 pour enc1 et on laisse CC74 effectivement libre. L'utilisateur pourra l'assigner
+// à enc_volume ou autre s'il le souhaite). Si on veut absolument garder CC74 → BPM en
+// défaut, on peut l'assigner à enc1 et CC70 à rien. → choix : CC70 = enc1 (4 encodeurs
+// CC70-73 cohérents), CC74 reste libre par défaut.
+const DEFAULT_MAPPINGS = {
+  // Transport
+  play:                 { midi: 'cc:118', key: 'Space' },
+  rec:                  { midi: 'cc:119', key: 'KeyR' },
+  mode_toggle:          { midi: 'cc:117', key: 'Tab' },
+  project_mode_toggle:  { midi: null,     key: 'NumpadDivide' },
+  undo:                 { midi: null,     key: 'Numpad8' },
+  preset_prev:          { midi: 'cc:115', key: null },
+  preset_next:          { midi: 'cc:116', key: null },
+
+  // Modificateurs
+  shift:        { midi: null, key: 'Numpad3' },  // ShiftLeft/ShiftRight gérés en plus côté handler
+  mute_hold:    { midi: null, key: 'Numpad6' },
+  copy_hold:    { midi: null, key: 'Numpad2' },
+  delete_hold:  { midi: null, key: 'Numpad5' },
+  loop_hold:    { midi: null, key: 'Numpad9' },
+
+  // Croix directionnelle
+  dir_left:   { midi: null, key: 'ArrowLeft' },
+  dir_right:  { midi: null, key: 'ArrowRight' },
+  dir_up:     { midi: null, key: 'ArrowUp' },
+  dir_down:   { midi: null, key: 'ArrowDown' },
+
+  // Encodeurs (midi-only)
+  enc1:             { midi: 'cc:70', key: null },
+  enc2:             { midi: 'cc:71', key: null },
+  enc3:             { midi: 'cc:72', key: null },
+  enc4:             { midi: 'cc:73', key: null },
+  enc_volume:       { midi: 'cc:77', key: null },
+  enc_send_reverb:  { midi: 'cc:76', key: null },
+  enc_send_delay:   { midi: 'cc:75', key: null },
+
+  // Pitch / Mod
+  pitch_bend:  { midi: 'pb',    key: null },  // 'pb' = pitch bend (statut 0xE0)
+  mod_wheel:   { midi: 'cc:1',  key: null },
+
+  // Step Action — Enter par défaut (reassignable)
+  step_action: { midi: null, key: 'Enter' },
+
+  // Track buttons — touches AZERTY & é " ' (Digit1–Digit4)
+  track_1: { midi: null, key: 'Digit1' },
+  track_2: { midi: null, key: 'Digit2' },
+  track_3: { midi: null, key: 'Digit3' },
+  track_4: { midi: null, key: 'Digit4' },
+
+  // Steps (codes physiques AZERTY : W→KeyZ, Q→KeyA, M→Semicolon)
+  step_1:  { midi: null, key: 'KeyZ' },
+  step_2:  { midi: null, key: 'KeyX' },
+  step_3:  { midi: null, key: 'KeyC' },
+  step_4:  { midi: null, key: 'KeyV' },
+  step_5:  { midi: null, key: 'KeyB' },
+  step_6:  { midi: null, key: 'KeyN' },
+  step_7:  { midi: null, key: 'KeyA' },
+  step_8:  { midi: null, key: 'KeyS' },
+  step_9:  { midi: null, key: 'KeyD' },
+  step_10: { midi: null, key: 'KeyF' },
+  step_11: { midi: null, key: 'KeyG' },
+  step_12: { midi: null, key: 'KeyH' },
+  step_13: { midi: null, key: 'KeyJ' },
+  step_14: { midi: null, key: 'KeyK' },
+  step_15: { midi: null, key: 'KeyL' },
+  step_16: { midi: null, key: 'Semicolon' },
+};
+
+const MAPPINGS_STORAGE_KEY = 'jseq_mappings_v1';
+
+// Store actif. Format : { fnId: { midi: 'cc:NN' | 'pb' | null, key: 'KeyX' | null } }
+let mappings = {};
+
+// Index inverses pour dispatch O(1) — reconstruits à chaque modif via rebuildMappingIndex()
+let midiIndex = {};  // 'cc:118' → 'play'
+let keyIndex  = {};  // 'Space'  → 'play'
+
+function rebuildMappingIndex() {
+  midiIndex = {};
+  keyIndex  = {};
+  for (const fnId in mappings) {
+    const m = mappings[fnId];
+    if (!m) continue;
+    if (m.midi) midiIndex[m.midi] = fnId;
+    if (m.key)  keyIndex[m.key]   = fnId;
+  }
+}
+
+function loadMappings() {
+  try {
+    const raw = localStorage.getItem(MAPPINGS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Merger avec les defaults pour gérer l'ajout de nouvelles fonctions au registry
+      mappings = {};
+      for (const fnId in FUNCTION_REGISTRY) {
+        mappings[fnId] = parsed[fnId] || DEFAULT_MAPPINGS[fnId] || { midi: null, key: null };
+      }
+    } else {
+      // Premier lancement : copier les defaults
+      mappings = JSON.parse(JSON.stringify(DEFAULT_MAPPINGS));
+    }
+  } catch (e) {
+    console.warn('[MIDI Learn] Erreur chargement mappings, utilisation defaults', e);
+    mappings = JSON.parse(JSON.stringify(DEFAULT_MAPPINGS));
+  }
+  // Garantir une entrée pour chaque fonction du registry
+  for (const fnId in FUNCTION_REGISTRY) {
+    if (!mappings[fnId]) mappings[fnId] = DEFAULT_MAPPINGS[fnId] || { midi: null, key: null };
+  }
+  rebuildMappingIndex();
+}
+
+function saveMappings() {
+  try {
+    localStorage.setItem(MAPPINGS_STORAGE_KEY, JSON.stringify(mappings));
+  } catch (e) {
+    console.warn('[MIDI Learn] Erreur sauvegarde mappings', e);
+  }
+}
+
+function resetMappingsToDefaults() {
+  mappings = JSON.parse(JSON.stringify(DEFAULT_MAPPINGS));
+  // Garantir l'entrée pour chaque fonction
+  for (const fnId in FUNCTION_REGISTRY) {
+    if (!mappings[fnId]) mappings[fnId] = { midi: null, key: null };
+  }
+  rebuildMappingIndex();
+  saveMappings();
+}
+
+// Assigne un binding (midi ou key) à une fonction.
+// Retire automatiquement ce même binding de toute autre fonction (unicité).
+// Respecte le `type` de la fonction (rejette midi sur key-only et inversement).
+// Retourne { ok: bool, evictedFrom: fnId|null, reason: string|null }
+function assignBinding(fnId, type, value) {
+  const fn = FUNCTION_REGISTRY[fnId];
+  if (!fn) return { ok: false, evictedFrom: null, reason: 'unknown function' };
+  if (type === 'midi' && fn.type === 'key-only') return { ok: false, evictedFrom: null, reason: 'key-only' };
+  if (type === 'key'  && fn.type === 'midi-only') return { ok: false, evictedFrom: null, reason: 'midi-only' };
+
+  // Évincer le même binding d'une autre fonction si présent
+  let evictedFrom = null;
+  if (value) {
+    for (const otherId in mappings) {
+      if (otherId === fnId) continue;
+      const om = mappings[otherId];
+      if (!om) continue;
+      if (type === 'midi' && om.midi === value) { om.midi = null; evictedFrom = otherId; }
+      if (type === 'key'  && om.key  === value) { om.key  = null; evictedFrom = otherId; }
+    }
+  }
+
+  if (!mappings[fnId]) mappings[fnId] = { midi: null, key: null };
+  mappings[fnId][type] = value || null;
+  rebuildMappingIndex();
+  saveMappings();
+  return { ok: true, evictedFrom, reason: null };
+}
+
+function clearBinding(fnId, type) {
+  if (!mappings[fnId]) return;
+  mappings[fnId][type] = null;
+  rebuildMappingIndex();
+  saveMappings();
+}
+
+// Charger les mappings dès que possible. Comme ce bloc est exécuté à l'évaluation
+// du <script>, localStorage est déjà disponible.
+loadMappings();
+
+// ════════════════════════════════════════════════════════════════════════════
+// FIN BLOC MIDI LEARN — STEP 1
+// ════════════════════════════════════════════════════════════════════════════
+
+// ════════════════════════════════════════════════════════════════════════════
+// MIDI LEARN — STEP 2+3 : HANDLERS + DISPATCHERS
+// ────────────────────────────────────────────────────────────────────────────
+// Chaque fonction du registry est implémentée comme un objet { midi, down, up }
+// où :
+//   - `midi(value)`   → appelé par le dispatcher MIDI (value = 0..127)
+//   - `down()` / `up()` → appelés par le dispatcher clavier (momentary ou toggle)
+//
+// Les fonctions `both` reçoivent les deux. Les fonctions `midi-only` n'ont que
+// `midi`. Les fonctions `key-only` (steps) n'ont que `down`/`up`.
+//
+// La logique métier est strictement identique à l'ancienne — on déplace sans
+// modifier. Les dispatchers ci-dessous remplacent les `if (cc === NN)` et les
+// `if (e.code === 'XXX')` hardcodés.
+// ════════════════════════════════════════════════════════════════════════════
+
+// Helper : encodeur infini relatif (1..63 horaire, 65..127 antihoraire).
+// Extrait ici pour être partagé par les handlers d'encodeurs.
+function _relDelta(v, sensitivity) {
+  const s = sensitivity || 1;
+  if (v >= 1  && v <= 63)  return  s * v;
+  if (v >= 65 && v <= 127) return -s * (128 - v);
+  return 0;
+}
+
+// ── Handlers encodeurs contextuels (CC70..73) ─────────────────────────────
+// Reproduit la cascade actuelle : step tenu > drum > juno > sf2.
+function _encContextHandler(encIdx, value) {
+  const res = getHeldSt();
+  if (res && res.st.on) {
+    const def = ENC_DEFS[encIdx];
+    const sensMap = [1, 2, 0.02, 2];
+    const d = _relDelta(value, sensMap[encIdx]);
+    const eMax = getEncMax(def);
+    const cur  = def.get(res.st);
+    const newVal = Math.max(def.min, Math.min(eMax, cur + d));
+    def.set(res.st, newVal);
+    if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+    if (encIdx === 0) showNoteLengthFeedback(res.idx, true, Math.round(newVal));
+    oledForce(def.label, def.fmt(newVal), `Step ${res.idx + 1}`);
+    updateEncArcs();
+    return;
+  }
+  const tEnc = S.tracks[S.currentTrack];
+  if (tEnc.mode === 'drum') {
+    if (!tEnc.drumPads) tEnc.drumPads = makeDefaultDrumPads();
+    const pad = tEnc.drumPads[S.selectedDrumPad];
+    const dr  = DRUM_ENC_RANGES[encIdx];
+    const key = DRUM_ENC_KEYS[encIdx];
+    if (!dr) return;
+    const sens = (dr.max - dr.min) / 60;
+    const d2 = _relDelta(value, sens);
+    const newVal = Math.max(dr.min, Math.min(dr.max, (pad[key] ?? dr.min) + d2));
+    pad[key] = newVal;
+    oledForce(dr.label, dr.fmt(newVal), `Pad ${S.selectedDrumPad + 1}`);
+    updateEncArcs();
+    return;
+  }
+  if (tEnc.outputMode === 'juno' && encIdx < 4) {
+    const JUNO_ENC_MIDI = [
+      { key: 'vcf.frequency', label: 'CUTOFF',    min: 0, max: 1, def: 0.7 },
+      { key: 'vcf.resonance', label: 'RESONANCE', min: 0, max: 1, def: 0   },
+      { key: 'vcf.envMod',    label: 'ENV MOD',   min: 0, max: 1, def: 0   },
+      { key: 'lfo.frequency', label: 'LFO RATE',  min: 0, max: 1, def: 0.3 },
+    ];
+    const jDef = JUNO_ENC_MIDI[encIdx];
+    const patch = junoPatches[S.currentTrack];
+    if (!patch) return;
+    const parts = jDef.key.split('.');
+    const cur = patch[parts[0]]?.[parts[1]] ?? jDef.def;
+    const d2 = _relDelta(value, 0.015);
+    const newVal = Math.max(jDef.min, Math.min(jDef.max, cur + d2));
+    if (!patch[parts[0]]) patch[parts[0]] = {};
+    patch[parts[0]][parts[1]] = newVal;
+    const node = junoNodes[S.currentTrack];
+    if (node) node.sendMessage('set-param', { name: jDef.key, value: newVal });
+    oledForce(jDef.label, Math.round(newVal * 100) + '%', `T${S.currentTrack + 1}`);
+    updateEncArcs();
+    return;
+  }
+  if (tEnc.outputMode === 'sf2' && encIdx < 3) {
+    const SF2_ENC_MIDI = [
+      { key: 'midiCutoff',  label: 'CUTOFF',    cc: 74, min: 0, max: 127, def: 127 },
+      { key: 'midiReson',   label: 'RESONANCE',  cc: 71, min: 0, max: 127, def: 0   },
+      { key: 'midiRelease', label: 'RELEASE',    cc: 72, min: 0, max: 127, def: 0   },
+    ];
+    const sf2Def = SF2_ENC_MIDI[encIdx];
+    const arpIdx = FX_DEFS.findIndex(d => d.id === 'arp');
+    const arpSlot = arpIdx >= 0 ? trackFX[S.currentTrack][arpIdx] : null;
+    if (!arpSlot) return;
+    const d2 = _relDelta(value, 2);
+    const cur = arpSlot.params[sf2Def.key] ?? sf2Def.def;
+    const newVal = Math.max(sf2Def.min, Math.min(sf2Def.max, cur + d2));
+    arpSlot.params[sf2Def.key] = newVal;
+    midiCtrlSendCC(S.currentTrack, sf2Def.cc, Math.round(newVal));
+    oledForce(sf2Def.label, String(Math.round(newVal)), `T${S.currentTrack + 1}`);
+    updateEncArcs();
+  }
+}
+
+// enc1 MIDI handler : cascade BPM/master + step tenu + enc contextuel.
+// Reproduit la logique actuelle CC74 (BPM via molette) + CC70 (encodeur 1).
+// Quand piste Master ET pas de step tenu → BPM. Sinon → cascade _encContextHandler.
+function _enc1MidiHandler(value) {
+  const res = getHeldSt();
+  if (!res || !res.st.on) {
+    // pas de step tenu → comportement BPM si Master
+    const tEnc = S.tracks[S.currentTrack];
+    if (tEnc.mode === 'master') {
+      const rawD = _relDelta(value, 1);
+      const d = rawD > 0 ? Math.min(rawD, 5) : Math.max(rawD, -5);
+      if (d === 0) return;
+      if (S.mode === 'loop' && S._loopBarHeld >= 0) {
+        loopBarVelocityDelta(d * 4);
+      } else {
+        setBpm(S.bpm + d);
+        oledForce('BPM', `${S.bpm}`, S.playing ? '▶' : '■');
+        flashKnob('wheel');
+      }
+      return;
+    }
+  } else if (res && res.st.on) {
+    // step tenu sur Master → BPM du step
+    const isMasterTrack = S.tracks[S.currentTrack].mode === 'master';
+    if (isMasterTrack) {
+      const rawD = _relDelta(value, 1);
+      const d = rawD > 0 ? Math.min(rawD, 5) : Math.max(rawD, -5);
+      if (d === 0) return;
+      const cur = res.st.note || S.bpm;
+      const newBpm = Math.max(20, Math.min(300, cur + d));
+      res.st.note = newBpm;
+      if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+      renderSteps();
+      oledForce(`STEP ${res.idx+1}`, `${newBpm} BPM`, `Bar ${S.currentBar+1}`);
+      flashKnob('wheel');
+      return;
+    }
+  }
+  // fallback : encodeur contextuel 1
+  _encContextHandler(0, value);
+}
+
+// ── Volume encoder (CC77) ──────────────────────────────────────────────────
+function _encVolumeHandler(value) {
+  if (anyStepHeld()) {
+    const d = _relDelta(value, 1 / 60);
+    const res = getHeldSt();
+    if (res && res.st.on) {
+      const cur = res.st.vel ?? 0.8;
+      res.st.vel = Math.max(0, Math.min(1, cur + d));
+      oledForce(`STEP ${res.idx+1}`, `VEL: ${Math.round(res.st.vel*127)}`,
+                `(${Math.round(res.st.vel*100)}%)`);
+      if (heldSteps.has(res.idx)) heldSteps.get(res.idx).didAction = true;
+      updateEncArcs();
+    }
+    return;
+  }
+  if (S._heldTrack >= 0) {
+    const d = _relDelta(value, 1 / 100);
+    const t = S.tracks[S._heldTrack];
+    t.volume = Math.max(0, Math.min(1, t.volume + d));
+    oledForce(`VOL T${S._heldTrack+1}`, `${Math.round(t.volume*100)}%`, '');
+    return;
+  }
+  const d = _relDelta(value, 1 / 100);
+  setMasterVolume(S.masterVolume + d);
+  flashKnob('encVol');
+}
+
+// ── Send encoders (delay/reverb) ───────────────────────────────────────────
+function _encSendHandler(isDelay, value) {
+  const key  = isDelay ? 'sendDelay' : 'sendReverb';
+  const lbl  = isDelay ? 'DELAY SEND' : 'REVERB SEND';
+  const d    = _relDelta(value, 1 / 60);
+  const t    = S.tracks[S.currentTrack];
+  if (t.mode === 'master') return;
+  if (t.mode === 'drum') {
+    if (!t.drumPads) t.drumPads = makeDefaultDrumPads();
+    const pad = t.drumPads[S.selectedDrumPad];
+    pad[key] = Math.max(0, Math.min(1, (pad[key] ?? 0) + d));
+    oledForce(lbl, Math.round(pad[key] * 100) + '%', `Pad ${S.selectedDrumPad + 1}`);
+  } else {
+    t[key] = Math.max(0, Math.min(1, (t[key] ?? 0) + d));
+    const nodes = trackSendNodes[S.currentTrack];
+    if (nodes) {
+      if (key === 'sendDelay')  nodes.dSend.gain.value = t[key];
+      if (key === 'sendReverb') nodes.rSend.gain.value = t[key];
+    }
+    oledForce(lbl, Math.round(t[key] * 100) + '%', `Track ${S.currentTrack + 1}`);
+  }
+  updateSendArcs();
+}
+
+// ── Mod wheel (CC1) ────────────────────────────────────────────────────────
+function _modWheelHandler(value) {
+  const pct = value / 127;
+  if (notch) {
+    const trackH = 72, notchH = 7;
+    const y = 383 + (trackH - notchH) * (1 - pct);
+    notch.setAttribute('y', y.toFixed(1));
+  }
+  const tiMod = S.currentTrack;
+  const tMod = S.tracks[tiMod];
+  if (tMod.outputMode === 'midi') {
+    const out = getTrackOutput(tiMod);
+    if (out) {
+      const mch = (tMod.midiChannel - 1) & 0x0f;
+      out.send([0xb0 | mch, 1, value & 0x7f]);
+    }
+  } else if (tMod.outputMode === 'sf2' && sf2Ready && jsSynths[tiMod]) {
+    jsSynths[tiMod].midiControl(SF2_CHANNEL, 1, value & 0x7f);
+  } else if (tMod.outputMode === 'juno' && junoReady[tiMod] && junoNodes[tiMod]) {
+    const patch = junoPatches[tiMod];
+    if (patch) {
+      const MOD_LFO_MAX = 0.5;
+      if (value > 0) {
+        const depth = (value / 127) * MOD_LFO_MAX;
+        junoNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: depth });
+        junoNodes[tiMod].lfoTrigger();
+      } else {
+        const patchLfoDepth = patch.dco?.lfo ?? 0;
+        junoNodes[tiMod].sendMessage('set-param', { name: 'dco.lfo', value: patchLfoDepth });
+        junoNodes[tiMod].lfoRelease();
+      }
+    }
+  }
+}
+
+// ── D-pad handlers (ArrowUp/Down/Left/Right) ───────────────────────────────
+// Reproduisent exactement les blocs keydown existants (lignes ~8311-8357).
+function _dirUpHandler() {
+  setDirBtnLit('btnPlus', true);
+  if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(12);
+  else if (S._loopHeld)                         duplicatePattern();
+  else if (anyStepHeld())                       transposeHeldSteps(1);
+  else if (S.shiftHeld)                         addBar();
+  else                                          cycleTrack(-1);
+}
+function _dirDownHandler() {
+  setDirBtnLit('btnMinus', true);
+  if (S.mode === 'loop' && S._loopBarHeld >= 0) loopBarTranspose(-12);
+  else if (S._loopHeld)                         halvePattern();
+  else if (anyStepHeld())                       transposeHeldSteps(-1);
+  else if (S.shiftHeld)                         removeBar();
+  else                                          cycleTrack(1);
+}
+function _dirLeftHandler() {
+  setDirBtnLit('btnLeft', true);
+  if (S._loopHeld)         compressPattern();
+  else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, -1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('MOVE', `Bar → pos ${_np+1}`, ''); }
+  } else if (anyStepHeld())  nudgeHeldSteps(-1);
+  else if (S.shiftHeld)    navBar(-1);
+  else                     moveStepCursor(-1);
+}
+function _dirRightHandler() {
+  setDirBtnLit('btnRight', true);
+  if (S._loopHeld)         stretchPattern();
+  else if (S.mode === 'loop' && window._loopSaisieActive && window._moveBarInsertFn) {
+    const _np = window._moveBarInsertFn(S._loopBarHeld, 1);
+    if (_np !== S._loopBarHeld) { S._loopBarHeld = _np; stepCursorPos = _np; updateStepCursor(); renderLoopMode(); illuminateLoopBarNotes(_np); oled('MOVE', `Bar → pos ${_np+1}`, ''); }
+  } else if (anyStepHeld())  nudgeHeldSteps(1);
+  else if (S.shiftHeld)    navBar(1);
+  else                     moveStepCursor(1);
+}
+
+// ── Toggle/transport handlers ──────────────────────────────────────────────
+function _playHandler()        { ensureAudio(); togglePlay(); }
+function _recHandler()         { ensureAudio(); toggleRec(); }
+function _modeToggleHandler()  {
+  setModeButtonLit(true);
+  if (S.mode === 'loop') {
+    S.mode = 'note';
+    S._loopBarHeld = -1; S._loopBar2 = -1; window._loopSaisieActive = false; window._loopSaisieIdx = -1;
+    setBtnLit('btnLoop', false, '#3ddc84');
+  }
+  const otherMode = S.mode === 'note' ? 'session' : 'note';
+  enterMode(otherMode);
+  setTimeout(() => setModeButtonLit(false), 150);
+}
+function _projectModeToggleHandler() {
+  if (projectModeActive) { exitProjectMode(); setBtnLit('btnSets', false, '#aaa'); }
+  else { enterProjectMode(); setBtnLit('btnSets', true, '#aaa'); }
+}
+function _undoHandler()        { if (S.shiftHeld) doRedo(); else doUndo(); }
+function _presetPrevHandler()  { _presetNavHandler(-1); }
+function _presetNextHandler()  { _presetNavHandler(+1); }
+function _presetNavHandler(delta) {
+  const ti = S.currentTrack;
+  const t  = S.tracks[ti];
+  if (t.mode === 'drum' || t.mode === 'master') return;
+  // On déclenche le comportement existant via midiCCLegacyPreset
+  _presetNavLegacy(delta);
+}
+// Helper pour réutiliser le gros bloc preset-nav existant — on l'appellera en
+// simulant le CC115/116 mais via midiIndex on arrive forcément ici. Pour éviter
+// la duplication massive, on garde la logique dans midiCC en la gardant active
+// SEULEMENT pour ces CC. Plus simple : on laisse simplement le code legacy de
+// preset navigation s'exécuter via un appel direct.
+function _presetNavLegacy(delta) {
+  // Simule en appelant le code legacy avec un CC synthétique. On choisit CC115
+  // pour delta<0 et CC116 sinon — car le bloc legacy gère les deux.
+  // NOTE : ce chemin n'est utilisé QUE par les handlers — quand un utilisateur
+  // mappe preset_prev/preset_next sur une autre touche/CC, on arrive ici.
+  _midiLegacyPresetNav(delta);
+}
+
+// ── Modifier handlers (momentary) ──────────────────────────────────────────
+// Pour MIDI, les "both" comme shift/mute/etc acceptent value>0 = down, value=0 = up.
+function _shiftDown()    { heldKeys.add('Numpad3'); setNumpadLit('Numpad3', true); setShiftOn(true); }
+function _shiftUp()      { heldKeys.delete('Numpad3'); setNumpadLit('Numpad3', false); if (!document.querySelector(':focus-visible')) setShiftOn(false); }
+function _muteDown()     { heldKeys.add('Numpad6'); S._mHeld = true; setBtnLit('btnMute', true, '#ff6b00'); oled('MUTE', S.shiftHeld ? 'Solo...' : 'Mute...', ''); }
+function _muteUp()       { heldKeys.delete('Numpad6'); S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00'); _gpRestoreOled(); }
+function _copyDown()     { heldKeys.add('Numpad2'); setNumpadLit('Numpad2', true); S._copyHeld = true; S._copySource = null; setCopyLit(true); oled('COPY', 'Copy...', ''); }
+function _copyUp()       { heldKeys.delete('Numpad2'); setNumpadLit('Numpad2', false); S._copyHeld = false; S._copySource = null; setCopyLit(false); oledHome(S.currentTrack); }
+function _deleteDown()   { heldKeys.add('Numpad5'); setNumpadLit('Numpad5', true); S._deleteHeld = true; setDeleteLit(true); oled('DELETE', 'Delete...', ''); }
+function _deleteUp()     { heldKeys.delete('Numpad5'); setNumpadLit('Numpad5', false); S._deleteHeld = false; S._deleteBtnDown = false; S._copyBtnDown = false; setDeleteLit(false); oledHome(S.currentTrack); }
+function _loopDown()     {
+  heldKeys.add('Numpad9'); setBtnLit('btnLoop', true, '#3ddc84');
+  S._numpad9PressTime = Date.now();
+  S._numpad9LongFired = false;
+  S._numpad9Timer = setTimeout(() => { S._numpad9LongFired = true; setLoopHeld(true); }, LOOP_LONG_MS);
+}
+function _loopUp() {
+  heldKeys.delete('Numpad9');
+  if (S._numpad9Timer) { clearTimeout(S._numpad9Timer); S._numpad9Timer = null; }
+  if (!S._numpad9LongFired) toggleLoopMode(); else setLoopHeld(false);
+  S._numpad9LongFired = false;
+}
+
+// ── Step handlers (key-only, 16 steps) ─────────────────────────────────────
+function _stepDown(idx) {
+  ensureAudio();
+  if (projectModeActive) {
+    projectPage = idx;
+    renderProjectMode();
+    oledForce('PROJECTS', `Page ${projectPage+1}/16`, '');
+    return;
+  }
+  if (S.mode === 'loop') {
+    pressLoopStep(idx);
+  } else if (!heldSteps.has(idx)) {
+    pressStep(idx);
+    if (heldSteps.has(idx)) heldSteps.get(idx).fromKeyboard = true;
+  }
+}
+function _stepUp(idx) {
+  if (S.mode === 'loop') {
+    releaseLoopStep(idx);
+  } else if (heldSteps.has(idx) && heldSteps.get(idx).fromKeyboard) {
+    releaseStep(idx);
+  }
+}
+
+// ── Table FUNCTION_HANDLERS ────────────────────────────────────────────────
+const FUNCTION_HANDLERS = {
+  // Transport (both)
+  play:                { down: _playHandler,        midi: v => { if (v > 0) _playHandler(); } },
+  rec:                 { down: _recHandler,         midi: v => { if (v > 0) _recHandler(); } },
+  mode_toggle:         { down: _modeToggleHandler,  midi: v => { if (v > 0) _modeToggleHandler(); } },
+  project_mode_toggle: { down: _projectModeToggleHandler, midi: v => { if (v > 0) _projectModeToggleHandler(); } },
+  undo:                { down: _undoHandler,        midi: v => { if (v > 0) _undoHandler(); } },
+  preset_prev:         { down: _presetPrevHandler,  midi: v => { if (v > 0) _presetPrevHandler(); } },
+  preset_next:         { down: _presetNextHandler,  midi: v => { if (v > 0) _presetNextHandler(); } },
+
+  // Modifiers (both, momentary)
+  shift:       { down: _shiftDown,  up: _shiftUp,  midi: v => { v > 0 ? _shiftDown()  : _shiftUp();  } },
+  mute_hold:   { down: _muteDown,   up: _muteUp,   midi: v => { v > 0 ? _muteDown()   : _muteUp();   } },
+  copy_hold:   { down: _copyDown,   up: _copyUp,   midi: v => { v > 0 ? _copyDown()   : _copyUp();   } },
+  delete_hold: { down: _deleteDown, up: _deleteUp, midi: v => { v > 0 ? _deleteDown() : _deleteUp(); } },
+  loop_hold:   { down: _loopDown,   up: _loopUp,   midi: v => { v > 0 ? _loopDown()   : _loopUp();   } },
+
+  // D-pad (both)
+  dir_left:  { down: _dirLeftHandler,  up: () => setDirBtnLit('btnLeft', false),  midi: v => { if (v > 0) _dirLeftHandler(); } },
+  dir_right: { down: _dirRightHandler, up: () => setDirBtnLit('btnRight', false), midi: v => { if (v > 0) _dirRightHandler(); } },
+  dir_up:    { down: _dirUpHandler,    up: () => setDirBtnLit('btnPlus', false),  midi: v => { if (v > 0) _dirUpHandler(); } },
+  dir_down:  { down: _dirDownHandler,  up: () => setDirBtnLit('btnMinus', false), midi: v => { if (v > 0) _dirDownHandler(); } },
+
+  // Encoders (midi-only)
+  enc1:            { midi: v => _enc1MidiHandler(v) },
+  enc2:            { midi: v => _encContextHandler(1, v) },
+  enc3:            { midi: v => _encContextHandler(2, v) },
+  enc4:            { midi: v => _encContextHandler(3, v) },
+  enc_volume:      { midi: v => _encVolumeHandler(v) },
+  enc_send_reverb: { midi: v => _encSendHandler(false, v) },
+  enc_send_delay:  { midi: v => _encSendHandler(true,  v) },
+
+  // Pitch / Mod (midi-only)
+  pitch_bend: { midi: null /* géré par midiPitchBend via statut 0xE0, pas via CC */ },
+  mod_wheel:  { midi: v => _modWheelHandler(v) },
+
+  // Step Action (both) — short: toggle step, long: hold step
+  step_action: {
+    down: () => gamepadBDown(),
+    up:   () => gamepadBUp(),
+    midi: v => { if (v > 0) gamepadBDown(); else gamepadBUp(); },
+  },
+
+  // Track buttons (both) — same tap/double-tap logic as hardcoded keys
+  ...Object.fromEntries([0,1,2,3].map(slot => [`track_${slot+1}`, {
+    down: () => {
+      S._heldTrack = slot;
+      _trkTapCount[`k${slot}`] = (_trkTapCount[`k${slot}`] || 0) + 1;
+      clearTimeout(_trkTapTimer[`k${slot}`]);
+      _trkTapTimer[`k${slot}`] = setTimeout(() => {
+        const count = _trkTapCount[`k${slot}`] || 0;
+        _trkTapCount[`k${slot}`] = 0;
+        if (count >= 2) {
+          S._heldTrack = -1;
+          const newPage = S.page === 0 ? 1 : 0;
+          switchPage(newPage, newPage * 4 + slot);
+        } else {
+          handleTrackButtonClick(slot);
+        }
+      }, 300);
+    },
+    up:   () => { S._heldTrack = -1; },
+    midi: v => { if (v > 0) handleTrackButtonClick(slot); },
+  }])),
+};
+
+// Steps 1-16 (key-only)
+for (let i = 0; i < 16; i++) {
+  const idx = i;
+  FUNCTION_HANDLERS[`step_${i+1}`] = {
+    down: () => _stepDown(idx),
+    up:   () => _stepUp(idx),
+  };
+}
+
+// ── Dispatchers ────────────────────────────────────────────────────────────
+
+// Dispatch CC MIDI. Retourne true si un handler a absorbé l'événement.
+function dispatchMidiCC(cc, value) {
+  const fnId = midiIndex['cc:' + cc];
+  if (!fnId) return false;
+  const h = FUNCTION_HANDLERS[fnId];
+  if (!h || !h.midi) return false;
+  h.midi(value);
+  return true;
+}
+
+// Dispatch touche clavier. Retourne true si un handler a absorbé l'événement.
+function dispatchKey(code, isDown) {
+  const fnId = keyIndex[code];
+  if (!fnId) return false;
+  const h = FUNCTION_HANDLERS[fnId];
+  if (!h) return false;
+  if (isDown && h.down) { h.down(); return true; }
+  if (!isDown && h.up)  { h.up();   return true; }
+  // Touche mappée à une fonction sans handler down/up correspondant → consommer quand même
+  return !!h.down || !!h.up;
+}
+
+// Placeholder appelé par _presetNavHandler — défini plus bas dans midiCC legacy
+// (on référence la fonction via hoisting de `function`).
+function _midiLegacyPresetNav(delta) {
+  // Reproduit la logique CC115/116 de midiCC pour le cas "preset_prev/_next"
+  // appelé depuis un binding clavier (ou MIDI non-CC115/116).
+  const cc = delta < 0 ? 115 : 116;
+  // Appel direct de midiCC avec valeur non nulle pour forcer l'exécution du
+  // bloc CC115/116 — value=0 renverrait early.
+  // Mais attention : midiCC passe d'abord par dispatchMidiCC qui rebouclerait.
+  // On passe par un flag pour court-circuiter.
+  _skipDispatchOnce = true;
+  try { midiCC(cc, 127); }
+  finally { _skipDispatchOnce = false; }
+}
+let _skipDispatchOnce = false;
+
+// ════════════════════════════════════════════════════════════════════════════
+// FIN BLOC MIDI LEARN — STEP 2+3 (dispatchers)
+// ════════════════════════════════════════════════════════════════════════════
+
 function midiSetIndicator(connected) {
   const dot = document.getElementById('midiDot');
   const lbl = document.getElementById('midiLbl');
@@ -12612,6 +13392,18 @@ function midiOnMessage(e) {
 function midiCC(cc, value) {
   // ── CC0 → joystick X-axis — ignoré ──
   if (cc === 0) return;
+
+  // ── MIDI LEARN — mode capture : absorbe le CC pour l'assigner ─────────
+  if (typeof S !== 'undefined' && S._midiLearnCapture && S._midiLearnCapture.type === 'midi' && value > 0) {
+    midiLearnCaptureMidi('cc:' + cc);
+    return;
+  }
+  // En mode Learn (sans capture active), on désactive totalement les CC pour
+  // éviter de déclencher des fonctions par accident.
+  if (typeof S !== 'undefined' && S._midiLearnActive) return;
+
+  // ── MIDI LEARN DISPATCHER — si le CC est mappé à une fonction, on route ──
+  if (!_skipDispatchOnce && dispatchMidiCC(cc, value)) return;
 
   // ── CC2 → joystick Y-axis — changer de track par à-coup avec hysteresis ──
   if (cc === 2) {
@@ -16932,5 +17724,515 @@ requestAnimationFrame(pollGamepad);
     <div id="midiPopupStatus" style="margin-top:12px;font-size:10px;color:#555;text-align:center;min-height:14px"></div>
   </div>
 </div>
+
+<!-- ══ MIDI LEARN — MINI POPUP D'ASSIGNATION ══════════════════════════════ -->
+<div id="midiLearnPopup" style="display:none;position:fixed;z-index:320;background:#1a1a1c;border:1px solid #555;border-radius:12px;padding:24px 28px;font-family:'DM Mono',monospace;box-shadow:0 8px 24px rgba(0,0,0,0.6);box-sizing:border-box">
+  <div id="mlpTitle" style="color:#44ff88;font-size:20px;letter-spacing:1px;text-transform:uppercase;margin-bottom:18px;display:flex;justify-content:space-between;align-items:center;gap:10px">
+    <span id="mlpTitleLabel">Function</span>
+    <button id="mlpClose" style="background:none;border:none;color:#888;font-size:28px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+  </div>
+  <div id="mlpRowMidi" class="mlpRow" style="display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:20px;color:#ccc">
+    <span style="color:#44ff88">MIDI:</span>
+    <span id="mlpMidiVal" style="flex:1;color:#eee">—</span>
+    <button id="mlpLearnMidi" class="mlpBtn">Learn</button>
+    <button id="mlpClearMidi" class="mlpBtn">×</button>
+  </div>
+  <div id="mlpRowKey" class="mlpRow" style="display:flex;align-items:center;gap:12px;font-size:20px;color:#ccc">
+    <span style="color:#5aaaff">Key:</span>
+    <span id="mlpKeyVal" style="flex:1;color:#eee">—</span>
+    <button id="mlpLearnKey" class="mlpBtn">Learn</button>
+    <button id="mlpClearKey" class="mlpBtn">×</button>
+  </div>
+  <div id="mlpWaiting" style="display:none;margin-top:18px;padding:14px;background:#101012;border:1px dashed #555;border-radius:6px;text-align:center;font-size:18px;color:#f0a020;letter-spacing:1px">
+    Waiting for input…
+    <button id="mlpCancelCapture" style="background:none;border:1px solid #555;color:#aaa;font-size:16px;padding:4px 12px;margin-left:12px;border-radius:4px;cursor:pointer">Cancel</button>
+  </div>
+</div>
+
+<!-- ══ MIDI LEARN — PANNEAU "OTHER BINDINGS" (fonctions sans ancrage) ═══ -->
+<div id="midiLearnOthers" style="display:none;position:fixed;z-index:309;background:#1a1a1c;border:1px solid #555;border-radius:12px;padding:20px 24px;font-family:'DM Mono',monospace;font-size:18px;color:#ccc;box-shadow:0 6px 20px rgba(0,0,0,0.6);overflow-y:auto;box-sizing:border-box">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+    <div style="color:#888;font-size:14px;text-transform:uppercase;letter-spacing:1.5px">Other bindings (no anchor on panel)</div>
+    <button id="mloClose" style="background:none;border:none;color:#888;font-size:28px;cursor:pointer;padding:0 4px;line-height:1">✕</button>
+  </div>
+  <div id="mloList" style="display:flex;flex-direction:column;gap:8px"></div>
+</div>
+
+<style>
+  @keyframes mlpPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  /* ── Point pulsant MIDI Learn ── */
+  .mlb-dot {
+    display:inline-block; width:10px; height:10px; border-radius:50%;
+    background:#f0a020; animation:mlpPulse 1s infinite; flex-shrink:0;
+  }
+
+  /* ── Boutons de la barre learn ── */
+  .mlbBtn {
+    background:rgba(42,30,8,0.92);
+    border:1px solid #a07020;
+    border-radius:18px;
+    color:#f0a020;
+    font-family:'DM Mono',monospace;
+    font-size:13px;
+    padding:8px 22px;
+    cursor:pointer;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    transition:background 0.15s, color 0.15s;
+  }
+  .mlbBtn:hover { background:rgba(70,50,12,0.98); color:#ffd060; }
+  .mlbDone {
+    background:#f0a020 !important; color:#1a0e00 !important;
+    border-color:#f0a020 !important; font-weight:700;
+  }
+  .mlbDone:hover { background:#ffc030 !important; }
+
+  /* ── Gel de l'interface pendant le mode learn ── */
+  body.midi-learn-active #keyboardZone { pointer-events:none; opacity:0.15; }
+  body.midi-learn-active #moveSVG { filter:saturate(0.5) brightness(0.7); }
+  body.midi-learn-active #midiLearnOverlay { filter:none; pointer-events:all; }
+  body.midi-learn-active #midiLearnBar { filter:none; }
+  body.midi-learn-active #moveSVG > *:not(#midiLearnOverlay):not(#midiLearnBar) { pointer-events:none; }
+
+  /* ── Autres styles learn ── */
+  .mlpBtn { background:#2a2a2e;border:1px solid #444;border-radius:5px;color:#ccc;
+            font-family:'DM Mono',monospace;font-size:18px;padding:6px 16px;cursor:pointer }
+  .mlpBtn:hover { background:#3a3a3e;color:#fff }
+  #midiLearnOverlay { pointer-events:none }
+  #midiLearnOverlay .mlo-hit { pointer-events:all; cursor:pointer }
+  #midiLearnOverlay .mlo-badge { pointer-events:none }
+  #mloList .mloRow { display:flex;align-items:center;gap:12px;padding:8px 12px;border:1px solid #2a2a2e;border-radius:6px;background:#111012 }
+  #mloList .mloRow:hover { border-color:#555;cursor:pointer }
+  #mloList .mloLabel { flex:1;color:#ccc;font-size:18px }
+  #mloList .mloBadge { font-size:15px;padding:3px 10px;border-radius:4px }
+  .mloBadge.midi  { background:#0a3a1e;color:#44ff88;border:1px solid #1a6a3e }
+  .mloBadge.key   { background:#0a1e3a;color:#5aaaff;border:1px solid #1a3e6a }
+  .mloBadge.empty { background:transparent;color:#555;border:1px dashed #444 }
+</style>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// MIDI LEARN — STEP 4 : UI (long-press, badges, mini-popup, capture)
+// ═══════════════════════════════════════════════════════════════════════════
+(function(){
+  // Ancrage de chaque fonction sur un élément SVG existant.
+  // fnId → { anchor: selector|null, badgeOffset?: {dx, dy} }
+  // Si anchor === null → la fonction apparaît dans le panneau "Others".
+  const ANCHORS = {
+    play:                 { anchor: '#btnPlay' },
+    rec:                  { anchor: '#btnRec' },
+    mode_toggle:          { anchor: '#btnSession' },
+    project_mode_toggle:  { anchor: '#btnSets' },
+    undo:                 { anchor: '#btnUndo' },
+    preset_prev:          { anchor: null },
+    preset_next:          { anchor: null },
+    shift:                { anchor: '#btnShift' },
+    mute_hold:            { anchor: '#btnMute' },
+    copy_hold:            { anchor: '#btnCopy' },
+    delete_hold:          { anchor: '#btnDelete' },
+    loop_hold:            { anchor: '#btnLoop' },
+    dir_left:             { anchor: '#btnLeft' },
+    dir_right:            { anchor: '#btnRight' },
+    dir_up:               { anchor: '#btnPlus' },
+    dir_down:             { anchor: '#btnMinus' },
+    enc1:                 { anchor: '#enc0', badgeOffset: { dx: 12 } },
+    enc2:                 { anchor: '#enc1', badgeOffset: { dx: 12 } },
+    enc3:                 { anchor: '#enc2', badgeOffset: { dx: 12 } },
+    enc4:                 { anchor: '#enc3', badgeOffset: { dx: 12 } },
+    enc_volume:           { anchor: '#encVol' },
+    enc_send_delay:       { anchor: '#enc4', badgeOffset: { dx: 12 } },
+    enc_send_reverb:      { anchor: '#enc5', badgeOffset: { dx: 12 } },
+    pitch_bend:           { anchor: null },
+    mod_wheel:            { anchor: null },
+    step_action:          { anchor: null },
+    track_1:              { anchor: '#trkBtn0' },
+    track_2:              { anchor: '#trkBtn1' },
+    track_3:              { anchor: '#trkBtn2' },
+    track_4:              { anchor: '#trkBtn3' },
+  };
+  for (let i = 1; i <= 16; i++) ANCHORS[`step_${i}`] = { anchor: `#step${i-1}` };
+
+  const SVG_ROOT = document.getElementById('moveSVG');
+  const POPUP    = document.getElementById('midiLearnPopup');
+  const BAR      = document.getElementById('midiLearnBar');
+  const OTHERS   = document.getElementById('midiLearnOthers');
+  const OTHERS_LIST = document.getElementById('mloList');
+
+  // Init state
+  S._midiLearnActive  = false;
+  S._midiLearnCapture = null; // { fnId, type: 'midi'|'key' } pendant l'écoute
+
+  // ── LONG-PRESS 1500 ms sur #midiDot / #midiLbl (sans conflit avec tap court) ──
+  const midiDot = document.getElementById('midiDot');
+  const midiLbl = document.getElementById('midiLbl');
+  let lpTimer = null;
+  let lpFired  = false;
+  function startLP(e) {
+    clearTimeout(lpTimer);
+    lpFired = false;
+    lpTimer = setTimeout(() => {
+      lpFired = true; lpTimer = null;
+      if (!S._midiLearnActive) enterLearnMode();
+    }, 1500);
+  }
+  function cancelLP() { clearTimeout(lpTimer); lpTimer = null; }
+  [midiDot, midiLbl].forEach(el => {
+    if (!el) return;
+    el.style.cursor = 'pointer'; el.style.pointerEvents = 'all';
+    el.addEventListener('pointerdown',  startLP);
+    el.addEventListener('pointerup',    cancelLP);
+    el.addEventListener('pointerleave', cancelLP);
+    el.addEventListener('pointercancel',cancelLP);
+    el.addEventListener('click', e => { if (lpFired) { lpFired = false; e.stopImmediatePropagation(); } });
+  });
+
+  // ── Toggle mode ─────────────────────────────────────────────────────────
+  function toggleLearnMode() {
+    if (S._midiLearnActive) exitLearnMode();
+    else                    enterLearnMode();
+  }
+  function enterLearnMode() {
+    S._midiLearnActive = true;
+    S._midiLearnCapture = null;
+    S._learnPrevTrack = S.currentTrack;
+    document.body.classList.add('midi-learn-active');
+    BAR.style.display = 'block';
+    if (typeof selectTrack === 'function') selectTrack(0);
+    if (S.playing && typeof togglePlay === 'function') togglePlay();
+    renderOverlay();
+    if (typeof oledForce === 'function') oledForce('MIDI LEARN', 'click a control', '');
+  }
+  function exitLearnMode() {
+    S._midiLearnActive = false;
+    S._midiLearnCapture = null;
+    document.body.classList.remove('midi-learn-active');
+    BAR.style.display = 'none';
+    OTHERS.style.display = 'none';
+    POPUP.style.display = 'none';
+    removeOverlay();
+    if (typeof selectTrack === 'function' && S._learnPrevTrack !== undefined) {
+      selectTrack(S._learnPrevTrack);
+    }
+    if (typeof oledHome === 'function' && typeof S !== 'undefined') oledHome(S.currentTrack);
+  }
+
+  // ── Formatage libellés de bindings ──────────────────────────────────────
+  function fmtMidi(v) {
+    if (!v) return null;
+    if (v.startsWith('cc:')) return 'CC' + v.slice(3);
+    if (v === 'pb') return 'PB';
+    return v;
+  }
+  function fmtKey(v) {
+    if (!v) return null;
+    return v.replace(/^Key/, '').replace(/^Numpad/, 'Num').replace(/^Arrow/, '↕←→').replace('Semicolon', ';');
+  }
+
+  // ── Overlay SVG des badges ──────────────────────────────────────────────
+  function removeOverlay() {
+    const g = document.getElementById('midiLearnOverlay');
+    if (g) g.remove();
+  }
+  function renderOverlay() {
+    removeOverlay();
+    if (!S._midiLearnActive) return;
+
+    const NS = 'http://www.w3.org/2000/svg';
+    const overlay = document.createElementNS(NS, 'g');
+    overlay.setAttribute('id', 'midiLearnOverlay');
+    SVG_ROOT.appendChild(overlay);
+
+    for (const fnId in FUNCTION_REGISTRY) {
+      const anchor = ANCHORS[fnId];
+      if (!anchor || !anchor.anchor) continue;
+      const el = SVG_ROOT.querySelector(anchor.anchor);
+      if (!el) continue;
+      const bb = el.getBBox();
+      const cx = bb.x + bb.width / 2;
+      const cy = bb.y + bb.height / 2;
+
+      const m = mappings[fnId] || { midi: null, key: null };
+      const fn = FUNCTION_REGISTRY[fnId];
+      const dx = (anchor.badgeOffset && anchor.badgeOffset.dx) ? anchor.badgeOffset.dx : 0;
+
+      // Hit area (click absorber)
+      const hit = document.createElementNS(NS, 'rect');
+      hit.setAttribute('class', 'mlo-hit');
+      hit.setAttribute('x', bb.x - 2 + dx);
+      hit.setAttribute('y', bb.y - 2);
+      hit.setAttribute('width',  bb.width + 4);
+      hit.setAttribute('height', bb.height + 4);
+      hit.setAttribute('rx', 6);
+      hit.setAttribute('fill', 'rgba(240,160,32,0.08)');
+      hit.setAttribute('stroke', '#f0a020');
+      hit.setAttribute('stroke-width', '0.8');
+      hit.setAttribute('stroke-dasharray', '3 2');
+      hit.dataset.fnId = fnId;
+      hit.addEventListener('click', (e) => { e.stopPropagation(); openPopupForFn(fnId, el); });
+      overlay.appendChild(hit);
+
+      // Badges : MIDI + Key si type 'both', sinon un seul
+      const badges = [];
+      if (fn.type === 'both' || fn.type === 'midi-only') {
+        badges.push({ kind: 'midi', val: m.midi });
+      }
+      if (fn.type === 'both' || fn.type === 'key-only') {
+        badges.push({ kind: 'key', val: m.key });
+      }
+
+      // Disposition : sous le contrôle si possible, sinon au-dessus
+      const below = cy + bb.height / 2 + 10;
+      const above = cy - bb.height / 2 - 10;
+      const y = below < 470 ? below : above;
+      const totalW = badges.length * 34 + (badges.length - 1) * 2;
+      let bx = cx + dx - totalW / 2;
+
+      for (const b of badges) {
+        const grp = document.createElementNS(NS, 'g');
+        grp.setAttribute('class', 'mlo-badge');
+        const rect = document.createElementNS(NS, 'rect');
+        rect.setAttribute('x', bx);
+        rect.setAttribute('y', y - 6);
+        rect.setAttribute('width', 34);
+        rect.setAttribute('height', 12);
+        rect.setAttribute('rx', 3);
+        if (b.val) {
+          rect.setAttribute('fill', b.kind === 'midi' ? '#0a3a1e' : '#0a1e3a');
+          rect.setAttribute('stroke', b.kind === 'midi' ? '#1a6a3e' : '#1a3e6a');
+        } else {
+          rect.setAttribute('fill', 'transparent');
+          rect.setAttribute('stroke', '#444');
+          rect.setAttribute('stroke-dasharray', '2 2');
+        }
+        rect.setAttribute('stroke-width', '0.8');
+        grp.appendChild(rect);
+        const txt = document.createElementNS(NS, 'text');
+        txt.setAttribute('x', bx + 17);
+        txt.setAttribute('y', y + 2.5);
+        txt.setAttribute('text-anchor', 'middle');
+        txt.setAttribute('font-family', "'DM Mono',monospace");
+        txt.setAttribute('font-size', '7');
+        txt.setAttribute('fill', b.val
+          ? (b.kind === 'midi' ? '#44ff88' : '#5aaaff')
+          : '#555');
+        const lbl = b.val
+          ? (b.kind === 'midi' ? fmtMidi(b.val) : fmtKey(b.val))
+          : (b.kind === 'midi' ? 'midi' : 'key');
+        txt.textContent = (lbl || '').slice(0, 6);
+        grp.appendChild(txt);
+        overlay.appendChild(grp);
+        bx += 36;
+      }
+    }
+  }
+
+  // ── Panneau "Others" (preset_prev/next, sends, pitch/mod) ──────────────
+  function renderOthers() {
+    OTHERS_LIST.innerHTML = '';
+    for (const fnId in FUNCTION_REGISTRY) {
+      const anchor = ANCHORS[fnId];
+      if (!anchor || anchor.anchor) continue; // seulement les sans ancrage
+      const fn = FUNCTION_REGISTRY[fnId];
+      const m = mappings[fnId] || { midi: null, key: null };
+      const row = document.createElement('div');
+      row.className = 'mloRow';
+      let html = `<span class="mloLabel">${fn.label}</span>`;
+      if (fn.type === 'both' || fn.type === 'midi-only') {
+        html += m.midi
+          ? `<span class="mloBadge midi">${fmtMidi(m.midi)}</span>`
+          : `<span class="mloBadge empty">midi</span>`;
+      }
+      if (fn.type === 'both' || fn.type === 'key-only') {
+        html += m.key
+          ? `<span class="mloBadge key">${fmtKey(m.key)}</span>`
+          : `<span class="mloBadge empty">key</span>`;
+      }
+      row.innerHTML = html;
+      row.addEventListener('click', () => openPopupForFn(fnId, row));
+      OTHERS_LIST.appendChild(row);
+    }
+  }
+
+  function positionOthers() {
+    const r = document.getElementById('moveSVG').getBoundingClientRect();
+    const pad = 16;
+    OTHERS.style.top    = (r.top    + pad) + 'px';
+    OTHERS.style.bottom = (window.innerHeight - r.bottom + pad) + 'px';
+    OTHERS.style.left   = (r.left   + pad) + 'px';
+    OTHERS.style.right  = (window.innerWidth - r.right + pad) + 'px';
+    OTHERS.style.width  = '';   // laisse le navigateur calculer depuis left+right
+    OTHERS.style.maxHeight = '';
+    OTHERS.style.transform = '';  // plus besoin du translateX(-50%)
+  }
+
+  // ── Mini-popup d'assignation ───────────────────────────────────────────
+  function openPopupForFn(fnId, anchorEl) {
+    const fn = FUNCTION_REGISTRY[fnId];
+    if (!fn) return;
+    POPUP.dataset.fnId = fnId;
+    document.getElementById('mlpTitleLabel').textContent = fn.label;
+
+    const m = mappings[fnId] || { midi: null, key: null };
+    const rowMidi = document.getElementById('mlpRowMidi');
+    const rowKey  = document.getElementById('mlpRowKey');
+    rowMidi.style.display = (fn.type === 'both' || fn.type === 'midi-only') ? 'flex' : 'none';
+    rowKey.style.display  = (fn.type === 'both' || fn.type === 'key-only')  ? 'flex' : 'none';
+    document.getElementById('mlpMidiVal').textContent = fmtMidi(m.midi) || '—';
+    document.getElementById('mlpKeyVal').textContent  = fmtKey(m.key)  || '—';
+    document.getElementById('mlpWaiting').style.display = 'none';
+
+    // Positionner : top+bottom calés sur le panel SVG, centré horizontalement
+    POPUP.style.display    = 'block';
+    POPUP.style.visibility = 'hidden';
+    POPUP.style.maxHeight  = '';
+    POPUP.style.maxWidth   = '';
+    POPUP.style.width      = '';
+    POPUP.style.overflowY  = 'auto';
+    const r   = document.getElementById('moveSVG').getBoundingClientRect();
+    const pad = 16;
+    POPUP.style.top    = (r.top    + pad) + 'px';
+    POPUP.style.bottom = (window.innerHeight - r.bottom + pad) + 'px';
+    // Centrage horizontal sur le panel
+    const pw = Math.min(480, r.width - pad * 2);
+    POPUP.style.width = pw + 'px';
+    POPUP.style.left  = (r.left + (r.width - pw) / 2) + 'px';
+    POPUP.style.right = '';
+    POPUP.style.visibility = 'visible';
+  }
+
+  function closePopup() {
+    POPUP.style.display = 'none';
+    S._midiLearnCapture = null;
+    document.getElementById('mlpWaiting').style.display = 'none';
+  }
+
+  function startCapture(type) {
+    const fnId = POPUP.dataset.fnId;
+    if (!fnId) return;
+    S._midiLearnCapture = { fnId, type };
+    document.getElementById('mlpWaiting').style.display = 'block';
+  }
+
+  // ── Application d'une capture (appelée depuis midiCC ou keydown) ───────
+  window.midiLearnCaptureMidi = function(value) {
+    if (!S._midiLearnCapture || S._midiLearnCapture.type !== 'midi') return;
+    const { fnId } = S._midiLearnCapture;
+    const res = assignBinding(fnId, 'midi', value);
+    S._midiLearnCapture = null;
+    document.getElementById('mlpWaiting').style.display = 'none';
+    // Rafraîchir popup + overlay
+    refreshAfterAssign(fnId, res);
+  };
+  window.midiLearnCaptureKey = function(code) {
+    if (!S._midiLearnCapture || S._midiLearnCapture.type !== 'key') return;
+    const { fnId } = S._midiLearnCapture;
+    const res = assignBinding(fnId, 'key', code);
+    S._midiLearnCapture = null;
+    document.getElementById('mlpWaiting').style.display = 'none';
+    refreshAfterAssign(fnId, res);
+  };
+
+  function refreshAfterAssign(fnId, res) {
+    const fn = FUNCTION_REGISTRY[fnId];
+    const m = mappings[fnId] || { midi: null, key: null };
+    if (fn.type === 'both' || fn.type === 'midi-only')
+      document.getElementById('mlpMidiVal').textContent = fmtMidi(m.midi) || '—';
+    if (fn.type === 'both' || fn.type === 'key-only')
+      document.getElementById('mlpKeyVal').textContent = fmtKey(m.key) || '—';
+    renderOverlay();
+    renderOthers();
+    if (res && res.evictedFrom && typeof oledForce === 'function') {
+      oledForce('REASSIGNED', FUNCTION_REGISTRY[res.evictedFrom]?.label || res.evictedFrom, '→ ' + fn.label);
+    }
+  }
+
+  // ── Wiring popup buttons ───────────────────────────────────────────────
+  document.getElementById('mlpClose').addEventListener('click', closePopup);
+  document.getElementById('mlpLearnMidi').addEventListener('click', () => startCapture('midi'));
+  document.getElementById('mlpLearnKey').addEventListener('click',  () => startCapture('key'));
+  document.getElementById('mlpClearMidi').addEventListener('click', () => {
+    const fnId = POPUP.dataset.fnId; if (!fnId) return;
+    clearBinding(fnId, 'midi'); refreshAfterAssign(fnId, null);
+  });
+  document.getElementById('mlpClearKey').addEventListener('click', () => {
+    const fnId = POPUP.dataset.fnId; if (!fnId) return;
+    clearBinding(fnId, 'key'); refreshAfterAssign(fnId, null);
+  });
+  document.getElementById('mlpCancelCapture').addEventListener('click', () => {
+    S._midiLearnCapture = null;
+    document.getElementById('mlpWaiting').style.display = 'none';
+  });
+
+  // ── Wiring bar buttons ─────────────────────────────────────────────────
+  document.getElementById('mlbDone').addEventListener('click', exitLearnMode);
+  document.getElementById('mlbReset').addEventListener('click', () => {
+    if (!confirm('Reset all MIDI/keyboard mappings to defaults?')) return;
+    resetMappingsToDefaults();
+    renderOverlay();
+    renderOthers();
+  });
+  document.getElementById('mlbOthers').addEventListener('click', () => {
+    if (OTHERS.style.display === 'block') { OTHERS.style.display = 'none'; return; }
+    renderOthers();
+    positionOthers();
+    OTHERS.style.display = 'block';
+  });
+  document.getElementById('mloClose').addEventListener('click', () => {
+    OTHERS.style.display = 'none';
+  });
+
+  window.addEventListener('resize', () => {
+    if (OTHERS.style.display === 'block') positionOthers();
+    if (POPUP.style.display  === 'block') openPopupForFn(POPUP.dataset.fnId,
+      document.getElementById('moveSVG')); // recentre sur le SVG
+  });
+
+  // ── Interception clavier — EN CAPTURE (avant tous les autres listeners) ─
+  document.addEventListener('keydown', (e) => {
+    // Capture pendant learn
+    if (S._midiLearnCapture && S._midiLearnCapture.type === 'key') {
+      if (e.code === 'Escape') {
+        S._midiLearnCapture = null;
+        document.getElementById('mlpWaiting').style.display = 'none';
+      } else {
+        e.preventDefault(); e.stopPropagation();
+        window.midiLearnCaptureKey(e.code);
+      }
+      return;
+    }
+    // Mode learn actif sans capture → bloquer toutes les touches utiles
+    if (S._midiLearnActive) {
+      if (e.code === 'Escape') { exitLearnMode(); return; }
+      if (keyIndex[e.code] || e.code === 'Space' || e.code === 'Tab' ||
+          e.code.startsWith('Arrow') || e.code.startsWith('Numpad')) {
+        e.preventDefault(); e.stopPropagation();
+      }
+    }
+  }, true); // capture phase — s'exécute avant les listeners normaux
+
+  // Relâchement pendant mode learn : on absorbe aussi pour éviter les keyup fantômes
+  document.addEventListener('keyup', (e) => {
+    if (S._midiLearnActive) {
+      if (keyIndex[e.code] || e.code === 'Space' || e.code === 'Tab' ||
+          e.code.startsWith('Arrow') || e.code.startsWith('Numpad')) {
+        e.preventDefault(); e.stopPropagation();
+      }
+    }
+  }, true);
+
+  // ── Click ailleurs : ferme la popup ────────────────────────────────────
+  document.addEventListener('click', (e) => {
+    if (!S._midiLearnActive) return;
+    if (POPUP.style.display === 'none') return;
+    if (POPUP.contains(e.target)) return;
+    if (e.target.closest('#midiLearnOverlay')) return;
+    if (e.target.closest('#midiLearnBar')) return;
+    if (e.target.closest('#midiLearnOthers')) return;
+    closePopup();
+  });
+
+})();
+</script>
 </body>
 </html>
