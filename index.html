@@ -13268,7 +13268,9 @@ const FUNCTION_HANDLERS = {
     down: () => {
       S._heldTrack = slot;
       _trkWasLong[slot] = false;
-      // Timer 350ms → mode vol (identique au mousedown SVG natif)
+      // Timer 350ms → mode vol (identique au mousedown SVG natif).
+      // Tap/double-tap géré dans up: (comme click pour la souris) — affichage vol
+      // reste actif tant que la touche est maintenue, restauré à la relâche.
       clearTimeout(_trkHoldTimer[slot]);
       _trkHoldTimer[slot] = setTimeout(() => {
         _trkHoldTimer[slot] = null;
@@ -13277,28 +13279,32 @@ const FUNCTION_HANDLERS = {
         const t = S.tracks[ti];
         S._oledLocked = true; // empêche selectTrack/oledTrack d'écraser l'affichage vol
         oledForce(`VOL T${ti+1}`, `${Math.round(t.volume * 100)}%`, t.muted ? '● muted' : '');
+        // _oledLocked reste true jusqu'au keyup → affichage vol persistant pendant le hold
       }, 350);
-      // Timer tap/double-tap (300ms) — ne s'exécute QUE si pas long press
-      _trkTapCount[`k${slot}`] = (_trkTapCount[`k${slot}`] || 0) + 1;
-      clearTimeout(_trkTapTimer[`k${slot}`]);
-      _trkTapTimer[`k${slot}`] = setTimeout(() => {
-        const count = _trkTapCount[`k${slot}`] || 0;
-        _trkTapCount[`k${slot}`] = 0;
-        if (_trkWasLong[slot]) return; // long press déjà géré
-        if (count >= 2) {
-          S._heldTrack = -1;
-          const newPage = S.page === 0 ? 1 : 0;
-          switchPage(newPage, newPage * 4 + slot);
-        } else {
-          handleTrackButtonClick(slot);
-        }
-      }, 300);
     },
     up: () => {
       clearTimeout(_trkHoldTimer[slot]);
       _trkHoldTimer[slot] = null;
-      S._oledLocked = false; // libérer le lock vol quoi qu'il arrive
+      S._oledLocked = false; // libérer le lock vol
+      if (_trkWasLong[slot]) oledHome(S.currentTrack); // forcer retour OLED par défaut après hold vol
       if (!volDrag) S._heldTrack = -1;
+      // Tap/double-tap géré ici (après relâche), comme le click souris
+      if (!_trkWasLong[slot]) {
+        _trkTapCount[`k${slot}`] = (_trkTapCount[`k${slot}`] || 0) + 1;
+        clearTimeout(_trkTapTimer[`k${slot}`]);
+        _trkTapTimer[`k${slot}`] = setTimeout(() => {
+          const count = _trkTapCount[`k${slot}`] || 0;
+          _trkTapCount[`k${slot}`] = 0;
+          if (count >= 2) {
+            S._heldTrack = -1;
+            const newPage = S.page === 0 ? 1 : 0;
+            switchPage(newPage, newPage * 4 + slot);
+          } else {
+            handleTrackButtonClick(slot);
+          }
+        }, 300);
+      }
+      _trkWasLong[slot] = false;
     },
     midi: v => {
       if (v > 0) {
