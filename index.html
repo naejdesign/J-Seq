@@ -142,6 +142,7 @@ body {
   <text id="oTop"  x="16" y="29"  font-family="'DM Mono',monospace" font-size="9"  fill="#555" style="pointer-events:none">NOTE MODE</text>
   <text id="oMain" x="16" y="47"  font-family="'DM Mono',monospace" font-size="14" font-weight="500" fill="#fff" style="pointer-events:none">Drum Kit</text>
   <text id="oSub"  x="16" y="66"  font-family="'DM Mono',monospace" font-size="9"  fill="#666" style="pointer-events:none">BPM 120 · C3</text>
+  <text id="oSubR" x="143" y="66" font-family="'DM Mono',monospace" font-size="9"  fill="#444" text-anchor="end" style="pointer-events:none"></text>
 </g>
 <!-- OLED click zone — on top of everything, captures all clicks on the surface -->
 <rect id="oledClickZone" x="11" y="20" width="137" height="64" rx="3" fill="transparent" stroke="none" style="cursor:pointer"/>
@@ -6488,9 +6489,11 @@ function oledRaw(top, main, sub) {
   oledSetLine('oTop',  top  || '', 111);
   oledSetLine('oMain', main || '', 108);
   oledSetLine('oSub',  sub  || '', 111);
+  // oSubR est géré explicitement par updateBarIndicator/oledHome — on ne le touche pas ici
+  // sauf si on affiche un message temporaire (oledMsg), géré par oledBlank
 }
 
-function oledBlank() { oledRaw('', '', ''); }
+function oledBlank() { oledRaw('', '', ''); oledSetLine('oSubR', '', 0); }
 
 function isBrowserOpen() {
   return ['sf2Browser','junoBrowser','drumBrowser','midiBrowser','routingPopup','trackTypePopup']
@@ -6535,7 +6538,7 @@ function oledProject() {
 }
 
 function oledPlaybackPositionFromTicks(ticks) {
-  if (!S.playing) return '';
+  if (!S.playing) return null;
   const infoFor = (ti) => {
     const t = S.tracks[ti];
     const clip = playingClip(ti);
@@ -6549,15 +6552,26 @@ function oledPlaybackPositionFromTicks(ticks) {
     const pos = ((rawTick % loopSteps) + loopSteps) % loopSteps;
     return { ti, bars, bar: Math.floor(pos / 16) + 1, hasNotes: t.mode === 'master' || clipHasNotes(clip) };
   };
+
+  // Position sur la piste courante
   const current = infoFor(S.currentTrack);
-  if (current && current.hasNotes) return `${current.bar}/${current.bars} bars`;
+  const trackStr = (current && current.hasNotes) ? `${current.bar}/${current.bars} bars` : null;
+
+  // Position séquence = piste active la plus longue
   let best = null;
   for (let ti = 0; ti < S.tracks.length; ti++) {
     const info = infoFor(ti);
     if (!info || !info.hasNotes) continue;
     if (!best || info.bars > best.bars) best = info;
   }
-  return best ? `${best.bar}/${best.bars} bars` : '';
+  const seqStr = best ? `${best.bar}/${best.bars} seq` : null;
+
+  // Retourner objet si les deux existent et diffèrent, sinon chaîne simple pour rétrocompatibilité
+  if (trackStr && seqStr && best.ti !== S.currentTrack) {
+    return { track: trackStr, seq: seqStr };
+  }
+  // Même piste = pas besoin du double affichage
+  return trackStr || (seqStr ? seqStr.replace(' seq', ' bars') : null);
 }
 
 function oledHome(ti) {
@@ -6566,10 +6580,20 @@ function oledHome(ti) {
   if (ti === undefined) ti = S.currentTrack;
   const t = S.tracks[ti];
   const soundName = getTrackSoundName(ti);
-  const line3 = S.mode === 'session'
-    ? `Clip ${t.activeClip+1}`
-    : (oledPlaybackPositionFromTicks() || trackTypeName(t));
-  oledRaw(`Track ${ti+1}`, soundName, line3);
+  if (S.mode === 'session') {
+    oledRaw(`Track ${ti+1}`, soundName, `Clip ${t.activeClip+1}`);
+    oledSetLine('oSubR', '', 0);
+  } else {
+    const pos = oledPlaybackPositionFromTicks();
+    if (pos && typeof pos === 'object') {
+      // Double affichage : track à gauche, seq à droite
+      oledRaw(`Track ${ti+1}`, soundName, pos.track);
+      oledSetLine('oSubR', pos.seq, 60);
+    } else {
+      oledRaw(`Track ${ti+1}`, soundName, (typeof pos === 'string' ? pos : '') || trackTypeName(t));
+      oledSetLine('oSubR', '', 0);
+    }
+  }
 }
 
 function oledSmart(top, main, sub, force) {
@@ -6638,11 +6662,19 @@ function oledForce(top, main, sub) {
   oledSmart(top, main, sub, true);
 }
 
-function updateBarIndicator(posText) {
+function updateBarIndicator(posData) {
   if (S._oledLocked) return;
-  const txt = posText || oledPlaybackPositionFromTicks();
-  if (txt) oledRaw(svg('oTop')?.textContent || '', svg('oMain')?.textContent || '', txt);
-  else oledHome();
+  const pos = posData !== undefined ? posData : oledPlaybackPositionFromTicks();
+  if (pos && typeof pos === 'object') {
+    oledRaw(svg('oTop')?.textContent || '', svg('oMain')?.textContent || '', pos.track);
+    oledSetLine('oSubR', pos.seq, 60);
+  } else if (pos) {
+    oledRaw(svg('oTop')?.textContent || '', svg('oMain')?.textContent || '', pos);
+    oledSetLine('oSubR', '', 0);
+  } else {
+    oledSetLine('oSubR', '', 0);
+    oledHome();
+  }
 }
 
 let sessionRefreshTimer = null;
@@ -9763,6 +9795,13 @@ svg('btnDelete').addEventListener('mouseup', () => {
   setDeleteLit(false);
   oledHome(S.currentTrack);
 });
+svg('btnDelete').addEventListener('mouseleave', () => {
+  // Relâchement hors zone : on lâche _BtnDown pour que le handler global puisse finir le reset
+  S._deleteBtnDown = false;
+});
+svg('btnDelete').addEventListener('pointercancel', () => {
+  S._deleteBtnDown = false; S._deleteHeld = false; setDeleteLit(false); oledHome(S.currentTrack);
+});
 svg('btnDelete').addEventListener('touchstart', (e) => {
   e.preventDefault();
   S._deleteHeld = true;
@@ -9793,6 +9832,13 @@ svg('btnCopy').addEventListener('mouseup', () => {
   setCopyLit(false);
   oledHome(S.currentTrack);
 });
+svg('btnCopy').addEventListener('mouseleave', () => {
+  // Relâchement hors zone : libère _BtnDown pour que le handler global puisse finir
+  S._copyBtnDown = false;
+});
+svg('btnCopy').addEventListener('pointercancel', () => {
+  S._copyBtnDown = false; S._copySource = null; S._copyHeld = false; setCopyLit(false); oledHome(S.currentTrack);
+});
 svg('btnCopy').addEventListener('touchstart', (e) => {
   e.preventDefault();
   S._copyHeld = true;
@@ -9810,41 +9856,36 @@ svg('btnCopy').addEventListener('touchend', (e) => {
   oledHome(S.currentTrack);
 }, { passive: false });
 
-document.addEventListener('mouseup', (e) => {
-  // Tout relâchement de souris (où que ce soit) termine le geste :
-  // on désactive systématiquement les boutons "tenus" pour éviter qu'ils
-  // restent illuminés si l'utilisateur relâche en dehors de leur zone.
-  // EXCEPTION : si la touche clavier correspondante est encore enfoncée
-  // (Numpad5=Delete, Numpad2=Copy), on ne reset PAS — l'utilisateur utilise
-  // clavier + souris, le mouseup sur un pad ne doit pas terminer le mode.
-  if (S._deleteHeld && !S._deleteBtnDown && !heldKeys.has('Numpad5')) {
-    S._deleteHeld = false; setDeleteLit(false); oledHome(S.currentTrack);
+function _globalReleaseHandler() {
+  // Déclenché sur mouseup, pointerup et pointercancel — couvre aussi le relâché hors fenêtre.
+  // À ce stade _BtnDown a déjà été remis à false par mouseleave si on a glissé hors du bouton.
+  // EXCEPTION : si la touche clavier est encore enfoncée, on ne reset pas.
+  if (S._deleteHeld && !heldKeys.has('Numpad5')) {
+    S._deleteHeld = false; S._deleteBtnDown = false; setDeleteLit(false); oledHome(S.currentTrack);
   }
-  if (S._copyHeld && !S._copyBtnDown && !heldKeys.has('Numpad2')) {
+  if (S._copyHeld && !heldKeys.has('Numpad2')) {
     S._copySource = null;
-    S._copyHeld = false; setCopyLit(false); oledHome(S.currentTrack);
+    S._copyHeld = false; S._copyBtnDown = false; setCopyLit(false); oledHome(S.currentTrack);
   }
   if (S._mHeld) {
     S._mHeld = false; setBtnLit('btnMute', false, '#ff6b00');
   }
-  // Shift : désactiver sur tout mouseup sauf si tenu via clavier physique,
-  // si le bouton SVG Shift est encore appuyé, ou si région loop en cours
   if (S.shiftHeld && !S._shiftBtnDown && !heldKeys.has('Numpad3') && !heldKeys.has('ShiftLeft') && !heldKeys.has('ShiftRight')) {
-    // Garder actif si le 1er tap de région loop a déjà été posé
     if (typeof _loopShiftStep1 === 'undefined' || _loopShiftStep1 === -1) {
       setShiftOn(false);
     }
   }
-  // Bouton LOOP en mode "hold" (combo) : fin du combo seulement si btnLoop n'est plus appuyé
   if (S._loopHeld && !S._loopBtnDown) {
     if (loopPressTimer !== null) { clearTimeout(loopPressTimer); loopPressTimer = null; }
     setLoopHeld(false);
   } else if (!S._loopBtnDown && loopPressTimer !== null) {
-    // Appui en cours mais relâché hors du bouton avant le long-press → annuler
     clearTimeout(loopPressTimer);
     loopPressTimer = null;
   }
-});
+}
+document.addEventListener('mouseup',       _globalReleaseHandler);
+document.addEventListener('pointerup',     _globalReleaseHandler);
+document.addEventListener('pointercancel', _globalReleaseHandler);
 
 svg('btnUndo').addEventListener('mousedown', () => { if (projectModeActive) return; setBtnLit('btnUndo', true, '#aaa'); });
 svg('btnUndo').addEventListener('mouseup',   () => { if (projectModeActive) return; setBtnLit('btnUndo', false, '#aaa'); if (S.shiftHeld) doRedo(); else doUndo(); });
@@ -11289,7 +11330,7 @@ function _projectDimControls(dim) {
     if (el) el.setAttribute('opacity', dim ? '0.08' : '0.4');
   }
   // Boutons inutiles en project mode : haut/bas croix, shift, undo, loop, mute
-  const dimBtns = ['btnPlus', 'btnMinus', 'btnShift', 'btnUndo', 'btnLoop', 'btnMute'];
+  const dimBtns = ['btnPlus', 'btnMinus', 'btnShift', 'btnUndo', 'btnLoop', 'btnMute', 'btnRec'];
   dimBtns.forEach(id => {
     const el = svg(id);
     if (el) el.setAttribute('opacity', dim ? '0.1' : '1');
@@ -13222,15 +13263,28 @@ const FUNCTION_HANDLERS = {
     midi: v => { if (v > 0) gamepadBDown(); else gamepadBUp(); },
   },
 
-  // Track buttons (both) — same tap/double-tap logic as hardcoded keys
+  // Track buttons (both) — tap/double-tap + long-press (vol) identique au mousedown natif
   ...Object.fromEntries([0,1,2,3].map(slot => [`track_${slot+1}`, {
     down: () => {
       S._heldTrack = slot;
+      _trkWasLong[slot] = false;
+      // Timer 350ms → mode vol (identique au mousedown SVG natif)
+      clearTimeout(_trkHoldTimer[slot]);
+      _trkHoldTimer[slot] = setTimeout(() => {
+        _trkHoldTimer[slot] = null;
+        _trkWasLong[slot] = true;
+        const ti = S.page * 4 + slot;
+        const t = S.tracks[ti];
+        S._oledLocked = true; // empêche selectTrack/oledTrack d'écraser l'affichage vol
+        oledForce(`VOL T${ti+1}`, `${Math.round(t.volume * 100)}%`, t.muted ? '● muted' : '');
+      }, 350);
+      // Timer tap/double-tap (300ms) — ne s'exécute QUE si pas long press
       _trkTapCount[`k${slot}`] = (_trkTapCount[`k${slot}`] || 0) + 1;
       clearTimeout(_trkTapTimer[`k${slot}`]);
       _trkTapTimer[`k${slot}`] = setTimeout(() => {
         const count = _trkTapCount[`k${slot}`] || 0;
         _trkTapCount[`k${slot}`] = 0;
+        if (_trkWasLong[slot]) return; // long press déjà géré
         if (count >= 2) {
           S._heldTrack = -1;
           const newPage = S.page === 0 ? 1 : 0;
@@ -13240,8 +13294,36 @@ const FUNCTION_HANDLERS = {
         }
       }, 300);
     },
-    up:   () => { S._heldTrack = -1; },
-    midi: v => { if (v > 0) handleTrackButtonClick(slot); },
+    up: () => {
+      clearTimeout(_trkHoldTimer[slot]);
+      _trkHoldTimer[slot] = null;
+      S._oledLocked = false; // libérer le lock vol quoi qu'il arrive
+      if (!volDrag) S._heldTrack = -1;
+    },
+    midi: v => {
+      if (v > 0) {
+        // Appui → armer long press
+        S._heldTrack = slot;
+        _trkWasLong[slot] = false;
+        clearTimeout(_trkHoldTimer[slot]);
+        _trkHoldTimer[slot] = setTimeout(() => {
+          _trkHoldTimer[slot] = null;
+          _trkWasLong[slot] = true;
+          const ti = S.page * 4 + slot;
+          const t = S.tracks[ti];
+          S._oledLocked = true;
+          oledForce(`VOL T${ti+1}`, `${Math.round(t.volume * 100)}%`, t.muted ? '● muted' : '');
+        }, 350);
+      } else {
+        // Relâché → annuler timer, décider tap ou long
+        clearTimeout(_trkHoldTimer[slot]);
+        _trkHoldTimer[slot] = null;
+        S._oledLocked = false;
+        if (!_trkWasLong[slot]) handleTrackButtonClick(slot);
+        _trkWasLong[slot] = false;
+        if (!volDrag) S._heldTrack = -1;
+      }
+    },
   }])),
 };
 
